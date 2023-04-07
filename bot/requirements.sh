@@ -1,5 +1,5 @@
 #!/bin/zsh
-pip_path="/Users/hermeschen/.pyenv/shims/pip"
+pip_path="$HOME/.pyenv/shims/pip"
 ${pip_path} install -U pip wheel setuptools pip-review
 ${pip_path} install -U jupyter
 ${pip_path} install -U polars datasets
