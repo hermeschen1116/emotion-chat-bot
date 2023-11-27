@@ -1,0 +1,19 @@
+[tool.poetry]
+name = "chat-bot"
+version = "0.0.0"
+description = "NCU lab project"
+authors = ["hermeschen1116 <108386417+hermeschen1116@users.noreply.github.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = ">3.11,<3.12"
+jupyter = "^1.0.0"
+peft = "^0.6.2"
+transformers = "^4.35.2"
+datasets = "^2.15.0"
+huggingface-hub = "^0.19.4"
+torch = {url = "https://download.pytorch.org/whl/cpu/torch-2.1.1-cp311-none-macosx_11_0_arm64.whl"}
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
