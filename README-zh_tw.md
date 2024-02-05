@@ -20,6 +20,8 @@
 
 ### 整體架構
 
-![Model Architecture](Model_Architecture.png)
+- 
+
+ <img src="Model_Architecture.png" width = "250" height = "548" alt="Model Architecture"/>
 
 ## 參考資料
