@@ -33,7 +33,11 @@
 - 辨識情緒
 
   此步驟直接使用 Daily Dialog 資料集來微調 LLM 進行 Sentimental Analysis，
-  對輸入的語句進行分析後回傳在 Daily Dialog 資料集中使用的八種基本情緒標籤（ $U_n$ 文字），後續在模組中直接使用。
+  對輸入的語句進行分析後回傳在 Daily Dialog 資料集中使用的八種基本情緒的文字型態標籤（$U_n$），後續在模組中直接使用。
+- 處理情緒
+
+  此處分為兩個子模組進行處理，同理心子模組（Empathy Model）與情緒子模組（Emotion Model）。
+  分為兩個模組的
 
  <img src="Model_Architecture.png" width = "250" height = "548" alt="Model Architecture"/>
 
