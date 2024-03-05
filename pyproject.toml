@@ -6,12 +6,12 @@ authors = ["hermeschen1116 <108386417+hermeschen1116@users.noreply.github.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = "~3.11"
+python = "^3.12"
 torch = "^2.2.1"
 datasets = "^2.18.0"
-peft = "0.4.0"
-trl = "0.4.7"
-transformers = "4.31.0"
+peft = "^0.9.0"
+trl = "^0.7.11"
+transformers = "^4.38.2"
 accelerate = "^0.27.2"
 bitsandbytes = "^0.42.0"
 
