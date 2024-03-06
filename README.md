@@ -1,6 +1,9 @@
 # 專題
 中央大學專題
 
+### how-to
+執行 `run_SA.ipynb`
+
 ### 專題作業時程
 #### Sentiment Analysis （3月初）
 * Test prompt and optimize 
@@ -26,7 +29,7 @@
 - [X] mapping output to dailydialog style
 - [X] test performance
 - [ ] ...
-
+---
 ### issues
 1. **The model did not return a loss from the inputs, only the following keys: logits. For reference, the inputs it received are input_ids,attention_mask.**
 
