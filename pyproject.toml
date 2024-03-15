@@ -18,6 +18,7 @@ evaluate = "^0.4.1"
 optimum = "^1.17.1"
 polars = "^0.20.14"
 python-dotenv = "^1.0.1"
+scikit-learn = "^1.4.1.post1"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"
