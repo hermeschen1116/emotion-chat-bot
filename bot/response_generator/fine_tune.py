@@ -56,8 +56,8 @@ train_data = train_data.map(lambda samples: {"prompt": [f"[{f',{enter}'.join(sam
                             num_proc=8)
 
 # Fine Tune
-base_model_name: str = "meta-llama/Llama-2-7b-chat-hf"
-fine_tuned_model_name: str = f"response_generator_llama_on_daily_dialog_type_{prompt_type}"
+base_model_name: str = "meta-llama/Llama-2-7b-hf"
+fine_tuned_model_name: str = f"response_generator_non_chat_llama_on_daily_dialog_type_{prompt_type}"
 
 # Load Tokenizer
 tokenizer = AutoTokenizer.from_pretrained(base_model_name, truncation=True, trust_remote_code=True)
@@ -72,7 +72,7 @@ quantization_config = quantization_config if torch.cuda.is_available() else None
 
 peft_parameters = LoraConfig(lora_alpha=16, lora_dropout=0.1, r=8, bias="none", task_type="CAUSAL_LM")
 
-num_train_epochs: int = 4
+num_train_epochs: int = 1
 
 train_params = TrainingArguments(output_dir=f"./checkpoints_{fine_tuned_model_name}", num_train_epochs=num_train_epochs,
                                  per_device_train_batch_size=4, gradient_accumulation_steps=1,
