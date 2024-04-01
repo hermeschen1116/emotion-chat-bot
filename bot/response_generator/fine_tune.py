@@ -34,26 +34,37 @@ dataset = dataset.map(lambda samples: {"dialog": [[dialog.strip() for dialog in 
                       input_columns="dialog", batched=True, num_proc=8)
 
 # Script Format ( {agent}({emotion}): {dialog} )
-prompt_type: str = "script"
-train_data = dataset.map(lambda samples: {
-    "lines": [[f"{agent}({emotion}): {dialog}" for agent, emotion, dialog in zip(sample[0], sample[1], sample[2])] for
-              sample in zip(samples["agent"], samples["emotion"], samples["dialog"])]}, batched=True, num_proc=8)
+# prompt_type: str = "script"
+# train_data = dataset.map(lambda samples: {
+#     "lines": [[f"{agent}({emotion}): {dialog}" for agent, emotion, dialog in zip(sample[0], sample[1], sample[2])] for
+#               sample in zip(samples["agent"], samples["emotion"], samples["dialog"])]}, batched=True, num_proc=8)
 enter = "\n"  # for Python 3.11
-train_data = train_data.map(
-    lambda samples: {"prompt": [f"""### {f'{enter}### '.join(sample)}""" for sample in samples]}, input_columns="lines",
-    remove_columns=["agent", "emotion", "dialog", "lines"], batched=True, num_proc=8)
+# train_data = train_data.map(
+#     lambda samples: {"prompt": [f"""### {f'{enter}### '.join(sample)}""" for sample in samples]}, input_columns="lines",
+#     remove_columns=["agent", "emotion", "dialog", "lines"], batched=True, num_proc=8)
 
 # JSON format
-prompt_type = "JSON"
+# prompt_type = "JSON"
+#
+# train_data = dataset.map(lambda samples: {"lines": [
+#     [f'{{"agent": "{agent}", "emotion": "{emotion}", "dialog": "{dialog}"}}' for agent, emotion, dialog in
+#      zip(sample[0], sample[1], sample[2])] for sample in zip(samples["agent"], samples["emotion"], samples["dialog"])]},
+#                          batched=True, num_proc=8)
+#
+# train_data = train_data.map(lambda samples: {"prompt": [f"[{f',{enter}'.join(sample)}]" for sample in samples]},
+#                             input_columns="lines", remove_columns=["agent", "emotion", "dialog", "lines"], batched=True,
+#                             num_proc=8)
 
-train_data = dataset.map(lambda samples: {"lines": [
-    [f'{{"agent": "{agent}", "emotion": "{emotion}", "dialog": "{dialog}"}}' for agent, emotion, dialog in
-     zip(sample[0], sample[1], sample[2])] for sample in zip(samples["agent"], samples["emotion"], samples["dialog"])]},
-                         batched=True, num_proc=8)
+# History format
+prompt_type = "history"
 
-train_data = train_data.map(lambda samples: {"prompt": [f"[{f',{enter}'.join(sample)}]" for sample in samples]},
-                            input_columns="lines", remove_columns=["agent", "emotion", "dialog", "lines"], batched=True,
-                            num_proc=8)
+train_data = dataset.map(lambda samples: {"history": ["\n".join(sample[:-1]) for sample in samples]},
+                         input_columns="dialog", batched=True, num_proc=8)
+
+train_data = train_data.map(lambda samples: {
+    "prompt": [f"HISTORY: {sample[0]}{enter}EMOTION: {sample[1][-1]}{enter}DIALOG: {sample[2][-1]}" for sample in
+               zip(samples["history"], samples["emotion"], samples["dialog"])]},
+                            remove_columns=["agent", "emotion", "dialog", "history"], batched=True, num_proc=8)
 
 # Fine Tune
 base_model_name: str = "meta-llama/Llama-2-7b-hf"
