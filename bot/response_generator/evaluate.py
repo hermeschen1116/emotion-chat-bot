@@ -3,13 +3,14 @@ import os
 
 import huggingface_hub
 import torch
-import wandb
 from datasets import load_dataset
 from dotenv import load_dotenv
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from tqdm.auto import tqdm
 from transformers import (AutoModelForCausalLM, AutoModelForSequenceClassification, AutoTokenizer, BitsAndBytesConfig,
                           GenerationConfig, pipeline)
+
+import wandb
 
 # prevent env load failed
 load_dotenv(encoding="utf-8")
@@ -68,7 +69,6 @@ for sample in tqdm(dataset.to_list(), colour="green"):
         test_data.append({"prompt": sample["prompts"][i], "emotion_bot": sample["emotion_bot"][i],
                           "dialog_user": sample["dialog_user"][i], "dialog_bot": sample["dialog_bot"][i]})
 
-# Evaluation
 # Load Model
 device_map: str = "auto" if torch.cuda.is_available() else "cpu"
 
@@ -85,18 +85,17 @@ model = torch.compile(model)
 generation_config = GenerationConfig(max_new_tokens=20, min_new_tokens=5, repetition_penalty=1.5)
 
 # Log
-wandb.init(project=os.environ.get("WANDB_PROJECT", ""),
-           config={"base_model": arguments.base_model,
-                   "fine_tuned_model": arguments.fine_tuned_model,
-                   "quantization_configuration": quantization_config.to_dict(),
+wandb.init(project="Response Generator", entity="emotion-chat-bot-ncu",
+           config={"base_model": arguments.base_model, "fine_tuned_model": arguments.fine_tuned_model,
+                   "experiment_type": "evaluation", "quantization_configuration": quantization_config.to_dict(),
                    "generation_configuration": generation_config.to_dict(),
-                   "detail_about_evaluation": "evaluate some possible base model"})
+                   "experiment_detail": "evaluate some possible base model"})
 
 # Generate Response
 tokenizer = AutoTokenizer.from_pretrained(arguments.base_model, trust_remote_code=True)
 
 device: str = "cuda" if torch.cuda.is_available() else "cpu"
-for sample in tqdm(test_data, colour="green"):
+for sample in tqdm(test_data[:10], colour="green"):
     tokenized_prompt = tokenizer(sample["prompt"], return_tensors="pt").to(device)
     response_ids = model.generate(**tokenized_prompt, generation_config=generation_config)
     response = tokenizer.decode(response_ids[0], skip_special_tokens=True, clean_up_tokenization_spaces=True)
@@ -108,7 +107,7 @@ result = dataset.from_list(test_data)
 sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(
     "../sentiment _analysis/emotion_text_classifier_on_dd_v1",
     quantization_config=quantization_config if torch.cuda.is_available() else None, device_map=device_map,
-    low_cpu_mem_usage=True)
+    low_cpu_mem_usage=True, attn_implementation="flash_attention_2")
 # sentiment_analysis_model = torch.compile(sentiment_analysis_model)
 
 
@@ -148,9 +147,9 @@ accuracy = multiclass_accuracy(sentiment_true, sentiment_pred, num_classes=len(e
 
 wandb.log({"F1-score": f1, "Accuracy": accuracy})
 
-wandb.log({"generated_test_result": wandb.Table(data=result, columns=result.column_names)})
+wandb.log({"generated_test_result": wandb.Table(dataframe=result.to_pandas())})
 
-result.to_csv(f"evaluation_result_type_{arguments.fine_tuned_model}{'_' + arguments.prompt_type}.csv", header=result.column_names,
-              num_proc=8)
+result.to_csv(f"evaluation_result_type_{arguments.fine_tuned_model}{'_' + arguments.prompt_type}.csv",
+              header=result.column_names, num_proc=8)
 
 wandb.finish()
