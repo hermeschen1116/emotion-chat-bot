@@ -16,7 +16,7 @@ from transformers import (AutoModelForCausalLM,
                           pipeline)
 
 import wandb
-from Pipeline import ResponseGeneratorPipeline
+# from Pipeline import ResponseGeneratorPipeline
 
 # prevent env load failed
 load_dotenv(encoding="utf-8")
@@ -39,7 +39,7 @@ arguments = parser.parse_args()
 arguments.fine_tuned_model = arguments.base_model if arguments.fine_tuned_model == "" else arguments.fine_tuned_model
 
 # Load and Process Dataset
-dataset = load_dataset("daily_dialog", split="test", num_proc=8, trust_remote_code=True)
+dataset = load_dataset("daily_dialog", split=f"test[:10]", num_proc=8, trust_remote_code=True)
 dataset = dataset.remove_columns("act")
 dataset = dataset.rename_column("emotion", "emotion_id")
 emotion_labels: list = dataset.features["emotion_id"].feature.names
@@ -103,18 +103,32 @@ wandb.init(project="emotion-chat-bot-ncu",
 
 # Initialize tokenizer
 tokenizer = AutoTokenizer.from_pretrained(arguments.base_model, trust_remote_code=True)
-generation_config.pad_token_id = tokenizer.eos_token_id
+tokenizer.pad_token = tokenizer.eos_token
+tokenizer.padding_side = "left"
 
 
 # Generate Response
 device: str = "cuda" if torch.cuda.is_available() else "cpu"
+test_response: list = []
+for sample in tqdm(test_data, colour="green"):
+    tokenized_prompt = tokenizer.apply_chat_template(sample["prompt"],
+                                                     tokenize=True,
+                                                     padding=True,
+                                                     max_length=1024,
+                                                     add_generation_prompt=True,
+                                                     return_tensors="pt").to(device)
+    encoded_response = model.generate(tokenized_prompt, generation_config=generation_config)
+    response_raw = tokenizer.decode(encoded_response[0], skip_special_tokens=True, clean_up_tokenization_spaces=True)
+    response = response_raw.replace(response_raw.split("[/INST]")[0], "").removeprefix("[/INST]").strip()
+    test_response.append(response)
 
+result = test_data.add_column("test_response", test_response).remove_columns("prompt")
 
-text_generator = ResponseGeneratorPipeline(model=model, tokenizer=tokenizer, device=device)
-
-result = test_data.map(lambda sample: {
-    "test_response": text_generator(sample)
-}, input_columns="prompt", remove_columns="prompt", batched=True, num_proc=8)
+# text_generator = ResponseGeneratorPipeline(model=model, tokenizer=tokenizer, device=device)
+#
+# result = test_data.map(lambda sample: {
+#     "test_response": text_generator(sample)
+# }, input_columns="prompt", remove_columns="prompt", batched=True, num_proc=8)
 
 # Sentiment Analysis
 sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(
@@ -142,21 +156,21 @@ result = result.map(lambda sample: {
 
 result = result.map(lambda sample: {
     "test_response_sentiment": sample["label"] if sample["label"] != "joy" else "happiness"
-}, input_columns="test_response_sentiment", batched=True, num_proc=8)
+}, input_columns="test_response_sentiment", num_proc=8)
 
 # Metrics
 emotion_label_to_id: dict = {label: index for index, label in enumerate(emotion_labels)}
 
-sentiment_true = result.map(lambda samples: {
-    "emotion_bot_id": emotion_label_to_id[samples]
-}, input_columns="emotion_bot", batched=True, num_proc=8).to_list()
+sentiment_true = result.map(lambda sample: {
+    "emotion_bot_id": emotion_label_to_id[sample]
+}, input_columns="emotion_bot", num_proc=8).to_list()
 
-sentiment_pred = result.map(lambda samples: {
-    "test_response_sentiment_id": emotion_label_to_id[samples["label"]]
-}, input_columns="test_response_sentiment", batched=True, num_proc=8).to_list()
+sentiment_pred = result.map(lambda sample: {
+    "test_response_sentiment_id": emotion_label_to_id[sample]
+}, input_columns="test_response_sentiment", num_proc=8).to_list()
 
 sentiment_true: torch.tensor = torch.tensor([sample["emotion_bot_id"] for sample in sentiment_true])
-sentiment_pred: torch.tensor = torch.tensor([sample["response_sentiment_bot_id"] for sample in sentiment_pred])
+sentiment_pred: torch.tensor = torch.tensor([sample["test_response_sentiment_id"] for sample in sentiment_pred])
 
 f1_score = multiclass_f1_score(sentiment_true, sentiment_pred, num_classes=len(emotion_labels), average="micro")
 

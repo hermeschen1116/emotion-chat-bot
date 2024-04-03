@@ -21,7 +21,7 @@ class ResponseGeneratorPipeline(Pipeline):
         return preprocess_arguments, forward_arguments, postprocess_arguments
 
     def preprocess(self, sample, tokenizer, device):
-        tokenized_prompt = tokenizer.apply_chat_template(sample["prompt"], tokenize=False, add_generation_prompt=True,
+        tokenized_prompt = tokenizer.apply_chat_template(sample["prompt"], tokenize=True, add_generation_prompt=True,
                                                          return_tensors="pt").to(device)
         return {"model_input": tokenized_prompt}
 
