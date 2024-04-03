@@ -39,25 +39,25 @@ arguments = parser.parse_args()
 arguments.fine_tuned_model = arguments.base_model if arguments.fine_tuned_model == "" else arguments.fine_tuned_model
 
 # Load and Process Dataset
-dataset = load_dataset("daily_dialog", split=f"test[:10]", num_proc=8, trust_remote_code=True)
+dataset = load_dataset("daily_dialog", split=f"test", num_proc=16, trust_remote_code=True)
 dataset = dataset.remove_columns("act")
 dataset = dataset.rename_column("emotion", "emotion_id")
 emotion_labels: list = dataset.features["emotion_id"].feature.names
 emotion_labels[0] = "neutral"
 dataset = dataset.map(lambda samples: {
     "emotion": [[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples]
-}, input_columns="emotion_id", remove_columns="emotion_id", batched=True, num_proc=8)
+}, input_columns="emotion_id", remove_columns="emotion_id", batched=True, num_proc=16)
 dataset = dataset.map(lambda samples: {
     "emotions_user": [sample[:-1] for sample in samples],
     "emotions_bot": [sample[1:] for sample in samples]
-}, input_columns="emotion", remove_columns="emotion", batched=True, num_proc=8)
+}, input_columns="emotion", remove_columns="emotion", batched=True, num_proc=16)
 dataset = dataset.map(lambda samples: {
     "dialog": [[dialog.strip() for dialog in sample] for sample in samples]
-}, input_columns="dialog", batched=True, num_proc=8)
+}, input_columns="dialog", batched=True, num_proc=16)
 dataset = dataset.map(lambda samples: {
     "dialogs_user": [sample[:-1] for sample in samples],
     "dialogs_bot": [sample[:-1] for sample in samples]
-}, input_columns="dialog", remove_columns="dialog", batched=True, num_proc=8)
+}, input_columns="dialog", remove_columns="dialog", batched=True, num_proc=16)
 bot: str = "model" if 'gemma' in arguments.base_model.lower() else "assistant"
 dataset = dataset.map(lambda samples: {
     "prompts": [[[
@@ -65,7 +65,7 @@ dataset = dataset.map(lambda samples: {
         {"role": bot, "content": f"user({emotion_bot}): "}]
         for emotion_user, dialog_user, emotion_bot in zip(sample[0], sample[1], sample[2])]
         for sample in zip(samples["emotions_user"], samples["dialogs_user"], samples["emotions_bot"])]
-}, batched=True, num_proc=8)
+}, batched=True, num_proc=16)
 test_data = dataset.from_list([{
     "prompt": sample["prompts"][i],
     "emotion_user": sample["emotions_user"][i],
@@ -128,7 +128,7 @@ result = test_data.add_column("test_response", test_response).remove_columns("pr
 #
 # result = test_data.map(lambda sample: {
 #     "test_response": text_generator(sample)
-# }, input_columns="prompt", remove_columns="prompt", batched=True, num_proc=8)
+# }, input_columns="prompt", remove_columns="prompt", batched=True, num_proc=16)
 
 # Sentiment Analysis
 sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(
@@ -156,18 +156,18 @@ result = result.map(lambda sample: {
 
 result = result.map(lambda sample: {
     "test_response_sentiment": sample["label"] if sample["label"] != "joy" else "happiness"
-}, input_columns="test_response_sentiment", num_proc=8)
+}, input_columns="test_response_sentiment", num_proc=16)
 
 # Metrics
 emotion_label_to_id: dict = {label: index for index, label in enumerate(emotion_labels)}
 
 sentiment_true = result.map(lambda sample: {
     "emotion_bot_id": emotion_label_to_id[sample]
-}, input_columns="emotion_bot", num_proc=8).to_list()
+}, input_columns="emotion_bot", num_proc=16).to_list()
 
 sentiment_pred = result.map(lambda sample: {
     "test_response_sentiment_id": emotion_label_to_id[sample]
-}, input_columns="test_response_sentiment", num_proc=8).to_list()
+}, input_columns="test_response_sentiment", num_proc=16).to_list()
 
 sentiment_true: torch.tensor = torch.tensor([sample["emotion_bot_id"] for sample in sentiment_true])
 sentiment_pred: torch.tensor = torch.tensor([sample["test_response_sentiment_id"] for sample in sentiment_pred])
