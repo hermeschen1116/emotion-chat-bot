@@ -22,6 +22,7 @@ import wandb
 load_dotenv(encoding="utf-8")
 huggingface_hub.login(token=os.environ.get("HF_TOKEN", ""), add_to_git_credential=True)
 wandb.login(key=os.environ.get("WANDB_API_KEY", ""), relogin=True)
+
 # commandline inputs
 parser = argparse.ArgumentParser(prog="Evaluation", description="Evaluation Script For Response Generator")
 parser.add_argument("--base_model", required=True, type=str)
@@ -35,8 +36,18 @@ parser.add_argument("--sentiment_analysis_model",
                     required=False,
                     type=str,
                     default="michellejieli/emotion_text_classifier")
+parser.add_argument("--experiment_detail", required=True, type=str, default="")
+
 arguments = parser.parse_args()
 arguments.fine_tuned_model = arguments.base_model if arguments.fine_tuned_model == "" else arguments.fine_tuned_model
+
+# Initialize Wandb
+wandb.init(project="emotion-chat-bot-ncu",
+           group="Response Generator",
+           job_type="evaluation",
+           config={"base_model": arguments.base_model,
+                   "fine_tuned_model": arguments.fine_tuned_model,
+                   "experiment_detail": arguments.experiment_detail})
 
 # Load and Process Dataset
 dataset = load_dataset("daily_dialog", split=f"test", num_proc=16, trust_remote_code=True)
@@ -74,33 +85,20 @@ test_data = dataset.from_list([{
     "dialog_bot": sample["dialogs_bot"][i]
 } for sample in tqdm(dataset, colour="blue") for i in range(len(sample['emotions_bot']))])
 
-# Configurations
+
 device_map: str = "auto" if torch.cuda.is_available() else "cpu"
+# Load Model
 quantization_config = BitsAndBytesConfig(load_in_4bit=True,
                                          bnb_4bit_compute_dtype=torch.float16)
 quantization_config = quantization_config if torch.cuda.is_available() else None
-generation_config = GenerationConfig(max_new_tokens=20,
-                                     min_new_tokens=5,
-                                     repetition_penalty=1.5,
-                                     use_cache=True)
-# Load Model
+wandb.config["quantization_configuration"] = quantization_config.to_dict() if quantization_config is not None else {}
+
 model = AutoModelForCausalLM.from_pretrained(arguments.fine_tuned_model,
                                              quantization_config=quantization_config,
                                              attn_implementation="flash_attention_2",
                                              device_map=device_map,
                                              low_cpu_mem_usage=True)
 model = torch.compile(model)
-
-# Initialize Wandb
-wandb.init(project="emotion-chat-bot-ncu",
-           group="Response Generator",
-           job_type="evaluation",
-           config={"base_model": arguments.base_model,
-                   "fine_tuned_model": arguments.fine_tuned_model,
-                   "quantization_configuration": quantization_config.to_dict(),
-                   "generation_configuration": generation_config.to_dict(),
-                   "experiment_detail": "evaluate some possible base model"})
-
 
 # Initialize tokenizer
 tokenizer = AutoTokenizer.from_pretrained(arguments.base_model, trust_remote_code=True)
@@ -110,6 +108,12 @@ tokenizer.padding_side = "left"
 
 # Generate Response
 device: str = "cuda" if torch.cuda.is_available() else "cpu"
+generation_config = GenerationConfig(max_new_tokens=20,
+                                     min_new_tokens=5,
+                                     repetition_penalty=1.5,
+                                     use_cache=True)
+wandb.config["generation_configuration"] = generation_config.to_dict()
+
 test_response: list = []
 for sample in tqdm(test_data, colour="green"):
     tokenized_prompt = tokenizer.apply_chat_template(sample["prompt"],
@@ -134,7 +138,7 @@ result = test_data.add_column("test_response", test_response).remove_columns("pr
 # Sentiment Analysis
 sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(
     arguments.sentiment_analysis_model,
-    quantization_config=quantization_config if torch.cuda.is_available() else None,
+    quantization_config=quantization_config,
     device_map=device_map,
     low_cpu_mem_usage=True)
 # sentiment_analysis_model = torch.compile(sentiment_analysis_model)
