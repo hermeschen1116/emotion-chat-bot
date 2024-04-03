@@ -81,7 +81,8 @@ quantization_config = BitsAndBytesConfig(load_in_4bit=True,
 quantization_config = quantization_config if torch.cuda.is_available() else None
 generation_config = GenerationConfig(max_new_tokens=20,
                                      min_new_tokens=5,
-                                     repetition_penalty=1.5)
+                                     repetition_penalty=1.5,
+                                     use_cache=True)
 # Load Model
 model = AutoModelForCausalLM.from_pretrained(arguments.fine_tuned_model,
                                              quantization_config=quantization_config,
