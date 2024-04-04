@@ -41,6 +41,7 @@ parser.add_argument("--experiment_detail", required=True, type=str, default="")
 arguments = parser.parse_args()
 arguments.fine_tuned_model = arguments.base_model if arguments.fine_tuned_model == "" else arguments.fine_tuned_model
 
+print(f"base model: {arguments.base_model}, fine-tuned model: {arguments.fine_tuned_model}")
 # Initialize Wandb
 wandb.init(project="emotion-chat-bot-ncu",
            group="Response Generator",
