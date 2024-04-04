@@ -70,14 +70,10 @@ dataset = dataset.map(lambda samples: {
     "dialogs_user": [sample[:-1] for sample in samples],
     "dialogs_bot": [sample[:-1] for sample in samples]
 }, input_columns="dialog", remove_columns="dialog", batched=True, num_proc=16)
-bot: str = "model" if 'gemma' in arguments.base_model.lower() else "assistant"
+# bot: str = "model" if 'gemma' in arguments.base_model.lower() else "assistant"
 dataset = dataset.map(lambda samples: {
-    "prompts": [[[
-        {"role": "user", "content": f"user({emotion_user}): {dialog_user.strip()}"},
-        {"role": bot, "content": f"user({emotion_bot}): "}]
-        for emotion_user, dialog_user, emotion_bot in zip(sample[0], sample[1], sample[2])]
-        for sample in zip(samples["emotions_user"], samples["dialogs_user"], samples["emotions_bot"])]
-}, batched=True, num_proc=16)
+    "prompts": [[[{"role": "user", "content": dialog_user.strip()}] for dialog_user in sample] for sample in samples]
+}, input_columns="dialogs_user", batched=True, num_proc=16)
 test_data = dataset.from_list([{
     "prompt": sample["prompts"][i],
     "emotion_user": sample["emotions_user"][i],
