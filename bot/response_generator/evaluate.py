@@ -51,7 +51,7 @@ wandb.init(project="emotion-chat-bot-ncu",
                    "experiment_detail": arguments.experiment_detail})
 
 # Load and Process Dataset
-dataset = load_dataset("daily_dialog", split=f"test", num_proc=16, trust_remote_code=True)
+dataset = load_dataset("daily_dialog", split="test", num_proc=16, trust_remote_code=True)
 dataset = dataset.remove_columns("act")
 dataset = dataset.rename_column("emotion", "emotion_id")
 emotion_labels: list = dataset.features["emotion_id"].feature.names
