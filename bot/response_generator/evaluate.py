@@ -60,27 +60,24 @@ dataset = dataset.map(lambda samples: {
     "emotion": [[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples]
 }, input_columns="emotion_id", remove_columns="emotion_id", batched=True, num_proc=16)
 dataset = dataset.map(lambda samples: {
-    "emotions_user": [sample[:-1] for sample in samples],
-    "emotions_bot": [sample[1:] for sample in samples]
+    "emotion_history": [sample[:-1] for sample in samples],
+    "emotion_bot": [sample[-1] for sample in samples]
 }, input_columns="emotion", remove_columns="emotion", batched=True, num_proc=16)
 dataset = dataset.map(lambda samples: {
     "dialog": [[dialog.strip() for dialog in sample] for sample in samples]
 }, input_columns="dialog", batched=True, num_proc=16)
 dataset = dataset.map(lambda samples: {
-    "dialogs_user": [sample[:-1] for sample in samples],
-    "dialogs_bot": [sample[:-1] for sample in samples]
-}, input_columns="dialog", remove_columns="dialog", batched=True, num_proc=16)
-# bot: str = "model" if 'gemma' in arguments.base_model.lower() else "assistant"
+    "dialog": [sample if len(sample) % 2 == 0 else sample[:-1] for sample in samples]
+}, input_columns="dialog", batched=True, num_proc=16)
 dataset = dataset.map(lambda samples: {
-    "prompts": [[[{"role": "user", "content": dialog_user.strip()}] for dialog_user in sample] for sample in samples]
-}, input_columns="dialogs_user", batched=True, num_proc=16)
-test_data = dataset.from_list([{
-    "prompt": sample["prompts"][i],
-    "emotion_user": sample["emotions_user"][i],
-    "dialog_user": sample["dialogs_user"][i],
-    "emotion_bot": sample["emotions_bot"][i],
-    "dialog_bot": sample["dialogs_bot"][i]
-} for sample in tqdm(dataset, colour="blue") for i in range(len(sample['emotions_bot']))])
+    "dialog_history": [sample[:-1] for sample in samples],
+    "dialog_bot": [sample[-1] for sample in samples]
+}, input_columns="dialog", remove_columns="dialog", batched=True, num_proc=16)
+bot: str = "model" if 'gemma' in arguments.base_model.lower() else "assistant"
+test_data = dataset.map(lambda samples: {
+    "prompt": [[[{"role": "user" if i % 2 == 0 else bot, "content": dialog}] for i, dialog in enumerate(sample)]
+                for sample in samples]
+}, input_columns="dialog_history", batched=True, num_proc=16)
 
 
 device_map: str = "auto" if torch.cuda.is_available() else "cpu"
