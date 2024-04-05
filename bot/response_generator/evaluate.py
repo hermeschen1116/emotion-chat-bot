@@ -37,7 +37,6 @@ parser.add_argument("--sentiment_analysis_model",
                     type=str,
                     default="michellejieli/emotion_text_classifier")
 parser.add_argument("--experiment_detail", required=True, type=str, default="")
-parser.add_argument("--enable_flash_attention_2", required=False, type=bool, default=True)
 
 arguments = parser.parse_args()
 arguments.fine_tuned_model = arguments.base_model if arguments.fine_tuned_model == "" else arguments.fine_tuned_model
@@ -91,10 +90,9 @@ quantization_config = BitsAndBytesConfig(load_in_4bit=True,
 quantization_config = quantization_config if torch.cuda.is_available() else None
 wandb.config["quantization_configuration"] = quantization_config.to_dict() if quantization_config is not None else {}
 
-attention_implementation: str = "flash_attention_2" if arguments.enable_flash_attention_2 else None
 model = AutoModelForCausalLM.from_pretrained(arguments.fine_tuned_model,
                                              quantization_config=quantization_config,
-                                             attn_implementation=attention_implementation,
+                                             attn_implementation="flash_attention_2",
                                              device_map=device_map,
                                              low_cpu_mem_usage=True)
 model = torch.compile(model)
