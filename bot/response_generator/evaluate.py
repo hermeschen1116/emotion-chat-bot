@@ -115,6 +115,7 @@ example_prompt = tokenizer.apply_chat_template(test_data[0]["prompt"],
                                        add_generation_prompt=True,
                                        return_tensors="pt")
 print(f"prompt: {example_prompt}")
+wandb.log({"prompt example": example_prompt})
 
 test_response: list = []
 for sample in tqdm(test_data, colour="green"):
