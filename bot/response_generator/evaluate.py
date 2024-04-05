@@ -114,7 +114,6 @@ example_prompt = tokenizer.apply_chat_template(test_data[0]["prompt"],
                                                max_length=1024,
                                                add_generation_prompt=True,
                                                return_tensors="pt")
-print(f"prompt: {example_prompt}")
 wandb.log({"prompt example": example_prompt})
 
 test_response: list = []
