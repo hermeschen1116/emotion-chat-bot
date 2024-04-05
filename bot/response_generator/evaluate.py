@@ -78,7 +78,10 @@ test_data = dataset.map(lambda samples: {
     "prompt": [[{"role": "user" if i % 2 == 0 else "assistant", "content": dialog}
                 for i, dialog in enumerate(sample)] for sample in samples]
 }, input_columns="dialog_history", batched=True, num_proc=16)
-
+test_data = test_data.map(lambda sample: {
+    "history": "\n".join([f"""{'user' if i % 2 == 0 else 'bot'}({v[0]}): {v[1]}"""
+                          for i, v in enumerate(zip(sample["emotion_history"], sample["dialog_history"]))])
+}, remove_columns=["emotion_history", "dialog_history"], num_proc=8)
 
 device_map: str = "auto" if torch.cuda.is_available() else "cpu"
 # Load Model
