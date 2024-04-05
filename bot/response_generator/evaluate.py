@@ -178,10 +178,10 @@ sentiment_pred = result.map(lambda sample: {
 sentiment_true: torch.tensor = torch.tensor([sample["emotion_bot_id"] for sample in sentiment_true])
 sentiment_pred: torch.tensor = torch.tensor([sample["test_response_sentiment_id"] for sample in sentiment_pred])
 
-
+num_emotion_labels: int = len(emotion_labels)
 wandb.log({
-    "F1-score": multiclass_f1_score(sentiment_true, sentiment_pred, num_classes=len(emotion_labels), average="micro"),
-    "Accuracy": multiclass_accuracy(sentiment_true, sentiment_pred, num_classes=len(emotion_labels))
+    "F1-score": multiclass_f1_score(sentiment_true, sentiment_pred, num_classes=num_emotion_labels, average="micro"),
+    "Accuracy": multiclass_accuracy(sentiment_true, sentiment_pred, num_classes=num_emotion_labels)
 })
 wandb.log({"evaluation_result": wandb.Table(dataframe=result.to_pandas())})
 
