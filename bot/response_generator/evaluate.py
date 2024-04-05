@@ -109,7 +109,9 @@ device: str = "cuda" if torch.cuda.is_available() else "cpu"
 generation_config = GenerationConfig(max_new_tokens=20,
                                      min_new_tokens=5,
                                      repetition_penalty=1.5,
-                                     use_cache=True)
+                                     use_cache=True,
+                                     pad_token_id=tokenizer.pad_token_id,
+                                     eos_token_id=tokenizer.eos_token_id)
 wandb.config["generation_configuration"] = generation_config.to_dict()
 
 wandb.config["prompt example"] = tokenizer.apply_chat_template(test_data[0]["prompt"],
