@@ -1,21 +1,30 @@
 [tool.poetry]
 name = "chat-bot"
-version = "0.0.0"
-description = "NCU lab project"
+version = "0.1.0"
+description = ""
 authors = ["hermeschen1116 <108386417+hermeschen1116@users.noreply.github.com>"]
 readme = "README.md"
 
 [tool.poetry.dependencies]
-python = ">3.12,<3.13"
+python = "~3.11"
+wheel = "^0.43.0"
+torch = "^2.2.2"
+datasets = "^2.18.0"
+peft = "^0.9.0"
+trl = "^0.7.11"
+transformers = "^4.39.3"
+accelerate = "^0.28.0"
+bitsandbytes = "^0.42.0"
+evaluate = "^0.4.1"
+torcheval = "^0.0.7"
+flash-attn = "^2.5.6"
+
+[tool.poetry.group.dev.dependencies]
+python-dotenv = "^1.0.1"
 jupyter = "^1.0.0"
-peft = "^0.6.2"
-transformers = "^4.35.2"
-datasets = "^2.15.0"
-huggingface-hub = "^0.19.4"
-torch = {url = "https://download.pytorch.org/whl/cpu/torch-2.2.0-cp312-none-macosx_11_0_arm64.whl"}
-accelerate = "^0.24.1"
-bitsandbytes = "^0.41.2.post2"
-trl = "^0.7.4"
+tensorboard = "^2.16.2"
+wandb = "^0.16.5"
+huggingface-hub = "^0.21.3"
 
 [build-system]
 requires = ["poetry-core"]
