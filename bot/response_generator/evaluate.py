@@ -109,11 +109,11 @@ generation_config = GenerationConfig(max_new_tokens=20,
 wandb.config["generation_configuration"] = generation_config.to_dict()
 
 example_prompt = tokenizer.apply_chat_template(test_data[0]["prompt"],
-                                       tokenize=False,
-                                       padding=True,
-                                       max_length=1024,
-                                       add_generation_prompt=True,
-                                       return_tensors="pt")
+                                               tokenize=False,
+                                               padding=True,
+                                               max_length=1024,
+                                               add_generation_prompt=True,
+                                               return_tensors="pt")
 print(f"prompt: {example_prompt}")
 wandb.log({"prompt example": example_prompt})
 
