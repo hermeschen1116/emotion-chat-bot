@@ -108,8 +108,7 @@ generation_config = GenerationConfig(max_new_tokens=20,
                                      use_cache=True)
 wandb.config["generation_configuration"] = generation_config.to_dict()
 
-example_prompt = tokenizer.apply_chat_template(test_data[0]["prompt"], add_generation_prompt=True)
-wandb.log({"prompt example": example_prompt})
+wandb.config["prompt example"] = tokenizer.apply_chat_template(test_data[0]["prompt"], add_generation_prompt=True)
 
 test_response: list = []
 for sample in tqdm(test_data, colour="green"):
