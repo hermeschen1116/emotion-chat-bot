@@ -37,6 +37,7 @@ parser.add_argument("--sentiment_analysis_model",
                     type=str,
                     default="michellejieli/emotion_text_classifier")
 parser.add_argument("--experiment_detail", required=True, type=str, default="")
+parser.add_argument("--wandb_mode", required=False, type=str, default="online")
 
 arguments = parser.parse_args()
 arguments.fine_tuned_model = arguments.base_model if arguments.fine_tuned_model == "" else arguments.fine_tuned_model
@@ -46,6 +47,7 @@ print(f"base model: {arguments.base_model}, fine-tuned model: {arguments.fine_tu
 wandb.init(project="emotion-chat-bot-ncu",
            group="Response Generator",
            job_type="evaluation",
+           mode=arguments.wandb_mode,
            config={"base_model": arguments.base_model,
                    "fine_tuned_model": arguments.fine_tuned_model,
                    "experiment_detail": arguments.experiment_detail})

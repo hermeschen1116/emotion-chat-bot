@@ -177,6 +177,6 @@ pyrightconfig.json
 
 **/**/checkpoints*/
 **/**/*_on_daily_dialog*/
-**/**/emotion_text_classifier_on_dd_v1/
+bot/sentiment_analysis/emotion_text_classifier_on_dd_v1/
 **/**/*.sh
 **/**/wandb/
