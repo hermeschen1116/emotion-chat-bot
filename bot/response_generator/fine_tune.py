@@ -17,6 +17,7 @@ wandb.login(key=os.environ.get("WANDB_API_KEY", ""), relogin=True)
 # commandline inputs
 parser = argparse.ArgumentParser(prog="Fine-Tuning", description="Fine-Tuning Script For Response Generator")
 parser.add_argument("--base_model", required=True, type=str)
+parser.add_argument("--tokenizer", required=False, type=str, default=None)
 parser.add_argument("--name_or_path_for_fine_tuned_model", "-n", required=True, type=str)
 parser.add_argument("--prompt_type", required=False, type=str, default="")
 parser.add_argument("--experiment_detail", required=True, type=str)
@@ -28,12 +29,14 @@ parser.add_argument("--response_template", required=True, type=str)
 parser.add_argument("--instruction_template", required=True, type=str)
 
 arguments = parser.parse_args()
+arguments.tokenizer = arguments.base_model if arguments.tokenizer is None else arguments.tokenizer
 
 # Initialize Wandb
 os.environ["WANDB_LOG_MODEL"] = "end"
 os.environ["WANDB_WATCH"] = "all"
 wandb_config = {
     "base_model": arguments.base_model,
+    "tokenizer": arguments.tokenizer,
     "name_or_path_for_fine_tuned_model": arguments.name_or_path_for_fine_tuned_model}
 wandb.init(job_type="fine-tuning",
            config=wandb_config,
@@ -65,7 +68,7 @@ dataset = dataset.map(lambda samples: {
 
 # Load Tokenizer
 tokenizer = AutoTokenizer.from_pretrained(
-    arguments.base_model,
+    arguments.tokenizer,
     trust_remote_code=True,
     clean_up_tokenization_spaces=True,
     add_special_tokens=True,
