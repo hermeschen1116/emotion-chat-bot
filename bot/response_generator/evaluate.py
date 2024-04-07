@@ -75,7 +75,6 @@ dataset = dataset.map(lambda samples: {
     "dialog_history": [sample[:-1] for sample in samples],
     "dialog_bot": [sample[-1] for sample in samples]
 }, input_columns="dialog", remove_columns="dialog", batched=True, num_proc=16)
-bot: str = "model" if 'gemma' in arguments.base_model.lower() else "assistant"
 test_data = dataset.map(lambda samples: {
     "prompt": [[{"role": "user" if i % 2 == 0 else "assistant", "content": dialog}
                 for i, dialog in enumerate(sample)] for sample in samples]
