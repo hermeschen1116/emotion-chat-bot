@@ -8,7 +8,7 @@ from datasets import load_dataset
 from dotenv import load_dotenv
 from peft import LoraConfig
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, TrainingArguments
-from trl import SFTTrainer
+from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 
 load_dotenv(encoding="utf-8")
 huggingface_hub.login(token=os.environ.get("HF_TOKEN", ""), add_to_git_credential=True)
@@ -23,6 +23,9 @@ parser.add_argument("--experiment_detail", required=True, type=str)
 parser.add_argument("--wandb_mode", required=False, type=str, default="online")
 parser.add_argument("--num_epochs", required=False, type=int, default=1)
 parser.add_argument("--enable_flash_attention_2", required=False, type=bool, default=True)
+parser.add_argument("--chat_template", required=True, type=str)
+parser.add_argument("--response_template", required=True, type=str)
+parser.add_argument("--instruction_template", required=True, type=str)
 
 arguments = parser.parse_args()
 
@@ -55,8 +58,9 @@ dataset = dataset.map(lambda samples: {
     "dialog": [[dialog.strip() for dialog in sample] for sample in samples]
 }, input_columns="dialog", batched=True, num_proc=16)
 dataset = dataset.map(lambda samples: {
-    "prompt": [[{"role": "user" if i % 2 == 0 else "assistant", "content": dialog}
-                for i, dialog in enumerate(sample)] for sample in samples]
+    "prompt": [[{"role": "user" if i % 2 == 0 else "assistant", "emotion": emotion, "dialog": dialog}
+                for i, emotion, dialog in enumerate(zip(sample[0], sample[1]))]
+               for sample in zip(samples["emotion"], samples["dialog"])]
 }, batched=True, num_proc=16)
 
 # Load Tokenizer
@@ -64,6 +68,7 @@ tokenizer = AutoTokenizer.from_pretrained(
     arguments.base_model,
     trust_remote_code=True,
     clean_up_tokenization_spaces=True,
+    add_special_tokens=True,
     padding_side="right",
     truncation=True,
     truncation_side="right")
@@ -139,14 +144,19 @@ base_model = AutoModelForCausalLM.from_pretrained(
 
 def prompt_compose(sample):
     return tokenizer.apply_chat_template(sample["prompt"],
-                                         chat_template="",
+                                         chat_template=arguments.chat_template,
                                          add_generation_prompt=True)
 
+
+data_collator = DataCollatorForCompletionOnlyLM(arguments.response_template,
+                                                instruction_template=arguments.instruction_template,
+                                                tokenizer=tokenizer)
 
 # Setup Tuner
 tuner = SFTTrainer(
     model=base_model,
     args=trainer_arguments,
+    data_collator=data_collator,
     train_dataset=dataset["train"],
     eval_dataset=dataset["validation"],
     peft_config=lora_config,
@@ -154,7 +164,8 @@ tuner = SFTTrainer(
     formatting_func=prompt_compose,
     tokenizer=tokenizer,
     max_seq_length=1024,
-    dataset_num_proc=16)
+    dataset_num_proc=16,
+    packing=True)
 
 tuner.train()
 
