@@ -100,7 +100,7 @@ model = torch.compile(model)
 
 # Initialize tokenizer
 tokenizer = AutoTokenizer.from_pretrained(arguments.base_model, trust_remote_code=True)
-tokenizer.eos_token = "<|endoftext|>" if tokenizer.eos_token is None else tokenizer.eos_token
+tokenizer.eos_token = "<eos>" if tokenizer.eos_token is None else tokenizer.eos_token
 tokenizer.pad_token = tokenizer.eos_token if tokenizer.pad_token is None else tokenizer.pad_token
 tokenizer.padding_side = "left"
 
