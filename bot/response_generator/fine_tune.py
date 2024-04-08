@@ -10,10 +10,6 @@ from peft import LoraConfig
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, TrainingArguments
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 
-load_dotenv(encoding="utf-8")
-huggingface_hub.login(token=os.environ.get("HF_TOKEN", ""), add_to_git_credential=True)
-wandb.login(key=os.environ.get("WANDB_API_KEY", ""), relogin=True)
-
 # commandline inputs
 parser = argparse.ArgumentParser(prog="Fine-Tuning", description="Fine-Tuning Script For Response Generator")
 parser.add_argument("--base_model", required=True, type=str)
@@ -23,20 +19,27 @@ parser.add_argument("--experiment_detail", required=True, type=str)
 parser.add_argument("--wandb_mode", required=False, type=str, default="online")
 parser.add_argument("--num_epochs", required=False, type=int, default=1)
 parser.add_argument("--enable_flash_attention_2", required=False, type=bool, default=True)
-parser.add_argument("--chat_template", required=True, type=str)
-parser.add_argument("--response_template", required=True, type=str)
-parser.add_argument("--instruction_template", required=True, type=str)
+parser.add_argument("--system_prompt", required=False, type=str, default="")
+parser.add_argument("--chat_template_file", required=True, type=str, default="")
 
 arguments = parser.parse_args()
 arguments.tokenizer = arguments.base_model if arguments.tokenizer is None else arguments.tokenizer
+chat_template: dict = eval(open(arguments.chat_template_file, 'r', encoding='utf-8', closefd=True).read())
+
+load_dotenv(encoding="utf-8")
+huggingface_hub.login(token=os.environ.get("HF_TOKEN", ""), add_to_git_credential=True)
+wandb.login(key=os.environ.get("WANDB_API_KEY", ""), relogin=True)
 
 # Initialize Wandb
-os.environ["WANDB_LOG_MODEL"] = "end"
-os.environ["WANDB_WATCH"] = "all"
 wandb_config = {
     "base_model": arguments.base_model,
     "tokenizer": arguments.tokenizer,
-    "name_or_path_for_fine_tuned_model": arguments.name_or_path_for_fine_tuned_model}
+    "name_or_path_for_fine_tuned_model": arguments.name_or_path_for_fine_tuned_model,
+    "system_prompt": arguments.system_prompt,
+    "chat_template": chat_template["chat"],
+    "instruction_template": chat_template["instruction"],
+    "response_template": chat_template["response"]
+}
 wandb.init(job_type="fine-tuning",
            config=wandb_config,
            project="emotion-chat-bot-ncu",
@@ -47,7 +50,7 @@ wandb.init(job_type="fine-tuning",
 
 # Load Dataset
 dataset = load_dataset("daily_dialog",
-                       split="train+validation",
+                       split="train[:1]+validation[:1]",
                        num_proc=16,
                        trust_remote_code=True).remove_columns("act")
 dataset = dataset.rename_column("emotion", "emotion_id")
@@ -57,13 +60,30 @@ dataset = dataset.map(lambda samples: {
     "emotion": [[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples]
 }, input_columns="emotion_id", remove_columns="emotion_id", batched=True, num_proc=16)
 dataset = dataset.map(lambda samples: {
+    "emotion": [sample[:-1] if len(sample) % 2 == 1 else sample for sample in samples ]
+}, input_columns="emotion", batched=True, num_proc=16)
+dataset = dataset.map(lambda samples: {
     "dialog": [[dialog.strip() for dialog in sample] for sample in samples]
 }, input_columns="dialog", batched=True, num_proc=16)
 dataset = dataset.map(lambda samples: {
-    "prompt": [[{"role": "user" if i % 2 == 0 else "assistant", "emotion": emotion, "dialog": dialog}
-                for i, emotion, dialog in enumerate(zip(sample[0], sample[1]))]
+    "dialog": [sample[:-1] if len(sample) % 2 == 1 else sample for sample in samples ]
+}, input_columns="dialog", batched=True, num_proc=16)
+dataset = dataset.map(lambda samples: {
+    "prompt": [[{
+                    "role": "user" if i % 2 == 0 else "assistant",
+                    "content": {"emotion": emotion, "dialog": dialog}
+                }
+                for i, (emotion, dialog) in enumerate(zip(sample[0], sample[1]))]
                for sample in zip(samples["emotion"], samples["dialog"])]
 }, remove_columns=["emotion", "dialog"], batched=True, num_proc=16)
+# dataset = dataset.map(lambda samples: {
+#     "prompt": [[{
+#                     "role": "system",
+#                     "content": arguments.system_prompt
+#                 }] + sample
+#                for sample in samples]
+# }, input_columns="prompt", batched=True, num_proc=16)
+dataset = dataset.train_test_split(test_size=0.2)
 
 # Load Tokenizer
 tokenizer = AutoTokenizer.from_pretrained(
@@ -126,7 +146,6 @@ trainer_arguments = TrainingArguments(
     gradient_checkpointing=True,
     gradient_checkpointing_kwargs={"use_reentrant": True},
     auto_find_batch_size=True,
-    use_mps_device=True,
     torch_compile=True)
 wandb.config["trainer_arguments"] = trainer_arguments.to_dict()
 
@@ -146,12 +165,21 @@ base_model = AutoModelForCausalLM.from_pretrained(
 
 def prompt_compose(sample):
     return tokenizer.apply_chat_template(sample["prompt"],
-                                         chat_template=arguments.chat_template,
-                                         add_generation_prompt=True)
+                                         chat_template=chat_template["chat"],
+                                         add_generation_prompt=True,
+                                         padding=True,
+                                         truncation=True,
+                                         max_length=1024,
+                                         return_tensors="pt")
 
 
-data_collator = DataCollatorForCompletionOnlyLM(arguments.response_template,
-                                                instruction_template=arguments.instruction_template,
+wandb.config["example_prompt"] = tokenizer.apply_chat_template(dataset["train"][0]["prompt"],
+                                                               chat_template=chat_template["chat"],
+                                                               add_generation_prompt=True,
+                                                               tokenize=False)
+
+data_collator = DataCollatorForCompletionOnlyLM(chat_template["response"],
+                                                instruction_template=chat_template["instruction"],
                                                 tokenizer=tokenizer)
 
 # Setup Tuner
@@ -160,14 +188,13 @@ tuner = SFTTrainer(
     args=trainer_arguments,
     data_collator=data_collator,
     train_dataset=dataset["train"],
-    eval_dataset=dataset["validation"],
+    eval_dataset=dataset["test"],
     peft_config=lora_config,
-    dataset_text_field="prompt",
+    # dataset_text_field="prompt",
     formatting_func=prompt_compose,
     tokenizer=tokenizer,
     max_seq_length=1024,
-    dataset_num_proc=16,
-    packing=True)
+    dataset_num_proc=16)
 
 tuner.train()
 

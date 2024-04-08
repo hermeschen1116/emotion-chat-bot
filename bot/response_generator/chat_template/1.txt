@@ -1,0 +1,14 @@
+{
+    "chat": """
+            {{ '### history: ' }}
+            {% for message in messages %}
+                {% if not loop.last %}
+                {{ message['role'] + ': ' + message['content']['dialog'] }}
+                {% endif %}
+            {% endfor %}
+            {{ '### emotion: ' + messages[-1]['content']['emotion'] }}
+            {{ '### response: ' + messages[-1]['content']['dialog'] }}
+            """,
+    "instruction": "### history: ",
+    "response": "### response: "
+}
