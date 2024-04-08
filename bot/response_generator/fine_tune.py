@@ -63,7 +63,7 @@ dataset = dataset.map(lambda samples: {
     "prompt": [[{"role": "user" if i % 2 == 0 else "assistant", "emotion": emotion, "dialog": dialog}
                 for i, emotion, dialog in enumerate(zip(sample[0], sample[1]))]
                for sample in zip(samples["emotion"], samples["dialog"])]
-}, batched=True, num_proc=16)
+}, remove_columns=["emotion", "dialog"], batched=True, num_proc=16)
 
 # Load Tokenizer
 tokenizer = AutoTokenizer.from_pretrained(
