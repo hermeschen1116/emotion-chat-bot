@@ -39,7 +39,7 @@ huggingface_hub.login(token=os.environ.get("HF_TOKEN", ""), add_to_git_credentia
 wandb.login(key=os.environ.get("WANDB_API_KEY", ""), relogin=True)
 
 # Initialize Wandb
-wandb_config = {
+wandb_config: dict = {
     "base_model": arguments.base_model,
     "tokenizer": arguments.tokenizer,
     "name_or_path_for_fine_tuned_model": arguments.name_or_path_for_fine_tuned_model,
@@ -70,14 +70,12 @@ dataset = dataset.map(lambda samples: {
     "emotion": [[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples]
 }, input_columns="emotion_id", remove_columns="emotion_id", batched=True, num_proc=16)
 dataset = dataset.map(lambda samples: {
-    "emotion": [sample[:-1] if len(sample) % 2 == 1 else sample for sample in samples]
-}, input_columns="emotion", batched=True, num_proc=16)
-dataset = dataset.map(lambda samples: {
     "dialog": [[dialog.strip() for dialog in sample] for sample in samples]
 }, input_columns="dialog", batched=True, num_proc=16)
 dataset = dataset.map(lambda samples: {
+    "emotion": [sample[:-1] if len(sample) % 2 == 1 else sample for sample in samples],
     "dialog": [sample[:-1] if len(sample) % 2 == 1 else sample for sample in samples]
-}, input_columns="dialog", batched=True, num_proc=16)
+}, batched=True, num_proc=16)
 dataset = dataset.map(lambda samples: {
     "prompt": [[{
                     "role": "user" if i % 2 == 0 else "assistant",
