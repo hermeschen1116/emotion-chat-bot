@@ -18,16 +18,10 @@ from transformers import (AutoModelForCausalLM,
 import wandb
 # from Pipeline import ResponseGeneratorPipeline
 
-# prevent env load failed
-load_dotenv(encoding="utf-8")
-huggingface_hub.login(token=os.environ.get("HF_TOKEN", ""), add_to_git_credential=True)
-wandb.login(key=os.environ.get("WANDB_API_KEY", ""), relogin=True)
-
 # commandline inputs
 parser = argparse.ArgumentParser(prog="Evaluation", description="Evaluation Script For Response Generator")
-parser.add_argument("--base_model", required=True, type=str)
+parser.add_argument("--tokenizer", required=True, type=str)
 parser.add_argument("--fine_tuned_model", required=False, type=str, default="")
-parser.add_argument("--prompt_type", required=False, type=str, default="")
 parser.add_argument("--sentiment_analysis_tokenizer",
                     required=False,
                     type=str,
@@ -37,24 +31,62 @@ parser.add_argument("--sentiment_analysis_model",
                     type=str,
                     default="michellejieli/emotion_text_classifier")
 parser.add_argument("--experiment_detail", required=True, type=str, default="")
-parser.add_argument("--wandb_mode", required=False, type=str, default="online")
+parser.add_argument(
+    "--wandb_mode",
+    required=False,
+    type=str,
+    choices=["online", "offline", "disabled"],
+    default="online"
+)
+parser.add_argument("--enable_flash_attention_2", required=False, type=bool, default=True)
+parser.add_argument(
+    "--system_prompt_mode",
+    required=False,
+    type=str,
+    choices=["default", "custom", "disabled"],
+    default="disabled"
+)
+parser.add_argument("--system_prompt", required=False, type=str, default=None)
+parser.add_argument("--chat_template_file", required=True, type=str, default="")
 
 arguments = parser.parse_args()
-arguments.fine_tuned_model = arguments.base_model if arguments.fine_tuned_model == "" else arguments.fine_tuned_model
+arguments.fine_tuned_model = arguments.tokenizer if arguments.fine_tuned_model == "" else arguments.fine_tuned_model
+if arguments.system_prompt_mode == "disabled":
+    arguments.system_prompt = None
+else:
+    arguments.system_prompt = "" if arguments.system_prompt_mode == "default" else arguments.system_prompt
+chat_template: dict = eval(open(arguments.chat_template_file, "r", encoding="utf-8", closefd=True).read())
 
-print(f"base model: {arguments.base_model}, fine-tuned model: {arguments.fine_tuned_model}")
+# prevent env load failed
+load_dotenv(encoding="utf-8")
+huggingface_hub.login(token=os.environ.get("HF_TOKEN", ""), add_to_git_credential=True)
+wandb.login(key=os.environ.get("WANDB_API_KEY", ""), relogin=True)
+
+print(f"tokenizer: {arguments.tokenizer}, fine-tuned model: {arguments.fine_tuned_model}")
 # Initialize Wandb
-wandb.init(project="emotion-chat-bot-ncu",
-           group="Response Generator",
-           job_type="evaluation",
-           mode=arguments.wandb_mode,
-           config={"base_model": arguments.base_model,
-                   "fine_tuned_model": arguments.fine_tuned_model,
-                   "experiment_detail": arguments.experiment_detail})
+wandb_config: dict = {
+    "tokenizer": arguments.tokenizer,
+    "fine_tuned_model": arguments.fine_tuned_model,
+    "system_prompt": arguments.system_prompt,
+    "chat_template": chat_template["template"],
+    "instruction_template": chat_template["instruction"],
+    "response_template": chat_template["response"],
+    "additional_special_tokens": chat_template["special_tokens"]
+}
+wandb.init(
+    job_type="evaluation",
+    config=wandb_config,
+    project="emotion-chat-bot-ncu",
+    group="Response Generator",
+    notes=arguments.experiment_detail,
+    mode=arguments.wandb_mode
+)
 
 # Load and Process Dataset
-dataset = load_dataset("daily_dialog", split="test", num_proc=16, trust_remote_code=True)
-dataset = dataset.remove_columns("act")
+dataset = load_dataset("daily_dialog",
+                       split="train+validation",
+                       num_proc=16,
+                       trust_remote_code=True).remove_columns("act")
 dataset = dataset.rename_column("emotion", "emotion_id")
 emotion_labels: list = dataset.features["emotion_id"].feature.names
 emotion_labels[0] = "neutral"
@@ -62,62 +94,88 @@ dataset = dataset.map(lambda samples: {
     "emotion": [[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples]
 }, input_columns="emotion_id", remove_columns="emotion_id", batched=True, num_proc=16)
 dataset = dataset.map(lambda samples: {
-    "emotion_history": [sample[:-1] for sample in samples],
-    "emotion_bot": [sample[-1] for sample in samples]
-}, input_columns="emotion", remove_columns="emotion", batched=True, num_proc=16)
-dataset = dataset.map(lambda samples: {
     "dialog": [[dialog.strip() for dialog in sample] for sample in samples]
 }, input_columns="dialog", batched=True, num_proc=16)
 dataset = dataset.map(lambda samples: {
-    "dialog": [sample if len(sample) % 2 == 0 else sample[:-1] for sample in samples]
-}, input_columns="dialog", batched=True, num_proc=16)
+    "emotion": [sample[:-1] if len(sample) % 2 == 1 else sample for sample in samples["emotion"]],
+    "dialog": [sample[:-1] if len(sample) % 2 == 1 else sample for sample in samples["dialog"]]
+}, batched=True, num_proc=16)
+dataset = dataset.map(lambda samples: {
+    "emotion_history": [sample[:-1] for sample in samples],
+    "emotion_bot": [sample[-1] for sample in samples]
+}, input_columns="emotion", remove_columns="emotion", batched=True, num_proc=16)
 dataset = dataset.map(lambda samples: {
     "dialog_history": [sample[:-1] for sample in samples],
     "dialog_bot": [sample[-1] for sample in samples]
 }, input_columns="dialog", remove_columns="dialog", batched=True, num_proc=16)
 test_data = dataset.map(lambda samples: {
-    "prompt": [[{"role": "user" if i % 2 == 0 else "assistant", "content": dialog}
-                for i, dialog in enumerate(sample)] for sample in samples]
-}, input_columns="dialog_history", batched=True, num_proc=16)
+    "prompt": [[{
+        "role": "user" if i % 2 == 0 else "assistant",
+        "content": {"emotion": emotion, "dialog": dialog}
+    }
+        for i, (emotion, dialog) in enumerate(zip(sample[0], sample[1]))]
+        for sample in zip(samples["emotion_history"], samples["dialog_history"])]
+}, batched=True, num_proc=16)
 test_data = test_data.map(lambda sample: {
     "history": "\n".join([f"""{'user' if i % 2 == 0 else 'bot'}({v[0]}): {v[1]}"""
                           for i, v in enumerate(zip(sample["emotion_history"], sample["dialog_history"]))])
 }, remove_columns=["emotion_history", "dialog_history"], num_proc=8)
 
-device_map: str = "auto" if torch.cuda.is_available() else "cpu"
+# Load Tokenizer
+tokenizer = AutoTokenizer.from_pretrained(arguments.base_model, trust_remote_code=True)
+tokenizer.padding_side = "left"
+tokenizer.clean_up_tokenization_spaces = True
+tokenizer.chat_template = chat_template["template"]
+tokenizer.add_special_tokens(chat_template["special_tokens"], replace_additional_special_tokens=True)
+
+
+def prompt_compose(sample: str) -> str:
+    return tokenizer.apply_chat_template(sample,
+                                         tokenize=False,
+                                         padding=True,
+                                         max_length=4096,
+                                         return_tensors="pt"
+                                         )
+
+
+test_data = test_data.map(lambda sample: {
+    "prompt": prompt_compose(sample)
+}, input_columns="prompt", num_proc=16)
+wandb.config["example_prompt"] = test_data[0]["prompt"]
+
 # Load Model
-quantization_config = BitsAndBytesConfig(load_in_4bit=True,
-                                         bnb_4bit_compute_dtype=torch.float16)
+quantization_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_compute_dtype=torch.float16
+)
 quantization_config = quantization_config if torch.cuda.is_available() else None
 wandb.config["quantization_configuration"] = quantization_config.to_dict() if quantization_config is not None else {}
 
-model = AutoModelForCausalLM.from_pretrained(arguments.fine_tuned_model,
-                                             quantization_config=quantization_config,
-                                             attn_implementation="flash_attention_2",
-                                             device_map=device_map,
-                                             low_cpu_mem_usage=True)
+flash_attention: str = "flash_attention_2" if arguments.enable_flash_attention_2 else None
+model = AutoModelForCausalLM.from_pretrained(
+    arguments.base_model,
+    quantization_config=quantization_config,
+    attn_implementation=flash_attention,
+    device_map="auto",
+    low_cpu_mem_usage=True,
+    trust_remote_code=True
+)
+model.resize_token_embeddings(len(tokenizer))
+wandb.config["model_configuration"] = model.config.to_dict()
 model = torch.compile(model)
-
-# Initialize tokenizer
-tokenizer = AutoTokenizer.from_pretrained(arguments.base_model, trust_remote_code=True)
-tokenizer.eos_token = "<eos>" if tokenizer.eos_token is None else tokenizer.eos_token
-tokenizer.pad_token = tokenizer.eos_token if tokenizer.pad_token is None else tokenizer.pad_token
-tokenizer.padding_side = "left"
 
 
 # Generate Response
 device: str = "cuda" if torch.cuda.is_available() else "cpu"
-generation_config = GenerationConfig(max_new_tokens=20,
-                                     min_new_tokens=5,
-                                     repetition_penalty=1.5,
-                                     use_cache=True,
-                                     pad_token_id=tokenizer.pad_token_id,
-                                     eos_token_id=tokenizer.eos_token_id)
+generation_config = GenerationConfig(
+    max_new_tokens=20,
+    min_new_tokens=5,
+    repetition_penalty=1.5,
+    use_cache=True,
+    pad_token_id=tokenizer.pad_token_id,
+    eos_token_id=tokenizer.eos_token_id
+)
 wandb.config["generation_configuration"] = generation_config.to_dict()
-
-wandb.config["prompt example"] = tokenizer.apply_chat_template(test_data[0]["prompt"],
-                                                               add_generation_prompt=True,
-                                                               tokenize=False)
 
 test_response: list = []
 for sample in tqdm(test_data, colour="green"):
@@ -144,7 +202,7 @@ result = test_data.add_column("test_response", test_response).remove_columns("pr
 sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(
     arguments.sentiment_analysis_model,
     quantization_config=quantization_config,
-    device_map=device_map,
+    device_map="auto",
     low_cpu_mem_usage=True)
 # sentiment_analysis_model = torch.compile(sentiment_analysis_model)
 
@@ -154,7 +212,7 @@ sentiment_analysis_tokenizer = AutoTokenizer.from_pretrained(arguments.sentiment
 analyser = pipeline("sentiment-analysis",
                     model=sentiment_analysis_model,
                     tokenizer=sentiment_analysis_tokenizer,
-                    device_map=device_map,
+                    device_map="auto",
                     trust_remote_code=True)
 
 # to prevent "The model 'OptimizedModule' is not supported for sentiment-analysis." problem
