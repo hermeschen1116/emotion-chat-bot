@@ -161,7 +161,6 @@ trainer_arguments = TrainingArguments(
     logging_steps=25,
     save_steps=25,
     save_total_limit=5,
-    jit_mode_eval=True,
     bf16=False,
     fp16=False,
     dataloader_num_workers=16,
