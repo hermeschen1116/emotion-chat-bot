@@ -124,7 +124,7 @@ dataset = dataset.map(lambda sample: {
     "prompt": prompt_compose(sample)
 }, input_columns="prompt", num_proc=16)
 wandb.config["example_prompt"] = dataset[0]["prompt"]
-dataset = dataset.train_test_split(test_size=0.2)
+dataset = dataset.train_test_split(test_size=0.1)
 
 # Configurations
 quantization_config = BitsAndBytesConfig(
@@ -181,7 +181,8 @@ trainer_arguments = TrainingArguments(
     gradient_checkpointing=True,
     gradient_checkpointing_kwargs={"use_reentrant": True},
     auto_find_batch_size=True,
-    torch_compile=False
+    torch_compile=False,
+    resume_from_checkpoint=True
 )
 wandb.config["trainer_arguments"] = trainer_arguments.to_dict()
 
