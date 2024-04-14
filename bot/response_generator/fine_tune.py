@@ -3,8 +3,6 @@ import os
 
 import huggingface_hub
 import torch
-from accelerate import DataLoaderConfiguration
-
 import wandb
 from datasets import load_dataset
 from dotenv import load_dotenv
@@ -27,12 +25,23 @@ parser.add_argument(
 )
 parser.add_argument("--num_epochs", required=False, type=int, default=1)
 parser.add_argument("--enable_flash_attention_2", required=False, type=bool, default=True)
-parser.add_argument("--system_prompt", required=False, type=str, default="")
+parser.add_argument(
+    "--system_prompt_mode",
+    required=False,
+    type=str,
+    choices=["default", "custom", "disabled"],
+    default="disabled"
+)
+parser.add_argument("--system_prompt", required=False, type=str, default=None)
 parser.add_argument("--chat_template_file", required=True, type=str, default="")
 
 arguments = parser.parse_args()
 arguments.tokenizer = arguments.base_model if arguments.tokenizer is None else arguments.tokenizer
-chat_template: dict = eval(open(arguments.chat_template_file, 'r', encoding='utf-8', closefd=True).read())
+if arguments.system_prompt_mode == "disabled":
+    arguments.system_prompt = None
+else:
+    arguments.system_prompt = "" if arguments.system_prompt_mode == "default" else arguments.system_prompt
+chat_template: dict = eval(open(arguments.chat_template_file, "r", encoding="utf-8", closefd=True).read())
 
 load_dotenv(encoding="utf-8")
 huggingface_hub.login(token=os.environ.get("HF_TOKEN", ""), add_to_git_credential=True)
@@ -44,9 +53,10 @@ wandb_config: dict = {
     "tokenizer": arguments.tokenizer,
     "name_or_path_for_fine_tuned_model": arguments.name_or_path_for_fine_tuned_model,
     "system_prompt": arguments.system_prompt,
-    "chat_template": chat_template["chat"],
+    "chat_template": chat_template["template"],
     "instruction_template": chat_template["instruction"],
-    "response_template": chat_template["response"]
+    "response_template": chat_template["response"],
+    "additional_special_tokens": chat_template["special_tokens"]
 }
 wandb.init(
     job_type="fine-tuning",
@@ -60,7 +70,7 @@ wandb.init(
 
 # Load Dataset
 dataset = load_dataset("daily_dialog",
-                       split="train[:1]+validation[:1]",
+                       split="train+validation",
                        num_proc=16,
                        trust_remote_code=True).remove_columns("act")
 dataset = dataset.rename_column("emotion", "emotion_id")
@@ -73,39 +83,34 @@ dataset = dataset.map(lambda samples: {
     "dialog": [[dialog.strip() for dialog in sample] for sample in samples]
 }, input_columns="dialog", batched=True, num_proc=16)
 dataset = dataset.map(lambda samples: {
-    "emotion": [sample[:-1] if len(sample) % 2 == 1 else sample for sample in samples],
-    "dialog": [sample[:-1] if len(sample) % 2 == 1 else sample for sample in samples]
-}, batched=True, num_proc=16)
-dataset = dataset.map(lambda samples: {
     "prompt": [[{
-                    "role": "user" if i % 2 == 0 else "assistant",
-                    # "content": {"emotion": emotion, "dialog": dialog}
-                    "content": dialog
-                }
-                for i, (emotion, dialog) in enumerate(zip(sample[0], sample[1]))]
-               for sample in zip(samples["emotion"], samples["dialog"])]
+        "role": "user" if i % 2 == 0 else "assistant",
+        "content": {"emotion": emotion, "dialog": dialog}
+    }
+        for i, (emotion, dialog) in enumerate(zip(sample[0], sample[1]))]
+        for sample in zip(samples["emotion"], samples["dialog"])]
 }, remove_columns=["emotion", "dialog"], batched=True, num_proc=16)
-# dataset = dataset.map(lambda samples: {
-#     "prompt": [[{
-#                     "role": "system",
-#                     "content": arguments.system_prompt
-#                 }] + sample
-#                for sample in samples]
-# }, input_columns="prompt", batched=True, num_proc=16)
-# dataset = dataset.train_test_split(test_size=0.2)
+dataset = dataset.map(lambda samples: {
+    "prompt": [sample[:-1] if len(sample) % 2 == 1 else sample for sample in samples]
+}, input_columns="prompt", batched=True, num_proc=16)
+if arguments.system_prompt_mode != "disabled":
+    dataset = dataset.map(lambda samples: {
+        "prompt": [[{
+            "role": "system",
+            "content": {"emotion": None, "dialog": arguments.system_prompt}
+        }] + sample for sample in samples]
+    }, input_columns="prompt", batched=True, num_proc=16)
 
 # Load Tokenizer
-tokenizer = AutoTokenizer.from_pretrained(arguments.tokenizer)
-tokenizer.eos_token = "<eos>" if tokenizer.eos_token is None else tokenizer.eos_token
-tokenizer.pad_token = "<pad>" if tokenizer.pad_token is None else tokenizer.pad_token
+tokenizer = AutoTokenizer.from_pretrained(arguments.base_model)
 tokenizer.padding_side = "right"
 tokenizer.clean_up_tokenization_spaces = True
+tokenizer.chat_template = chat_template["template"]
+tokenizer.add_special_tokens(chat_template["special_tokens"], replace_additional_special_tokens=True)
 
 
 def prompt_compose(sample: str) -> str:
     return tokenizer.apply_chat_template(sample,
-                                         # chat_template=chat_template["chat"],
-                                         add_generation_prompt=True,
                                          tokenize=False,
                                          padding=True,
                                          max_length=4096,
@@ -172,7 +177,6 @@ trainer_arguments = TrainingArguments(
 )
 wandb.config["trainer_arguments"] = trainer_arguments.to_dict()
 
-device_map: str = "auto" if torch.cuda.is_available() else "cpu"
 flash_attention: str = "flash_attention_2" if arguments.enable_flash_attention_2 else None
 # Load Model
 base_model = AutoModelForCausalLM.from_pretrained(
@@ -181,10 +185,12 @@ base_model = AutoModelForCausalLM.from_pretrained(
     attn_implementation=flash_attention,
     pretraining_tp=1,
     use_cache=False,
-    device_map=device_map,
+    device_map="auto",
     low_cpu_mem_usage=True,
     trust_remote_code=True
 )
+base_model.resize_token_embeddings(len(tokenizer))
+wandb.config["base_model_configuration"] = base_model.config.to_dict()
 
 data_collator = DataCollatorForCompletionOnlyLM(
     chat_template["response"],
@@ -196,7 +202,7 @@ data_collator = DataCollatorForCompletionOnlyLM(
 tuner = SFTTrainer(
     model=base_model,
     args=trainer_arguments,
-    # data_collator=data_collator,
+    data_collator=data_collator,
     train_dataset=dataset["train"],
     eval_dataset=dataset["test"],
     peft_config=lora_config,
