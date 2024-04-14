@@ -173,7 +173,7 @@ trainer_arguments = TrainingArguments(
     gradient_checkpointing=True,
     gradient_checkpointing_kwargs={"use_reentrant": True},
     auto_find_batch_size=True,
-    torch_compile=True
+    torch_compile=False
 )
 wandb.config["trainer_arguments"] = trainer_arguments.to_dict()
 
