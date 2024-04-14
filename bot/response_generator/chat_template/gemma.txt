@@ -1,0 +1,11 @@
+{
+    "template": "{% for message in messages %}{% set emotion = message['content']['emotion'] %}{% set dialog = message['content']['dialog'] %}{% if message['role'] == 'user' %}{{'<|im_start|>' + message['role'] + '\n[U_EMOTION] ' + emotion + ' [/U_EMOTION] ' + dialog + '<|im_end|>' + '\n'}}{% else %}{{'<|im_start|>' + message['role'] + '\n[C_EMOTION] ' + emotion + ' [/C_EMOTION] ' + dialog + '<|im_end|>' + '\n'}}{% endif %}{% endfor %}",
+    "instruction": "<|im_start|>",
+    "response": "[/C_EMOTION]",
+    "special_tokens": {
+        "bos_token": "<|im_start|>",
+        "eos_token": "<|im_end|>",
+        "pad_token": "<|pad|>",
+        "additional_special_tokens": ["[U_EMOTION]", "[/U_EMOTION]", "[C_EMOTION]", "[/C_EMOTION]"]
+    }
+}
