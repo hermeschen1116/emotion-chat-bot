@@ -3,6 +3,8 @@ import os
 
 import huggingface_hub
 import torch
+from accelerate import DataLoaderConfiguration
+
 import wandb
 from datasets import load_dataset
 from dotenv import load_dotenv
@@ -143,6 +145,13 @@ lora_config = LoraConfig(
 )
 wandb.config["lora_configuration"] = lora_config.to_dict()
 
+dataloader_config = DataLoaderConfiguration(
+    dispatch_batches=None,
+    split_batches=False,
+    even_batches=True,
+    use_seedable_sampler=True
+)
+
 trainer_arguments = TrainingArguments(
     output_dir="./checkpoints",
     overwrite_output_dir=True,
@@ -172,7 +181,8 @@ trainer_arguments = TrainingArguments(
     gradient_checkpointing=True,
     gradient_checkpointing_kwargs={"use_reentrant": True},
     auto_find_batch_size=True,
-    torch_compile=False
+    torch_compile=False,
+    accelerator_config=dataloader_config
 )
 wandb.config["trainer_arguments"] = trainer_arguments.to_dict()
 
