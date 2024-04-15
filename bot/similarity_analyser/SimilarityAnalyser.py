@@ -59,16 +59,18 @@ class SimilarityAnalyser:
         max_similarity: float = torch.max(valid_similarity).unique().item()
 
         mask = self.cache["similarity"] == max_similarity
-        rprs_with_max_similarity_indices: tensor = torch.nonzero(mask)
-        rprs_with_max_similarity: list = self.cache["representations"][rprs_with_max_similarity_indices].squeeze().tolist()
+        representation_with_max_similarity_indices: tensor = torch.nonzero(mask)
+        representations_with_max_similarity: list = (self.cache["representations"][representation_with_max_similarity_indices]
+                                                         .squeeze()
+                                                         .tolist())
 
         return {
-            "representations": rprs_with_max_similarity,
+            "representations": representations_with_max_similarity,
             "similarity": max_similarity
         }
 
-    def get_most_similar_representation_index(self) -> list:
+    def get_most_similar_representation_index(self) -> int:
         max_similarity_value: float = self.get_most_similar_representation()["similarity"]
         mask: tensor = self.cache["similarity"] == max_similarity_value
 
-        return torch.nonzero(mask).squeeze().tolist()
+        return torch.nonzero(mask).squeeze().item()
