@@ -10,7 +10,7 @@ test_data: list = [
     } for _ in range(10000)
 ]
 
-for threshold in tqdm(torch.range(0, 1, 0.01)):
+for threshold in tqdm(torch.range(0.5, 1, 0.01)):
     for sample in tqdm(test_data, colour="green"):
         analyser = SimilarityAnalyser(threshold)
         analyser(sample["representations"], sample["ideal_representation"])
