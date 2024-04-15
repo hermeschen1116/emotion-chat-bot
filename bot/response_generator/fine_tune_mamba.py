@@ -124,7 +124,7 @@ dataset = dataset.map(lambda sample: {
     "prompt": prompt_compose(sample)
 }, input_columns="prompt", num_proc=16)
 wandb.config["example_prompt"] = dataset[0]["prompt"]
-dataset = dataset.train_test_split(test_size=0.1)
+# dataset = dataset.train_test_split(test_size=0.1)
 
 # Configurations
 quantization_config = BitsAndBytesConfig(
@@ -212,8 +212,8 @@ tuner = SFTTrainer(
     model=base_model,
     args=trainer_arguments,
     data_collator=data_collator,
-    train_dataset=dataset["train"],
-    eval_dataset=dataset["test"],
+    train_dataset=dataset,
+    # eval_dataset=dataset["test"],
     peft_config=lora_config,
     dataset_text_field="prompt",
     tokenizer=tokenizer,
