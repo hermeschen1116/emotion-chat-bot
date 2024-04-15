@@ -58,7 +58,7 @@ wandb_config: dict = {
     "chat_template": chat_template["template"],
     "instruction_template": chat_template["instruction"],
     "response_template": chat_template["response"],
-    "additional_special_tokens": chat_template["special_tokens"]
+    "special_tokens": chat_template["special_tokens"]
 }
 wandb.init(
     job_type="fine-tuning",
