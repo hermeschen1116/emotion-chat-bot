@@ -73,7 +73,7 @@ wandb_config: dict = {
     "response_template": chat_template["response"],
     "additional_special_tokens": chat_template["special_tokens"]
 }
-wandb.init(
+run = wandb.init(
     job_type="evaluation",
     config=wandb_config,
     project="emotion-chat-bot-ncu",
@@ -122,7 +122,7 @@ test_data = test_data.map(lambda sample: {
 }, remove_columns=["emotion_history", "dialog_history"], num_proc=8)
 
 # Load Tokenizer
-tokenizer = AutoTokenizer.from_pretrained(arguments.base_model, trust_remote_code=True)
+tokenizer = AutoTokenizer.from_pretrained(arguments.tokenizer, trust_remote_code=True)
 tokenizer.padding_side = "left"
 tokenizer.clean_up_tokenization_spaces = True
 tokenizer.chat_template = chat_template["template"]
@@ -153,7 +153,7 @@ wandb.config["quantization_configuration"] = quantization_config.to_dict() if qu
 
 flash_attention: str = "flash_attention_2" if arguments.enable_flash_attention_2 else None
 model = AutoModelForCausalLM.from_pretrained(
-    arguments.base_model,
+    run.use_model(arguments.fine_tuned_model),
     quantization_config=quantization_config,
     attn_implementation=flash_attention,
     device_map="auto",
