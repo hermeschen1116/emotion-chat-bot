@@ -72,7 +72,7 @@ wandb.init(
 
 # Load Dataset
 dataset = load_dataset("daily_dialog",
-                       split="train+validation",
+                       split="train",
                        num_proc=16,
                        trust_remote_code=True).remove_columns("act")
 dataset = dataset.rename_column("emotion", "emotion_id")
@@ -154,12 +154,12 @@ wandb.config["lora_configuration"] = lora_config.to_dict()
 trainer_arguments = TrainingArguments(
     output_dir="./checkpoints",
     overwrite_output_dir=True,
-    evaluation_strategy="steps",
+    # evaluation_strategy="steps",
     per_device_train_batch_size=4,
-    per_device_eval_batch_size=4,
+    # per_device_eval_batch_size=4,
     gradient_accumulation_steps=1,
-    eval_accumulation_steps=1,
-    eval_delay=0.5,
+    # eval_accumulation_steps=1,
+    # eval_delay=0.5,
     learning_rate=2e-4,
     weight_decay=0.001,
     max_grad_norm=0.3,
@@ -169,12 +169,12 @@ trainer_arguments = TrainingArguments(
     max_steps=-1,
     logging_steps=25,
     save_steps=25,
-    save_total_limit=5,
+    # save_total_limit=5,
     bf16=False,
     fp16=False,
     dataloader_num_workers=16,
-    load_best_model_at_end=True,
-    metric_for_best_model="loss",
+    # load_best_model_at_end=True,
+    # metric_for_best_model="loss",
     optim="paged_adamw_32bit",
     group_by_length=True,
     report_to=["wandb"],
@@ -222,5 +222,9 @@ tuner = SFTTrainer(
 )
 
 tuner.train()
+
+tuner.model = torch.compile(tuner.model)
+tuner.save_model("./model")
+wandb.save("./model")
 
 wandb.finish()
