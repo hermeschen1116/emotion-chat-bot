@@ -159,6 +159,7 @@ trainer_arguments = TrainingArguments(
     per_device_eval_batch_size=4,
     gradient_accumulation_steps=1,
     eval_accumulation_steps=1,
+    eval_delay=500,
     learning_rate=2e-4,
     weight_decay=0.001,
     max_grad_norm=0.3,
