@@ -33,8 +33,6 @@ for threshold in tqdm(torch.range(0, 1, 0.01)):
         try:
             analyser.get_most_similar_representation_index()
         except Exception as e:
-            wandb.log({
-                "problem": "collision"
-            })
+            wandb.log({"collision": "True"})
 
     wandb.finish()
