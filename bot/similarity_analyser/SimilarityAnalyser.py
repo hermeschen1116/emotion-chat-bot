@@ -25,6 +25,7 @@ class SimilarityAnalyser:
         self.device: str = device
         self.cache: dict = {}
 
+    @torch.compile()
     def __call__(self,
                  representations: Union[list[tensor], tensor],
                  ideal_representation: tensor,
@@ -52,6 +53,7 @@ class SimilarityAnalyser:
 
         return self.cache["similarity"]
 
+    @torch.compile()
     def get_most_similar_representation(self) -> dict[tensor, float]:
         mask: tensor = self.cache["similarity"] <= self.threshold
         valid_similarity_indices: tensor = torch.nonzero(mask)
@@ -69,6 +71,7 @@ class SimilarityAnalyser:
             "similarity": max_similarity
         }
 
+    @torch.compile()
     def get_most_similar_representation_index(self) -> int:
         max_similarity_value: float = self.get_most_similar_representation()["similarity"]
         mask: tensor = self.cache["similarity"] == max_similarity_value
