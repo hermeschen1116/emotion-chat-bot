@@ -1,14 +1,7 @@
-import os
-
-import wandb
-from dotenv import load_dotenv
 import torch
 from tqdm.auto import tqdm
-from SimilarityAnalyser import SimilarityAnalyser
 
-# prevent env load failed
-load_dotenv(encoding="utf-8")
-wandb.login(key=os.environ.get("WANDB_API_KEY", ""), relogin=True)
+from SimilarityAnalyser import SimilarityAnalyser
 
 test_data: list = [
     {
@@ -18,21 +11,7 @@ test_data: list = [
 ]
 
 for threshold in tqdm(torch.range(0, 1, 0.01)):
-    wandb.init(project="emotion-chat-bot-ncu",
-               group="Similarity Analysis",
-               job_type="test",
-               notes="test the best threshold and if there's collision in similarity",
-               config={
-                   "threshold": threshold,
-                   "num_samples": 10000
-               })
     for sample in tqdm(test_data, colour="green"):
         analyser = SimilarityAnalyser(threshold)
         analyser(sample["representations"], sample["ideal_representation"])
-
-        try:
-            analyser.get_most_similar_representation_index()
-        except Exception as e:
-            wandb.log({"collision": "True"})
-
-    wandb.finish()
+        print(analyser.get_most_similar_representation_index())
