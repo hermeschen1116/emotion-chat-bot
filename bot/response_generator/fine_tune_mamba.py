@@ -3,7 +3,6 @@ import os
 
 import huggingface_hub
 import torch
-from accelerate import DataLoaderConfiguration
 
 import wandb
 from datasets import load_dataset
@@ -13,6 +12,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from transformers.utils.hub import move_cache
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 
+move_cache()
 # commandline inputs
 parser = argparse.ArgumentParser(prog="Fine-Tuning", description="Fine-Tuning Script For Response Generator")
 parser.add_argument("--base_model", required=True, type=str)
