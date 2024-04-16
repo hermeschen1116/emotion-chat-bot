@@ -31,24 +31,9 @@ class SimilarityAnalyser:
         return self.__threshold
 
     @threshold.setter
-    def threshold(self, new_threshold: Annotated[float, ValueRange(0, 1)]) -> None:
+    def threshold(self, new_threshold: Annotated[float, ValueRange(0, 1)]) -> tensor:
         self.__threshold = ValueRange(0, 1).validate(new_threshold)
-
-    @property
-    def dtype(self) -> Any:
-        return self.__dtype
-
-    @dtype.setter
-    def dtype(self, new_dtype: Any) -> None:
-        self.__dtype = new_dtype
-
-    @property
-    def device(self) -> str:
-        return self.__device
-
-    @device.setter
-    def device(self, new_device: str) -> None:
-        self.__device = new_device
+        self.__call__(self.__cached_representations, self.__cached_ideal_representation)
 
     def __calculate_ratio_of_length_of_representation(self) -> tensor:
         length_of_representations: tensor = torch.norm(self.__cached_representations, dim=1)
@@ -59,8 +44,7 @@ class SimilarityAnalyser:
     def __call__(
             self,
             representations: Union[list[tensor], tensor],
-            ideal_representation: tensor,
-            eps: Optional[float] = 1e-08
+            ideal_representation: tensor
     ) -> tensor:
 
         self.__cached_representations = (
@@ -72,8 +56,7 @@ class SimilarityAnalyser:
             ideal_representation.clone().detach().to(dtype=self.__dtype, device=self.__device))
 
         cosine_similarity: tensor = torch.cosine_similarity(self.__cached_representations,
-                                                            self.__cached_ideal_representation,
-                                                            eps=eps)
+                                                            self.__cached_ideal_representation)
         ratio_of_representations: tensor = self.__calculate_ratio_of_length_of_representation()
         self.__cached_similarity = cosine_similarity * ratio_of_representations
 
@@ -92,7 +75,7 @@ class SimilarityAnalyser:
                                                                                  lambda x: x <= self.__threshold)
         valid_similarity: tensor = self.__cached_similarity[valid_similarity_indices]
 
-        return torch.max(valid_similarity).unique().item()
+        return torch.max(valid_similarity).unique().item() if len(valid_similarity) != 0 else 0
 
     def get_representation_with_max_similarity(self, max_similarity: float) -> list:
         representation_with_max_similarity_indices: tensor = (
