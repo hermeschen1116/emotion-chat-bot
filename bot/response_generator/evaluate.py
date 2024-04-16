@@ -14,6 +14,7 @@ from transformers import (AutoModelForCausalLM,
                           BitsAndBytesConfig,
                           GenerationConfig,
                           pipeline)
+from transformers.utils.hub import move_cache
 
 import wandb
 # from Pipeline import ResponseGeneratorPipeline
@@ -79,7 +80,8 @@ run = wandb.init(
     project="emotion-chat-bot-ncu",
     group="Response Generator",
     notes=arguments.experiment_detail,
-    mode=arguments.wandb_mode
+    mode=arguments.wandb_mode,
+    allow_val_change=True
 )
 
 # Load and Process Dataset

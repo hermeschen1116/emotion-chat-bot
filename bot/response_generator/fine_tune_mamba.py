@@ -10,6 +10,7 @@ from datasets import load_dataset
 from dotenv import load_dotenv
 from peft import LoraConfig
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, TrainingArguments
+from transformers.utils.hub import move_cache
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 
 # commandline inputs
@@ -67,7 +68,8 @@ wandb.init(
     group="Response Generator",
     notes=arguments.experiment_detail,
     mode=arguments.wandb_mode,
-    resume="auto"
+    resume="auto",
+    allow_val_change=True
 )
 
 # Load Dataset
