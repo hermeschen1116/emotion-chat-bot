@@ -58,7 +58,7 @@ class SimilarityAnalyser:
         cosine_similarity: tensor = torch.cosine_similarity(self.__cached_representations,
                                                             self.__cached_ideal_representation)
         ratio_of_representations: tensor = self.__calculate_ratio_of_length_of_representation()
-        self.__cached_similarity = cosine_similarity * ratio_of_representations
+        self.__cached_similarity = torch.clamp(cosine_similarity * ratio_of_representations, 0, 1)
 
         return self.__cached_similarity
 
