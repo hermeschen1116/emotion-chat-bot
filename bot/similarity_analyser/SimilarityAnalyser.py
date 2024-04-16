@@ -73,9 +73,11 @@ class SimilarityAnalyser:
     def get_max_similarity(self) -> float:
         valid_similarity_indices: tensor = self.__get_indices_of_filtered_tensor(self.__cached_similarity,
                                                                                  lambda x: x <= self.__threshold)
-        valid_similarity: tensor = self.__cached_similarity[valid_similarity_indices]
+        if len(valid_similarity_indices) == 0:
+            return 0
 
-        return torch.max(valid_similarity).unique().item() if len(valid_similarity) != 0 else 0
+        valid_similarity: tensor = self.__cached_similarity[valid_similarity_indices]
+        return torch.max(valid_similarity).unique().item()
 
     def get_representation_with_max_similarity(self, max_similarity: float) -> list:
         representation_with_max_similarity_indices: tensor = (
