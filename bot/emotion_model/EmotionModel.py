@@ -5,15 +5,16 @@ import torch
 from attention.DotProductAttention import DotProductAttention
 
 
-class EmotionModel:
+class EmotionModel(torch.nn.Module):
     def __init__(self,
                  dropout: Optional[float] = 0.5,
                  scaler: Optional[float] = None,
                  bias: Optional[bool] = True,
                  dtype: Optional[Any] = torch.float32,
                  device: Optional[str] = "cpu") -> None:
+        super(EmotionModel, self).__init__()
 
-        self.__model = DotProductAttention(dropout=dropout, dtype=dtype, device=device)
+        self.__model = DotProductAttention(dtype=dtype, device=device)
 
         self.__dtype: Any = dtype
         self.__device: str = device
