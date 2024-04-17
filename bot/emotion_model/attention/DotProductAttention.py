@@ -5,7 +5,6 @@ import torch
 
 class DotProductAttention(torch.nn.Module):
     def __init__(self,
-                 dropout: Optional[float] = None,
                  dtype: Optional[Any] = torch.float32,
                  device: Optional[str] = "cpu") -> None:
         super(DotProductAttention, self).__init__()
