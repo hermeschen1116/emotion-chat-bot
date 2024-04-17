@@ -2,11 +2,12 @@ from typing import Any, Optional
 
 import torch
 
-from attention.DotProductAttention import DotProductAttention
+from Attention import *
 
 
 class EmotionModel(torch.nn.Module):
     def __init__(self,
+                 attention: str,
                  dropout: Optional[float] = 0.5,
                  scaler: Optional[float] = None,
                  bias: Optional[bool] = True,
@@ -14,7 +15,15 @@ class EmotionModel(torch.nn.Module):
                  device: Optional[str] = "cpu") -> None:
         super(EmotionModel, self).__init__()
 
-        self.__model = DotProductAttention(dtype=dtype, device=device)
+        match attention:
+            case "dot_product":
+                self.__model = DotProductAttention(dtype=dtype, device=device)
+            case "scaled_dot_product":
+                self.__model = ScaledDotProductAttention(dropout, scaler, dtype=dtype, device=device)
+            case "additive":
+                self.__model = AdditiveAttention(dropout, dtype=dtype, device=device)
+            case "dual_linear":
+                self.__model = DualLinearAttention(dropout, dtype=dtype, device=device)
 
         self.__dtype: Any = dtype
         self.__device: str = device
@@ -22,7 +31,7 @@ class EmotionModel(torch.nn.Module):
         self.__weight = torch.nn.LazyLinear(7, bias=bias, device=device, dtype=dtype)
 
     def forward(self, representation: torch.tensor, input_emotion: torch.tensor) -> torch.tensor:
-        attention_score: torch.tensor = (self.__model.forward(input_emotion, representation)
+        attention_score: torch.tensor = (self.__model.forward(input_emotion, representation.diag())
                                              .to(dtype=self.__dtype, device=self.__device))
 
         new_representation: torch.tensor = torch.clamp(self.__weight(attention_score), -1, 1)
