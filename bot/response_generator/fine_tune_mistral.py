@@ -139,8 +139,9 @@ quantization_config = quantization_config if torch.cuda.is_available() else None
 wandb.config["quantization_configuration"] = quantization_config.to_dict() if quantization_config is not None else {}
 
 lora_config = LoraConfig(
+    lora_alpha=16,
+    lora_dropout=0.1,
     r=8,
-    target_modules=["x_proj", "embeddings", "in_proj", "out_proj"],
     bias="none",
     task_type="CAUSAL_LM"
 )
@@ -195,7 +196,6 @@ base_model = AutoModelForCausalLM.from_pretrained(
     arguments.base_model,
     quantization_config=quantization_config,
     attn_implementation=flash_attention,
-    pretraining_tp=1,
     use_cache=False,
     device_map="auto",
     low_cpu_mem_usage=True,
