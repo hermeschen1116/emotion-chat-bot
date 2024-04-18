@@ -3,9 +3,8 @@ import os
 
 import huggingface_hub
 import torch
-
 import wandb
-from datasets import load_dataset
+from datasets import load_from_disk
 from dotenv import load_dotenv
 from peft import LoraConfig
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, TrainingArguments
@@ -61,7 +60,7 @@ wandb_config: dict = {
     "response_template": chat_template["response"],
     "special_tokens": chat_template["special_tokens"]
 }
-wandb.init(
+run = wandb.init(
     job_type="fine-tuning",
     config=wandb_config,
     project="emotion-chat-bot-ncu",
@@ -73,37 +72,8 @@ wandb.init(
 )
 
 # Load Dataset
-dataset = load_dataset("daily_dialog",
-                       split="train",
-                       num_proc=16,
-                       trust_remote_code=True).remove_columns("act")
-dataset = dataset.rename_column("emotion", "emotion_id")
-emotion_labels: list = dataset.features["emotion_id"].feature.names
-emotion_labels[0] = "neutral"
-dataset = dataset.map(lambda samples: {
-    "emotion": [[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples]
-}, input_columns="emotion_id", remove_columns="emotion_id", batched=True, num_proc=16)
-dataset = dataset.map(lambda samples: {
-    "dialog": [[dialog.strip() for dialog in sample] for sample in samples]
-}, input_columns="dialog", batched=True, num_proc=16)
-dataset = dataset.map(lambda samples: {
-    "prompt": [[{
-        "role": "user" if i % 2 == 0 else "assistant",
-        "content": {"emotion": emotion, "dialog": dialog}
-    }
-        for i, (emotion, dialog) in enumerate(zip(sample[0], sample[1]))]
-        for sample in zip(samples["emotion"], samples["dialog"])]
-}, remove_columns=["emotion", "dialog"], batched=True, num_proc=16)
-dataset = dataset.map(lambda samples: {
-    "prompt": [sample[:-1] if len(sample) % 2 == 1 else sample for sample in samples]
-}, input_columns="prompt", batched=True, num_proc=16)
-if arguments.system_prompt_mode != "disabled":
-    dataset = dataset.map(lambda samples: {
-        "prompt": [[{
-            "role": "system",
-            "content": {"emotion": None, "dialog": arguments.system_prompt}
-        }] + sample for sample in samples]
-    }, input_columns="prompt", batched=True, num_proc=16)
+dataset_path = run.use_artifact("daily_dialog_for_RG_train:latest").download()
+dataset = load_from_disk(dataset_path)
 
 # Load Tokenizer
 tokenizer = AutoTokenizer.from_pretrained(arguments.base_model)

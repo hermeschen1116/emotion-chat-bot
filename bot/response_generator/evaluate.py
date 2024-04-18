@@ -3,7 +3,7 @@ import os
 
 import huggingface_hub
 import torch
-from datasets import load_dataset
+from datasets import load_from_disk
 from dotenv import load_dotenv
 from torcheval.metrics.functional import (multiclass_accuracy,
                                           multiclass_f1_score)
@@ -14,9 +14,9 @@ from transformers import (AutoModelForCausalLM,
                           BitsAndBytesConfig,
                           GenerationConfig,
                           pipeline)
-from transformers.utils.hub import move_cache
 
 import wandb
+
 # from Pipeline import ResponseGeneratorPipeline
 
 # commandline inputs
@@ -85,43 +85,8 @@ run = wandb.init(
 )
 
 # Load and Process Dataset
-dataset = load_dataset("daily_dialog",
-                       split="train+validation",
-                       num_proc=16,
-                       trust_remote_code=True).remove_columns("act")
-dataset = dataset.rename_column("emotion", "emotion_id")
-emotion_labels: list = dataset.features["emotion_id"].feature.names
-emotion_labels[0] = "neutral"
-dataset = dataset.map(lambda samples: {
-    "emotion": [[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples]
-}, input_columns="emotion_id", remove_columns="emotion_id", batched=True, num_proc=16)
-dataset = dataset.map(lambda samples: {
-    "dialog": [[dialog.strip() for dialog in sample] for sample in samples]
-}, input_columns="dialog", batched=True, num_proc=16)
-dataset = dataset.map(lambda samples: {
-    "emotion": [sample[:-1] if len(sample) % 2 == 1 else sample for sample in samples["emotion"]],
-    "dialog": [sample[:-1] if len(sample) % 2 == 1 else sample for sample in samples["dialog"]]
-}, batched=True, num_proc=16)
-dataset = dataset.map(lambda samples: {
-    "emotion_history": [sample[:-1] for sample in samples],
-    "emotion_bot": [sample[-1] for sample in samples]
-}, input_columns="emotion", remove_columns="emotion", batched=True, num_proc=16)
-dataset = dataset.map(lambda samples: {
-    "dialog_history": [sample[:-1] for sample in samples],
-    "dialog_bot": [sample[-1] for sample in samples]
-}, input_columns="dialog", remove_columns="dialog", batched=True, num_proc=16)
-test_data = dataset.map(lambda samples: {
-    "prompt": [[{
-        "role": "user" if i % 2 == 0 else "assistant",
-        "content": {"emotion": emotion, "dialog": dialog}
-    }
-        for i, (emotion, dialog) in enumerate(zip(sample[0], sample[1]))]
-        for sample in zip(samples["emotion_history"], samples["dialog_history"])]
-}, batched=True, num_proc=16)
-test_data = test_data.map(lambda sample: {
-    "history": "\n".join([f"""{'user' if i % 2 == 0 else 'bot'}({v[0]}): {v[1]}"""
-                          for i, v in enumerate(zip(sample["emotion_history"], sample["dialog_history"]))])
-}, remove_columns=["emotion_history", "dialog_history"], num_proc=8)
+dataset_path = run.use_artifact("daily_dialog_for_RG_test:latest").download()
+dataset = load_from_disk(dataset_path)
 
 # Load Tokenizer
 tokenizer = AutoTokenizer.from_pretrained(arguments.tokenizer, trust_remote_code=True)
@@ -140,7 +105,7 @@ def prompt_compose(sample: str) -> str:
                                          )
 
 
-test_data = test_data.map(lambda sample: {
+test_data = dataset.map(lambda sample: {
     "prompt": prompt_compose(sample)
 }, input_columns="prompt", num_proc=16)
 wandb.config["example_prompt"] = test_data[0]["prompt"]
@@ -229,6 +194,7 @@ result = result.map(lambda sample: {
 }, input_columns="test_response_sentiment", num_proc=16)
 
 # Metrics
+emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
 emotion_label_to_id: dict = {label: index for index, label in enumerate(emotion_labels)}
 
 sentiment_true = result.map(lambda sample: {
