@@ -11,7 +11,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig
 from transformers.utils.hub import move_cache
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 
-from config import WanDBArguments, TrainerArguments
+from libs.Config import WanDBArguments, TrainerArguments
 
 move_cache()
 

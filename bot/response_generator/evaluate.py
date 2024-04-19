@@ -16,7 +16,7 @@ from transformers import (AutoModelForCausalLM,
                           GenerationConfig,
                           pipeline, HfArgumentParser)
 
-from config import WanDBArguments
+from libs.Config import WanDBArguments
 
 
 # from Pipeline import ResponseGeneratorPipeline

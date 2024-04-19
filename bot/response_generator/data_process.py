@@ -8,7 +8,7 @@ from datasets import load_dataset
 from dotenv import load_dotenv
 from transformers import HfArgumentParser
 
-from config import WanDBArguments
+from libs.Config import WanDBArguments
 
 
 @dataclass
