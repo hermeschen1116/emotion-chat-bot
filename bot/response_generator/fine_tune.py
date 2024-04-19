@@ -24,6 +24,8 @@ class ScriptArguments:
     wandb_api_token: str = ""
     chat_template_file: str = None
     pretraining_tp: int = None
+    name_for_fine_tuned_model: str = ""
+    description_for_fine_tuned_model: str = ""
     path_for_fine_tuned_model: str = "./model"
 
 
@@ -162,6 +164,13 @@ tuner.train()
 
 tuner.model = torch.compile(tuner.model)
 tuner.save_model(args.path_for_fine_tuned_model)
-wandb.save(args.path_for_fine_tuned_model)
+model_artifact = wandb.Artifact(
+    args.name_for_fine_tuned_model,
+    type="model",
+    description=args.description_for_fine_tuned_model,
+    incremental=True
+)
+model_artifact.add_dir(args.path_for_fine_tuned_model)
+run.log_artifact(model_artifact)
 
 wandb.finish()
