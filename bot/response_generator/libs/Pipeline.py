@@ -1,5 +1,6 @@
 from transformers import Pipeline
 
+
 class ResponseGeneratorPipeline(Pipeline):
     def _sanitize_parameters(self, **kwargs):
         preprocess_arguments: dict = {}
