@@ -1,34 +1,37 @@
-import argparse
 import os
 import shutil
+from dataclasses import dataclass
 
 import huggingface_hub
 import wandb
 from datasets import load_dataset
 from dotenv import load_dotenv
+from transformers import HfArgumentParser
 
-parser = argparse.ArgumentParser(prog="Evaluation", description="Evaluation Script For Response Generator")
-parser.add_argument("--dataset_path", required=True, type=str, default="./dataset")
-parser.add_argument("--note", required=False, type=str, default="")
-parser.add_argument("--wandb_mode",
-                    required=False,
-                    type=str,
-                    choices=["online", "offline", "disabled"],
-                    default="online")
-arguments = parser.parse_args()
+from config import WanDBArguments
+
+
+@dataclass
+class ScriptArguments:
+    dataset_path: str = None
+
+
+parser = HfArgumentParser((ScriptArguments, WanDBArguments))
+args, wandb_args = parser.parse_args_into_dataclasses()
 
 load_dotenv(encoding="utf-8")
 huggingface_hub.login(token=os.environ.get("HF_TOKEN", ""), add_to_git_credential=True)
 wandb.login(key=os.environ.get("WANDB_API_KEY", ""), relogin=True)
 
-run = wandb.init(
-    job_type="dataset",
-    project="emotion-chat-bot-ncu",
-    group="Response Generator",
-    notes=arguments.note,
-    mode=arguments.wandb_mode,
-    resume="auto"
-)
+run = wandb.init(wandb_args)
+# run = wandb.init(
+#     job_type="dataset",
+#     project="emotion-chat-bot-ncu",
+#     group="Response Generator",
+#     notes=arguments.note,
+#     mode=arguments.wandb_mode,
+#     resume="auto"
+# )
 
 dataset = load_dataset("daily_dialog",
                        num_proc=16,
@@ -91,8 +94,8 @@ test_dataset_artifact = wandb.Artifact(
     incremental=True
 )
 
-dataset["test"].save_to_disk(f"{arguments.dataset_path}_test", num_proc=16)
-test_dataset_artifact.add_dir(f"{arguments.dataset_path}_test")
+dataset["test"].save_to_disk(f"{args.dataset_path}_test", num_proc=16)
+test_dataset_artifact.add_dir(f"{args.dataset_path}_test")
 
 run.log_artifact(test_dataset_artifact)
 
@@ -104,14 +107,14 @@ dataset_artifact = wandb.Artifact(
     incremental=True
 )
 
-dataset["train"].save_to_disk(f"{arguments.dataset_path}_train", num_proc=16)
-dataset_artifact.add_dir(f"{arguments.dataset_path}_train")
+dataset["train"].save_to_disk(f"{args.dataset_path}_train", num_proc=16)
+dataset_artifact.add_dir(f"{args.dataset_path}_train")
 
 run.log_artifact(dataset_artifact)
 
 wandb.finish()
 
-if os.path.exists(f"{arguments.dataset_path}_train"):
-    shutil.rmtree(f"{arguments.dataset_path}_train", ignore_errors=True)
-if os.path.exists(f"{arguments.dataset_path}_test"):
-    shutil.rmtree(f"{arguments.dataset_path}_test", ignore_errors=True)
+if os.path.exists(f"{args.dataset_path}_train"):
+    shutil.rmtree(f"{args.dataset_path}_train", ignore_errors=True)
+if os.path.exists(f"{args.dataset_path}_test"):
+    shutil.rmtree(f"{args.dataset_path}_test", ignore_errors=True)
