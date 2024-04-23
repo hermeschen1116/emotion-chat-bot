@@ -30,7 +30,7 @@ class EmotionModel(torch.nn.Module):
 
     def forward(self, representation: torch.tensor, input_emotion: torch.tensor) -> torch.tensor:
         output: torch.tensor = (self.__model.forward(input_emotion, representation.diag())
-                                             .to(dtype=self.__dtype, device=self.__device))
+                                .to(dtype=self.__dtype, device=self.__device))
 
         attention_score: torch.tensor = torch.softmax(torch.sum(output, dim=1, dtype=self.__dtype),
                                                       dim=0, dtype=self.__dtype)
