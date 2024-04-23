@@ -106,7 +106,7 @@ for sample in tqdm(eval_dataset, colour="blue"):
         "current_representation": [],
         "input_emotion_composition": [],
         "output_representation": [],
-        "predict_emotion": [],
+        "most_possible_emotion": [],
         "true_emotion": []}
     for i, dialog in enumerate(sample["dialog"][:-1]):
         turn_result["current_representation"].append(initial_representation)
@@ -114,7 +114,7 @@ for sample in tqdm(eval_dataset, colour="blue"):
         turn_result["input_emotion_composition"].append(emotion_composition)
         new_representation: torch.tensor = model.forward(initial_representation, emotion_composition)
         turn_result["output_representation"].append(new_representation)
-        turn_result["predict_emotion"].append(torch.argmax(new_representation))
+        turn_result["most_possible_emotion"].append(torch.argmax(new_representation))
         turn_result["true_emotion"].append(sample["emotion_history"][i + 1])
         initial_representation = new_representation
     for k, v in turn_result:
@@ -124,7 +124,7 @@ result = eval_dataset.remove_columns(["initial_representation", "emotion_history
 for k, v in evaluation_result:
     result = result.add_column(k, v)
 
-emotion_pred: torch.tensor = torch.tensor([emotion for batch in evaluation_result for emotion in batch["predict_emotion"]])
+emotion_pred: torch.tensor = torch.tensor([emotion for batch in evaluation_result for emotion in batch["most_possible_emotion"]])
 emotion_true: torch.tensor = torch.tensor([emotion for batch in evaluation_result for emotion in batch["true_emotion"]])
 
 wandb.log({
@@ -134,8 +134,8 @@ wandb.log({
 
 emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
 result = result.map(lambda samples: {
-    "predict_emotion": [[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples]
-}, input_columns="predict_emotion", batched=True, num_proc=16)
+    "most_possible_emotion": [[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples]
+}, input_columns="most_possible_emotion", batched=True, num_proc=16)
 result = result.map(lambda samples: {
     "true_emotion": [[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples]
 }, input_columns="ture_emotion", batched=True, num_proc=16)
