@@ -5,140 +5,83 @@ from typing import Any
 import huggingface_hub
 import torch
 import wandb
-from datasets import load_dataset
+from datasets import load_from_disk
 from dotenv import load_dotenv
-from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
-from tqdm.auto import tqdm
+from torcheval.metrics.functional import multiclass_f1_score, multiclass_accuracy
 from transformers import (
-    AutoModelForSequenceClassification,
-    AutoTokenizer,
-    BitsAndBytesConfig,
-    pipeline, HfArgumentParser
+    HfArgumentParser
 )
 
-from EmotionModel import EmotionModel
-from libs.Config import WanDBArguments
+from bot.emotion_model.libs.EmotionModel import EmotionModel
+from libs.CommonConfig import CommonWanDBArguments, CommonScriptArguments
 
 
 @dataclass
-class ScriptArgument:
+class ScriptArguments(CommonScriptArguments):
     dtype: Any
     device: str
-    huggingface_api_token: str = ""
-    wandb_api_token: str = ""
 
 
-parser = HfArgumentParser((ScriptArgument, WanDBArguments, BitsAndBytesConfig))
-args, wandb_args, quantization_config = parser.parse_args()
+parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
+args, wandb_args, remain_args = parser.parse_args()
 
 load_dotenv(encoding="utf-8")
 huggingface_hub.login(token=os.environ.get("HF_TOKEN", args.huggingface_api_token), add_to_git_credential=True)
 wandb.login(key=os.environ.get("WANDB_API_KEY", args.wandb_api_token), relogin=True)
 
 # Initialize Wandb
-run = wandb.init(wandb_args)
+run = wandb.init(
+    job_type=wandb_args.job_type,
+    config=wandb_args.config,
+    project=wandb_args.project,
+    group=wandb_args.group,
+    notes=wandb_args.notes,
+    mode=wandb_args.mode,
+    resume=wandb_args.resume
+)
 
-dataset = load_dataset("daily_dialog", split="test", num_proc=16, trust_remote_code=True).remove_columns(["act"])
-dataset = dataset.map(lambda samples: {
-    "dialog": [[dialog.strip() for dialog in sample] for sample in samples]
-}, input_columns="dialog", batched=True, num_proc=16)
-dataset = dataset.map(lambda samples: {
-    "dialog": [sample[:-1] if len(sample) % 2 == 0 else sample for sample in samples["dialog"]],
-    "emotion": [sample[:-1] if len(sample) % 2 == 0 else sample for sample in samples["emotion"]]
-}, batched=True, num_proc=16)
-
-
-def generate_dummy_representation(target_emotion: int) -> torch.tensor:
-    while True:
-        dummy = torch.clamp(torch.rand(7, dtype=args.dtype), -1, 1)
-        if torch.argmax(dummy) == target_emotion:
-            return dummy
-
-
-eval_dataset = dataset.map(lambda samples: {
-    "initial_representation": [generate_dummy_representation(sample[0]) for sample in samples],
-    "emotion_history": [sample[1:] for sample in samples]
-}, input_columns="emotion", remove_columns="emotion", batched=True, num_proc=16)
+dataset_path = run.use_artifact("daily_dialog_for_RG_train:latest").download()
+eval_dataset = load_from_disk(dataset_path)["test"]
 
 model = EmotionModel(wandb_args.config["attention_type"], dtype=args.dtype, device=args.device)
 
-# quantization_config = BitsAndBytesConfig(
-#     load_in_4bit=True,
-#     bnb_4bit_compute_dtype=torch.float16
-# )
-quantization_config = None if not torch.cuda.is_available() else quantization_config
-sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(
-    wandb_args.config["sentiment_analysis_model"],
-    quantization_config=quantization_config,
-    attn_implementation="flash_attention_2",
-    device_map="auto",
-    low_cpu_mem_usage=True)
 
-sentiment_analysis_tokenizer = AutoTokenizer.from_pretrained(
-    wandb_args.config["sentiment_analysis_tokenizer"],
-    trust_remote_code=True)
+def representation_evolution(representation_src: list, emotion_compositions: list) -> list:
+    representation: list = representation_src
+    for composition in emotion_compositions:
+        new_representation: torch.tensor = model.forward(representation[-1], composition)
+        representation.append(new_representation)
 
-analyser = pipeline(
-    "sentiment-analysis",
-    model=sentiment_analysis_model,
-    tokenizer=sentiment_analysis_tokenizer,
-    top_k=0,
-    device_map="auto",
-    trust_remote_code=True)
-
-sentiment_analysis_model = torch.compile(sentiment_analysis_model)
+    return representation
 
 
-def get_sentiment_composition(text: str) -> torch.tensor:
-    return torch.softmax(torch.tensor([result["score"] for result in analyser(text)]), dim=-1)
+eval_dataset = eval_dataset.map(lambda samples: {
+    "user_representation": [representation_evolution(sample[0], sample[1])
+                            for sample in zip(samples["user_representation"],
+                                              samples["bot_dialog_emotion_composition"])]
+}, batched=True, num_proc=16)
 
+eval_dataset = eval_dataset.map(lambda samples: {
+    "user_most_possible_emotion": [[torch.argmax(representation) for representation in sample]
+                                   for sample in samples]
+}, input_columns="user_representation", batched=True, num_proc=16)
 
-evaluation_result: dict = {
-    "current_representation": [],
-    "input_emotion_composition": [],
-    "output_representation": [],
-    "predict_emotion": [],
-    "true_emotion": []}
-for sample in tqdm(eval_dataset, colour="blue"):
-    initial_representation: torch.tensor = torch.tensor(sample["initial_representation"],
-                                                        device=args.device, dtype=args.dtype)
-    turn_result: dict = {
-        "current_representation": [],
-        "input_emotion_composition": [],
-        "output_representation": [],
-        "most_possible_emotion": [],
-        "true_emotion": []}
-    for i, dialog in enumerate(sample["dialog"][:-1]):
-        turn_result["current_representation"].append(initial_representation)
-        emotion_composition: torch.tensor = get_sentiment_composition(dialog).to(device=args.device, dtype=args.dtype)
-        turn_result["input_emotion_composition"].append(emotion_composition)
-        new_representation: torch.tensor = model.forward(initial_representation, emotion_composition)
-        turn_result["output_representation"].append(new_representation)
-        turn_result["most_possible_emotion"].append(torch.argmax(new_representation))
-        turn_result["true_emotion"].append(sample["emotion_history"][i + 1])
-        initial_representation = new_representation
-    for k, v in turn_result:
-        evaluation_result[k].append(v)
-
-result = eval_dataset.remove_columns(["initial_representation", "emotion_history"])
-for k, v in evaluation_result:
-    result = result.add_column(k, v)
-
-emotion_pred: torch.tensor = torch.tensor([emotion for batch in evaluation_result for emotion in batch["most_possible_emotion"]])
-emotion_true: torch.tensor = torch.tensor([emotion for batch in evaluation_result for emotion in batch["true_emotion"]])
+emotion_pred: torch.tensor = torch.tensor([emotion for sample in eval_dataset["user_most_possible_emotion"]
+                                           for emotion in sample[1:]])
+emotion_true: torch.tensor = torch.tensor([emotion for sample in eval_dataset["user_emotion"]
+                                           for emotion in sample[1:]])
 
 wandb.log({
-    "F1-score": multiclass_f1_score(torch.tensor(emotion_true), torch.tensor(emotion_pred), num_classes=7, average="micro"),
-    "Accuracy": multiclass_accuracy(torch.tensor(emotion_true), torch.tensor(emotion_pred), num_classes=7)
+    "F1-score": multiclass_f1_score(emotion_true, emotion_pred, num_classes=7, average="micro"),
+    "Accuracy": multiclass_accuracy(emotion_true, emotion_pred, num_classes=7)
 })
 
 emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
-result = result.map(lambda samples: {
-    "most_possible_emotion": [[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples]
-}, input_columns="most_possible_emotion", batched=True, num_proc=16)
-result = result.map(lambda samples: {
-    "true_emotion": [[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples]
-}, input_columns="ture_emotion", batched=True, num_proc=16)
+result = eval_dataset.map(lambda samples: {
+    "user_most_possible_emotion": [[emotion_labels[emotion_id] for emotion_id in sample]
+                                   for sample in samples["user_most_possible_emotion"]],
+    "user_emotion": [[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples["user_emotion"]]
+}, batched=True, num_proc=16)
 
 wandb.log({"evaluation_result": wandb.Table(dataframe=result.to_pandas())})
 

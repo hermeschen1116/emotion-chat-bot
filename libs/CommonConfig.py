@@ -1,8 +1,7 @@
 from dataclasses import dataclass
-from typing import Any, Optional, Union, Dict, Sequence, List
+from typing import Any, Optional, Union, Dict, Literal
 
-from wandb.sdk import Settings
-from wandb.sdk.lib.paths import StrPath
+from transformers.hf_argparser import HfArg
 
 
 def value_candidate_check(input_value: Any,
@@ -10,7 +9,8 @@ def value_candidate_check(input_value: Any,
                           use_default_value: bool,
                           default_value: Optional[Any]) -> Any:
     if input_value not in possible_values:
-        error_message: str = f"{input_value} should be any of {','.join(possible_values)}"
+        error_message: str = \
+            f"This parameter should be any of {', '.join(possible_values)}, your input is {input_value}"
         if use_default_value:
             print(error_message)
             return default_value
@@ -19,63 +19,40 @@ def value_candidate_check(input_value: Any,
     return input_value
 
 
+class CommonScriptArguments:
+    huggingface_api_token: Optional[str] = (
+        HfArg(aliases=["--huggingface-api-token", "--huggingface-token", "--hf-token"], default=""))
+    wandb_api_token: Optional[str] = (
+        HfArg(aliases=["--wandb-api-token", "--wandb-token"], default=""))
+
 @dataclass
-class WanDBArguments:
-    job_type: Optional[str] = None,
-    dir: Optional[StrPath] = None,
-    config: Union[Dict, str, None] = None,
-    project: Optional[str] = None,
-    entity: Optional[str] = None,
-    reinit: Optional[bool] = None,
-    tags: Optional[Sequence] = None,
-    group: Optional[str] = None,
-    name: Optional[str] = None,
-    notes: Optional[str] = None,
-    magic: Optional[Union[dict, str, bool]] = None,
-    config_exclude_keys: Optional[List[str]] = None,
-    config_include_keys: Optional[List[str]] = None,
-    anonymous: Optional[str] = None,
-    mode: Optional[str] = None,
-    allow_val_change: Optional[bool] = None,
-    resume: Optional[Union[bool, str]] = None,
-    force: Optional[bool] = None,
-    tensorboard: Optional[bool] = None,
-    sync_tensorboard: Optional[bool] = None,
-    monitor_gym: Optional[bool] = None,
-    save_code: Optional[bool] = None,
-    id: Optional[str] = None,
-    fork_from: Optional[str] = None,
-    settings: Union[Settings, Dict[str, Any], None] = None
+class CommonWanDBArguments:
+    job_type: Optional[str] = HfArg(aliases=["--wandb-job-type", "--job-type"], default=None)
+    config: Union[Dict, str, None] = HfArg(aliases="--wandb-type", default_factory=dict)
+    project: Optional[str] = HfArg(aliases="--wandb-project", default=None)
+    group: Optional[str] = HfArg(aliases=["--wandb-group", "--group"], default=None)
+    notes: Optional[str] = HfArg(aliases=["--wandb-notes", "--notes"], default=None)
+    mode: Optional[Union[Literal["online", "offline", "disabled"], None]] = HfArg(aliases="--wandb-mode", default=None)
+    allow_val_change: Optional[bool] = HfArg(aliases="--allow-val-change", default=False)
+    resume: Optional[str] = HfArg(aliases="--wandb-resume", default=None)
 
     def __post_init__(self):
-        module: list = ["sentiment_analysis",
-                        "candidate_generator",
-                        "emotion_predictor",
-                        "emotion_model",
-                        "similarity_analysis",
-                        "response_generator"]
-
-        wandb_mode: list = ["online", "offline", "disabled"]
-
-        wandb_resume_mode: list = ["allow", "must", "never", "auto"]
+        module: list = ["Sentiment Analysis",
+                        "Candidate Generator",
+                        "Emotion Predictor",
+                        "Emotion Model",
+                        "Similarity Analysis",
+                        "Response Generator"]
 
         self.group = value_candidate_check(self.group,
                                            use_default_value=True,
                                            default_value="",
                                            possible_values=module)
-        self.mode = value_candidate_check(self.mode,
-                                          use_default_value=True,
-                                          default_value="online",
-                                          possible_values=wandb_mode)
-        self.resume = value_candidate_check(self.resume,
-                                            use_default_value=True,
-                                            default_value=None,
-                                            possible_values=wandb_resume_mode)
 
 
 @dataclass
 class TrainerArguments:
-    output_dir: str
+    output_dir: str = HfArg(aliases=["--trainer-output-dir", "--output-dir"], default=None)
     overwrite_output_dir: bool = False
     do_train: bool = False
     do_eval: bool = False
