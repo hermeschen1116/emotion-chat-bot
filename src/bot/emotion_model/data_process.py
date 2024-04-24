@@ -1,20 +1,10 @@
 import os
-import sys
-from typing import Optional
-
-import torch
-from transformers.hf_argparser import HfArg
-
-from bot.emotion_model.libs.DataProcess import get_sentiment_composition, generate_dummy_representation
-
-sys.path.append("../../../chat-bot")
-
-from libs.CommonConfig import CommonWanDBArguments, CommonScriptArguments
-
 import shutil
 from dataclasses import dataclass
+from typing import Optional
 
 import huggingface_hub
+import torch
 import wandb
 from datasets import load_dataset
 from dotenv import load_dotenv
@@ -23,6 +13,10 @@ from transformers import (HfArgumentParser,
                           AutoModelForSequenceClassification,
                           AutoTokenizer,
                           pipeline)
+from transformers.hf_argparser import HfArg
+
+from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
+from libs.DataProcess import generate_dummy_representation, get_sentiment_composition
 
 
 @dataclass
@@ -30,8 +24,8 @@ class ScriptArguments(CommonScriptArguments):
     dataset_path: Optional[str] = HfArg(aliases="--dataset-path", default="./dataset")
 
 
-parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments, BitsAndBytesConfig))
-args, wandb_args, quantization_config, remain_args = parser.parse_args()
+parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
+args, wandb_args = parser.parse_json_file("data_process_arg.json", allow_extra_keys=True)
 
 load_dotenv(encoding="utf-8")
 huggingface_hub.login(token=os.environ.get("HF_TOKEN", args.huggingface_api_token), add_to_git_credential=True)
@@ -60,22 +54,21 @@ dataset = dataset.map(lambda samples: {
     "emotion": [sample[:-1] if len(sample) % 2 == 0 else sample for sample in samples["emotion"]]
 }, batched=True, num_proc=16)
 
-eval_dataset = dataset.map(lambda samples: {
+dataset = dataset.map(lambda samples: {
     "user_representation": [[generate_dummy_representation(sample[0])] for sample in samples["emotion"]],
     "user_emotion": [[emotion for i, emotion in enumerate(sample[1:]) if i % 2 == 1] for sample in samples["emotion"]],
     "user_dialog": [[emotion for i, emotion in enumerate(sample[1:]) if i % 2 == 1] for sample in samples["dialog"]],
     "bot_dialog": [[emotion for i, emotion in enumerate(sample[1:]) if i % 2 == 0] for sample in samples["dialog"]]
 }, remove_columns=["emotion", "dialog"], batched=True, num_proc=16)
 
-# quantization_config = BitsAndBytesConfig(
-#     load_in_4bit=True,
-#     bnb_4bit_compute_dtype=torch.float16
-# )
+quantization_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_compute_dtype=torch.float16
+)
 quantization_config = None if not torch.cuda.is_available() else quantization_config
 sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(
     wandb_args.config["sentiment_analysis_model"],
     quantization_config=quantization_config,
-    attn_implementation="flash_attention_2",
     device_map="auto",
     low_cpu_mem_usage=True)
 
@@ -93,10 +86,10 @@ analyser = pipeline(
 
 sentiment_analysis_model = torch.compile(sentiment_analysis_model)
 
-eval_dataset = eval_dataset.map(lambda samples: {
-    "bot_dialog_emotion_composition": [[get_sentiment_composition(analyser(dialog))
-                                        for dialog in sample] for sample in samples]
-}, input_columns="bot_dialog", batched=True, num_proc=16)
+dataset = dataset.map(lambda sample: {
+    "bot_dialog_emotion_composition": [get_sentiment_composition(analyser(dialog))
+                                       for dialog in sample]
+}, input_columns="bot_dialog")
 
 dataset_artifact = wandb.Artifact(
     "daily_dialog_for_EM",
