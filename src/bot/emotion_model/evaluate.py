@@ -1,33 +1,24 @@
-import os
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
 
-import huggingface_hub
 import torch
 import wandb
 from datasets import load_from_disk
-from dotenv import load_dotenv
 from torcheval.metrics.functional import multiclass_f1_score, multiclass_accuracy
-from transformers import (
-    HfArgumentParser
-)
+from transformers.hf_argparser import HfArgumentParser, HfArg
 
-from bot.emotion_model.libs.EmotionModel import EmotionModel
-from libs.CommonConfig import CommonWanDBArguments, CommonScriptArguments
+from libs.CommonConfig import CommonWanDBArguments, CommonScriptArguments, get_torch_device
+from libs.EmotionModel import EmotionModel
 
 
 @dataclass
 class ScriptArguments(CommonScriptArguments):
-    dtype: Any
-    device: str
+    dtype: Optional[Any] = HfArg(aliases="--dtype", default=torch.float32)
+    device: Optional[str] = HfArg(aliases="--device", default_factory=get_torch_device)
 
 
 parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
 args, wandb_args, remain_args = parser.parse_args()
-
-load_dotenv(encoding="utf-8")
-huggingface_hub.login(token=os.environ.get("HF_TOKEN", args.huggingface_api_token), add_to_git_credential=True)
-wandb.login(key=os.environ.get("WANDB_API_KEY", args.wandb_api_token), relogin=True)
 
 # Initialize Wandb
 run = wandb.init(
@@ -40,26 +31,17 @@ run = wandb.init(
     resume=wandb_args.resume
 )
 
-dataset_path = run.use_artifact("daily_dialog_for_RG_train:latest").download()
+dataset_path = run.use_artifact("daily_dialog_for_EM:latest").download()
 eval_dataset = load_from_disk(dataset_path)["test"]
+_, eval_dataset = eval_dataset.train_test_split(test_size=0.1)
 
 model = EmotionModel(wandb_args.config["attention_type"], dtype=args.dtype, device=args.device)
 
-
-def representation_evolution(representation_src: list, emotion_compositions: list) -> list:
-    representation: list = representation_src
-    for composition in emotion_compositions:
-        new_representation: torch.tensor = model.forward(representation[-1], composition)
-        representation.append(new_representation)
-
-    return representation
-
-
 eval_dataset = eval_dataset.map(lambda samples: {
-    "user_representation": [representation_evolution(sample[0], sample[1])
+    "user_representation": [model.representation_evolution(sample[0], sample[1])
                             for sample in zip(samples["user_representation"],
                                               samples["bot_dialog_emotion_composition"])]
-}, batched=True, num_proc=16)
+}, batched=True)
 
 eval_dataset = eval_dataset.map(lambda samples: {
     "user_most_possible_emotion": [[torch.argmax(representation) for representation in sample]

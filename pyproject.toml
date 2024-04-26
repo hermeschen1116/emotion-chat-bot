@@ -18,6 +18,7 @@ bitsandbytes = "^0.42.0"
 evaluate = "^0.4.1"
 torcheval = "^0.0.7"
 flash-attn = "^2.5.6"
+lightning = "^2.2.3"
 
 [tool.poetry.group.dev.dependencies]
 python-dotenv = "^1.0.1"

@@ -3,11 +3,9 @@ import shutil
 from dataclasses import dataclass
 from typing import Optional
 
-import huggingface_hub
 import torch
 import wandb
 from datasets import load_dataset
-from dotenv import load_dotenv
 from transformers import (HfArgumentParser,
                           BitsAndBytesConfig,
                           AutoModelForSequenceClassification,
@@ -25,11 +23,7 @@ class ScriptArguments(CommonScriptArguments):
 
 
 parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
-args, wandb_args = parser.parse_json_file("data_process_arg.json", allow_extra_keys=True)
-
-load_dotenv(encoding="utf-8")
-huggingface_hub.login(token=os.environ.get("HF_TOKEN", args.huggingface_api_token), add_to_git_credential=True)
-wandb.login(key=os.environ.get("WANDB_API_KEY", args.wandb_api_token), relogin=True)
+args, wandb_args = parser.parse_args()
 
 run = wandb.init(
     job_type=wandb_args.job_type,

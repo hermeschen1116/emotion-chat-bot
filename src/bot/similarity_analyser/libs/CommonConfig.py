@@ -3,7 +3,6 @@ from dataclasses import dataclass
 from typing import Any, Optional, Union, Dict, Literal
 
 import huggingface_hub
-import torch.cuda
 import wandb
 from dotenv import load_dotenv
 from transformers.hf_argparser import HfArg
@@ -24,15 +23,6 @@ def value_candidate_check(input_value: Any,
     return input_value
 
 
-def get_torch_device() -> str:
-    if torch.cuda.is_available():
-        return "cuda"
-    if torch.backends.mps.is_available():
-        return "mps"
-
-    return "cpu"
-
-
 @dataclass
 class CommonScriptArguments:
     huggingface_api_token: Optional[str] = (
@@ -44,7 +34,6 @@ class CommonScriptArguments:
         load_dotenv(encoding="utf-8")
         huggingface_hub.login(token=os.environ.get("HF_TOKEN", self.huggingface_api_token), add_to_git_credential=True)
         wandb.login(key=os.environ.get("WANDB_API_KEY", self.wandb_api_token), relogin=True)
-
 
 @dataclass
 class CommonWanDBArguments:
