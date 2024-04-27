@@ -23,7 +23,7 @@ class ScriptArguments(CommonScriptArguments):
 
 
 parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
-args, wandb_args = parser.parse_args()
+args, wandb_args = parser.parse_json_file("./args/data_process_arg.json")
 
 run = wandb.init(
     job_type=wandb_args.job_type,
@@ -74,7 +74,8 @@ analyser = pipeline(
     "sentiment-analysis",
     model=sentiment_analysis_model,
     tokenizer=sentiment_analysis_tokenizer,
-    top_k=0,
+    top_k=7,
+    torch_dtype=torch.float32,
     device_map="auto",
     trust_remote_code=True)
 
