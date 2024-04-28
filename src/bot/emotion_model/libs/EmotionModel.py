@@ -57,6 +57,9 @@ class EmotionModel(LightningModule):
 
         return representation
 
+    def on_train_epoch_start(self) -> None:
+        self.__train_prediction = []
+
     def training_step(self, batch, batch_idx) -> float:
         data, label = batch
 
@@ -71,7 +74,7 @@ class EmotionModel(LightningModule):
 
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
-        return loss
+        return loss.item()
 
     def on_train_epoch_end(self) -> tuple:
         all_prediction: torch.tensor = torch.cat([turn["prediction"] for turn in self.__train_prediction])

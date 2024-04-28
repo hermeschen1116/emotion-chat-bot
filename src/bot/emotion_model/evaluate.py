@@ -67,7 +67,7 @@ eval_dataset = eval_dataset.map(lambda samples: {
 result = eval_dataset.map(lambda samples: {
     "bot_most_possible_emotion": [", ".join(sample) for sample in samples["bot_most_possible_emotion"]],
     "bot_emotion": [", ".join(sample) for sample in samples["bot_emotion"]]
-}, remove_columns=["bot_representation", "bot_dialog", "user_dialog"], batched=True, num_proc=16)
+}, remove_columns=["bot_representation", "bot_dialog", "user_dialog", "user_dialog_emotion_composition"], batched=True, num_proc=16)
 
 wandb.log({"evaluation_result": wandb.Table(dataframe=result.to_pandas())})
 

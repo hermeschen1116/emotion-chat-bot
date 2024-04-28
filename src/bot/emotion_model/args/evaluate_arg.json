@@ -3,6 +3,6 @@
   "project": "emotion-chat-bot-ncu",
   "group": "Emotion Model",
   "config": {
-    "attention_type": "dot_product"
+    "attention_type": "dual_linear"
   }
 }
