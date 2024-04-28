@@ -37,16 +37,14 @@ class EmotionModel(LightningModule):
 
 
     def forward(self, representation: torch.tensor, input_emotion: torch.tensor) -> torch.tensor:
-        decomposed_representation: torch.tensor = representation.diag()
+        decomposed_representation: torch.tensor = representation.diag().to(dtype=self.__dtype, device=self.__device)
 
-        decomposed_attention_matrix: torch.tensor = self.__attention(input_emotion, decomposed_representation)
-        decomposed_attention_matrix = decomposed_attention_matrix.to(dtype=self.__dtype, device=self.__device)
+        attention_score: torch.tensor = (self.__attention(input_emotion, decomposed_representation)
+                                         .to(dtype=self.__dtype, device=self.__device))
 
-        attention_matrix: torch.tensor = torch.sum(decomposed_attention_matrix, dim=1, dtype=self.__dtype)
+        weighted_sentiment: torch.tensor = torch.sum(representation * attention_score, dim=1)
 
-        attention_score: torch.tensor = torch.softmax(attention_matrix, dim=0, dtype=self.__dtype)
-
-        new_representation: torch.tensor = torch.clamp(self.__weight(attention_score), -1, 1)
+        new_representation: torch.tensor = torch.clamp(self.__weight(weighted_sentiment), -1, 1)
 
         return new_representation
 
