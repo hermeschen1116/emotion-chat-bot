@@ -1,0 +1,8 @@
+{
+  "job_type": "evaluation",
+  "project": "emotion-chat-bot-ncu",
+  "group": "Emotion Model",
+  "config": {
+    "attention_type": "dual_linear"
+  }
+}
