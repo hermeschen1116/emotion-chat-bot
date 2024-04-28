@@ -1,8 +1,9 @@
+import torch
 import torch.nn.functional as nn
 from lightning import LightningModule
 from torcheval.metrics.functional import multiclass_f1_score, multiclass_accuracy
 
-from Attention import *
+from .Attention import *
 
 
 class EmotionModel(LightningModule):
@@ -52,7 +53,8 @@ class EmotionModel(LightningModule):
     def representation_evolution(self, representation_src: list, emotion_compositions: list) -> list:
         representation: list = representation_src
         for composition in emotion_compositions:
-            new_representation: torch.tensor = self.forward(representation[-1], composition)
+            new_representation: torch.tensor = self.forward(torch.tensor(representation[-1], dtype=self.__dtype, device=self.__device),
+                                                            torch.tensor(composition, dtype=self.__dtype, device=self.__device))
             representation.append(new_representation)
 
         return representation

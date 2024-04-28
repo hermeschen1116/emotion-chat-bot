@@ -49,10 +49,10 @@ dataset = dataset.map(lambda samples: {
 }, batched=True, num_proc=16)
 
 dataset = dataset.map(lambda samples: {
-    "user_representation": [[generate_dummy_representation(sample[0])] for sample in samples["emotion"]],
-    "user_emotion": [[emotion for i, emotion in enumerate(sample[1:]) if i % 2 == 1] for sample in samples["emotion"]],
-    "user_dialog": [[emotion for i, emotion in enumerate(sample[1:]) if i % 2 == 1] for sample in samples["dialog"]],
-    "bot_dialog": [[emotion for i, emotion in enumerate(sample[1:]) if i % 2 == 0] for sample in samples["dialog"]]
+    "bot_representation": [[generate_dummy_representation(sample[0])] for sample in samples["emotion"]],
+    "bot_emotion": [[emotion for i, emotion in enumerate(sample[1:]) if i % 2 == 1] for sample in samples["emotion"]],
+    "bot_dialog": [[emotion for i, emotion in enumerate(sample[1:]) if i % 2 == 1] for sample in samples["dialog"]],
+    "user_dialog": [[emotion for i, emotion in enumerate(sample[1:]) if i % 2 == 0] for sample in samples["dialog"]]
 }, remove_columns=["emotion", "dialog"], batched=True, num_proc=16)
 
 quantization_config = BitsAndBytesConfig(
@@ -82,16 +82,15 @@ analyser = pipeline(
 sentiment_analysis_model = torch.compile(sentiment_analysis_model)
 
 dataset = dataset.map(lambda sample: {
-    "bot_dialog_emotion_composition": [get_sentiment_composition(analyser(dialog))
+    "user_dialog_emotion_composition": [get_sentiment_composition(analyser(dialog))
                                        for dialog in sample]
-}, input_columns="bot_dialog")
+}, input_columns="user_dialog")
 
 dataset_artifact = wandb.Artifact(
     "daily_dialog_for_EM",
     type="dataset",
     description="modified version of daily dialog dataset from huggingface for emotion model module",
-    metadata=dict(dataset),
-    incremental=True
+    metadata=dict(dataset)
 )
 
 dataset.save_to_disk(args.dataset_path, num_proc=16)
