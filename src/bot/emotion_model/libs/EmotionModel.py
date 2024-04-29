@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as nn
 from lightning import LightningModule
+from lightning.pytorch.utilities.types import STEP_OUTPUT
 from torcheval.metrics.functional import multiclass_f1_score, multiclass_accuracy
 
 from .Attention import *
@@ -33,7 +34,7 @@ class EmotionModel(LightningModule):
 
         self.__train_prediction: list = []
         self.__validation_prediction: list = []
-        self.__evaluation_prediction: list = []
+        self.__test_prediction: list = []
 
 
     def forward(self, representation: torch.tensor, input_emotion: torch.tensor) -> torch.tensor:
@@ -58,9 +59,9 @@ class EmotionModel(LightningModule):
         return representation
 
     def on_train_epoch_start(self) -> None:
-        self.__train_prediction = []
+        self.__train_prediction.clear()
 
-    def training_step(self, batch, batch_idx) -> float:
+    def training_step(self, batch, batch_idx) -> dict:
         data, label = batch
 
         output: list = self.representation_evolution(data[0], data[1])
@@ -74,24 +75,24 @@ class EmotionModel(LightningModule):
 
         self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
-        return loss.item()
+        return {"loss": loss.item()}
 
-    def on_train_epoch_end(self) -> tuple:
+    def on_train_epoch_end(self) -> dict:
         all_prediction: torch.tensor = torch.cat([turn["prediction"] for turn in self.__train_prediction])
         all_truth: torch.tensor = torch.cat([turn["truth"] for turn in self.__train_prediction])
 
-        f1_score = multiclass_f1_score(all_truth, all_prediction, num_classes=7, average="micro")
+        f1_score = multiclass_f1_score(all_truth, all_prediction, num_classes=7, average="weighted")
         accuracy = multiclass_accuracy(all_truth, all_prediction, num_classes=7)
 
         self.log("f1_score", f1_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         self.log("accuracy", accuracy, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
-        return f1_score, accuracy
+        return {"f1_score": f1_score.item(), "accuracy": accuracy.item()}
 
     def on_validation_epoch_start(self) -> None:
-        self.__validation_prediction = []
+        self.__validation_prediction.clear()
 
-    def validation_step(self, batch, batch_idx) -> float:
+    def validation_step(self, batch, batch_idx) -> dict:
         data, label = batch
 
         output: list = self.representation_evolution(data[0], data[1])
@@ -103,18 +104,49 @@ class EmotionModel(LightningModule):
 
         loss = nn.cross_entropy(torch.tensor(prediction), torch.tensor(label))
 
-        self.log("validation_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log("validation_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
-        return loss
+        return {"validation_loss": loss.item()}
 
-    def on_validation_epoch_end(self) -> tuple:
-        all_prediction: torch.tensor = torch.cat([turn["prediction"] for turn in self.__train_prediction])
-        all_truth: torch.tensor = torch.cat([turn["truth"] for turn in self.__train_prediction])
+    def on_validation_epoch_end(self) -> dict:
+        all_prediction: torch.tensor = torch.cat([turn["prediction"] for turn in self.__validation_prediction])
+        all_truth: torch.tensor = torch.cat([turn["truth"] for turn in self.__validation_prediction])
 
-        f1_score = multiclass_f1_score(all_truth, all_prediction, num_classes=7, average="micro")
+        f1_score = multiclass_f1_score(all_truth, all_prediction, num_classes=7, average="weighted")
         accuracy = multiclass_accuracy(all_truth, all_prediction, num_classes=7)
 
         self.log("f1_score", f1_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
         self.log("accuracy", accuracy, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
-        return f1_score, accuracy
+        return {"validation_f1_score": f1_score.item(), "validation_accuracy": accuracy.item()}
+
+    def test_step(self, batch, batch_idx) -> dict:
+        data, label = batch
+
+        output: list = self.representation_evolution(data[0], data[1])
+        prediction: list = [torch.argmax(representation) for representation in output]
+        self.__test_prediction.append({
+            "prediction": torch.tensor(prediction),
+            "truth": torch.tensor(label)
+        })
+
+        loss = nn.cross_entropy(torch.tensor(prediction), torch.tensor(label))
+
+        self.log("test_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+
+        return {"test_loss": loss.item()}
+
+    def on_test_epoch_end(self) -> dict:
+        all_prediction: torch.tensor = torch.cat([turn["prediction"] for turn in self.__test_prediction])
+        all_truth: torch.tensor = torch.cat([turn["truth"] for turn in self.__test_prediction])
+
+        f1_score = multiclass_f1_score(all_truth, all_prediction, num_classes=7, average="weighted")
+        accuracy = multiclass_accuracy(all_truth, all_prediction, num_classes=7)
+
+        self.log("f1_score", f1_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log("accuracy", accuracy, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+
+        return {"test_f1_score": f1_score.item(), "test_accuracy": accuracy.item()}
+
+    def predict_step(self, representation: torch.tensor, input_emotion: torch.tensor) -> torch.tensor:
+        return self.forward(representation, input_emotion)
