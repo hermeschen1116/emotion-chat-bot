@@ -1,3 +1,4 @@
+import torch
 import torch.nn.functional as nn
 from lightning import LightningModule
 from torcheval.metrics.functional import multiclass_f1_score, multiclass_accuracy
@@ -12,7 +13,7 @@ class EmotionModel(LightningModule):
                  scaler: Optional[float] = None,
                  bias: Optional[bool] = True,
                  dtype: Optional[Any] = torch.float32,
-                 device: Optional[str] = "cpu") -> None:
+                 device: Optional[str] = "cpu"):
         super(EmotionModel, self).__init__()
 
         self.__dtype: Any = dtype
@@ -40,9 +41,9 @@ class EmotionModel(LightningModule):
         attention_score: torch.tensor = (self.__attention(input_emotion, decomposed_representation)
                                          .to(dtype=self.__dtype, device=self.__device))
 
-        weighted_sentiment: torch.tensor = torch.sum(representation * attention_score, dim=1)
+        weighted_sentiment: torch.tensor = torch.softmax(torch.sum(representation * attention_score, dim=1), dim=0)
 
-        new_representation: torch.tensor = torch.clamp(self.__weight(weighted_sentiment), -1, 1)
+        new_representation: torch.tensor = torch.clamp(self.__weight(weighted_sentiment**3), -1, 1)
 
         return new_representation
 
