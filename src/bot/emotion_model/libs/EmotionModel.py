@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as nn
 from lightning import LightningModule
+from lightning.pytorch.utilities.types import OptimizerLRScheduler
 from torcheval.metrics.functional import multiclass_f1_score, multiclass_accuracy
 
 from .Attention import *
@@ -58,6 +59,9 @@ class EmotionModel(LightningModule):
             representation.append(new_representation)
 
         return representation
+
+    def configure_optimizers(self):
+        return torch.optim.Adam()
 
     def on_train_epoch_start(self) -> None:
         self.__train_prediction.clear()
