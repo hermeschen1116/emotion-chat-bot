@@ -21,7 +21,7 @@ class ScriptArguments(CommonScriptArguments):
 
 
 parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
-args, wandb_args, remain_args = parser.parse_args_into_dataclasses(return_remaining_strings=True)
+args, wandb_args = parser.parse_json_file("./args/train_arg.json")
 
 # Initialize Wandb
 logger = WandbLogger(job_type=wandb_args.job_type,
