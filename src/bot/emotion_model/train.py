@@ -48,5 +48,7 @@ trainer = Trainer(logger=logger,
 
 train_dataloader = DataLoader(dataset["train"], num_workers=16)
 validation_dataloader = DataLoader(dataset["validation"], num_workers=16)
-print(train_dataloader[0])
+for sample in train_dataloader:
+    print(sample)
+    break
 trainer.fit(model, train_dataloaders=train_dataloader, val_dataloaders=validation_dataloader)
