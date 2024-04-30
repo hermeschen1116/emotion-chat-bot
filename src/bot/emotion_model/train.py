@@ -39,8 +39,8 @@ dataset = load_from_disk(dataset_path)
 model = EmotionModel(wandb.config["attention_type"])
 model = torch.compile(model)
 
-trainer = Trainer()
+trainer = Trainer(logger=logger)
 
 train_dataloader = DataLoader(dataset["train"], num_workers=16)
 validation_dataloader = DataLoader(dataset["validation"], num_workers=16)
-trainer.fit(model, train_dataloaders=train_dataloader, val_dataloaders=validation_dataloader, logger=logger)
+trainer.fit(model, train_dataloaders=train_dataloader, val_dataloaders=validation_dataloader)
