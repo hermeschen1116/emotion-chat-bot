@@ -61,7 +61,7 @@ class EmotionModel(LightningModule):
         return representation
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam()
+        optimizer = torch.optim.Adam(self.parameters())
         return optimizer
 
     def on_train_epoch_start(self) -> None:
