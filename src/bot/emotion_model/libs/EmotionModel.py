@@ -39,14 +39,14 @@ class EmotionModel(LightningModule):
         decomposed_representation: torch.tensor = representation.diag().to(dtype=self.__dtype, device=self.__device)
 
         output: torch.tensor = (self.__attention(input_emotion, decomposed_representation)
-                                         .to(dtype=self.__dtype, device=self.__device))
+                                .to(dtype=self.__dtype, device=self.__device))
 
-        attention_score: torch.tensor = torch.softmax(torch.sum(output, dim=1, dtype=self.__dtype)
-                                                      , dim=0, dtype=self.__dtype)
-        print(attention_score)
+        attention_score: torch.tensor = torch.softmax(torch.sum(output, dim=1, dtype=self.__dtype),
+                                                      dim=0, dtype=self.__dtype)
+
         difference: torch.tensor = torch.clamp(torch.sum(
-            self.__weight((attention_score.diag())**3), dim=1, dtype=self.__dtype), -1, 1)
-        print(difference)
+            self.__weight((attention_score.diag()) ** 3), dim=1, dtype=self.__dtype), -1, 1)
+
         return representation + difference
 
     def representation_evolution(self, representation_src: list, emotion_compositions: list) -> list:
