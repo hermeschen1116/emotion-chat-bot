@@ -74,7 +74,7 @@ class EmotionModel(LightningModule):
 
         loss = nn.cross_entropy(torch.tensor(prediction), torch.tensor(label))
 
-        self.log("train_loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
+        self.log("train/loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
 
         return {"loss": loss.item()}
 
@@ -85,8 +85,8 @@ class EmotionModel(LightningModule):
         f1_score = multiclass_f1_score(all_truth, all_prediction, num_classes=7, average="weighted")
         accuracy = multiclass_accuracy(all_truth, all_prediction, num_classes=7)
 
-        self.log("f1_score", f1_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        self.log("accuracy", accuracy, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log("train/f1_score", f1_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log("train/accuracy", accuracy, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         return {"f1_score": f1_score.item(), "accuracy": accuracy.item()}
 
@@ -105,7 +105,7 @@ class EmotionModel(LightningModule):
 
         loss = nn.cross_entropy(torch.tensor(prediction), torch.tensor(label))
 
-        self.log("validation_loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log("validation/loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         return {"validation_loss": loss.item()}
 
@@ -116,7 +116,7 @@ class EmotionModel(LightningModule):
         f1_score = multiclass_f1_score(all_truth, all_prediction, num_classes=7, average="weighted")
         accuracy = multiclass_accuracy(all_truth, all_prediction, num_classes=7)
 
-        self.log("f1_score", f1_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
-        self.log("accuracy", accuracy, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log("validation/f1_score", f1_score, on_step=False, on_epoch=True, prog_bar=True, logger=True)
+        self.log("validation/accuracy", accuracy, on_step=False, on_epoch=True, prog_bar=True, logger=True)
 
         return {"validation_f1_score": f1_score.item(), "validation_accuracy": accuracy.item()}
