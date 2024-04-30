@@ -42,7 +42,7 @@ model = torch.compile(model)
 trainer = Trainer(logger=logger,
                   enable_progress_bar=True,
                   enable_model_summary=True,
-                  max_time=wandb.config["num_epoches"],
+                  max_time=wandb.config["num_epochs"],
                   val_check_interval=0.1,
                   log_every_n_steps=10,
                   enable_checkpointing=True)
