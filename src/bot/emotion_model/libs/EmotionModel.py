@@ -68,6 +68,7 @@ class EmotionModel(LightningModule):
         self.__train_prediction.clear()
 
     def training_step(self, batch, batch_idx) -> dict:
+        print(batch)
         data, label = batch
 
         output: list = self.representation_evolution(data[0], data[1])
