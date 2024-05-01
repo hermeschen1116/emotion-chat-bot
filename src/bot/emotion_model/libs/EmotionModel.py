@@ -36,10 +36,11 @@ class EmotionModel(LightningModule):
                                                                                              device=self.__device)
 
         attention_score: torch.tensor = torch.softmax(torch.sum(output, dim=1, dtype=self.__dtype), dim=0,
-            dtype=self.__dtype)
+            dtype=self.__dtype).to(device=self.__device)
 
-        difference: torch.tensor = torch.clamp(
+        difference: torch.tensor = (torch.clamp(
             torch.sum(self.__weight((attention_score.diag()) ** 3), dim=1, dtype=self.__dtype), -1, 1, )
+                                    .to(dtype=self.__dtype, device=self.__device))
 
         return representation + difference
 
