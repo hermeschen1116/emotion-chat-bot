@@ -29,13 +29,12 @@ class ScaledDotProductAttention(torch.nn.Module):
 class AdditiveAttention(torch.nn.Module):
     def __init__(self,
                  dropout: Optional[float] = None,
-                 dtype: Optional[Any] = torch.float32,
-                 device: Optional[str] = "cpu") -> None:
+                 dtype: Optional[Any] = torch.float32) -> None:
         super(AdditiveAttention, self).__init__()
 
-        self.__weight_Q = torch.nn.LazyLinear(7, bias=False, device=device, dtype=dtype)
-        self.__weight_K = torch.nn.LazyLinear(7, bias=False, device=device, dtype=dtype)
-        self.__weight_V = torch.nn.LazyLinear(1, bias=False, device=device, dtype=dtype)
+        self.__weight_Q = torch.nn.LazyLinear(7, bias=False, dtype=dtype)
+        self.__weight_K = torch.nn.LazyLinear(7, bias=False, dtype=dtype)
+        self.__weight_V = torch.nn.LazyLinear(1, bias=False, dtype=dtype)
         self.__dropout = torch.nn.Dropout(p=dropout if dropout is not None else 0.5)
 
     def forward(self, query: torch.tensor, keys: torch.tensor) -> torch.tensor:
@@ -48,12 +47,11 @@ class AdditiveAttention(torch.nn.Module):
 class DualLinearAttention(torch.nn.Module):
     def __init__(self,
                  dropout: Optional[float] = None,
-                 dtype: Optional[Any] = torch.float32,
-                 device: Optional[str] = "cpu") -> None:
+                 dtype: Optional[Any] = torch.float32) -> None:
         super(DualLinearAttention, self).__init__()
 
-        self.__weight_Q = torch.nn.LazyLinear(7, bias=False, device=device, dtype=dtype)
-        self.__weight_K = torch.nn.LazyLinear(7, bias=False, device=device, dtype=dtype)
+        self.__weight_Q = torch.nn.LazyLinear(7, bias=False, dtype=dtype)
+        self.__weight_K = torch.nn.LazyLinear(7, bias=False, dtype=dtype)
         self.__dropout = torch.nn.Dropout(p=dropout if dropout is not None else 0.5)
 
     def forward(self, query: torch.tensor, keys: torch.tensor) -> torch.tensor:

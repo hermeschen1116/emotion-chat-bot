@@ -7,11 +7,10 @@ from .Attention import *
 
 class EmotionModel(LightningModule):
     def __init__(self, attention: str, dropout: Optional[float] = 0.5, scaler: Optional[float] = None,
-            bias: Optional[bool] = True, dtype: Optional[Any] = torch.float32, device: Optional[str] = "cpu", ):
+                 bias: Optional[bool] = True, dtype: Optional[Any] = torch.float32):
         super(EmotionModel, self).__init__()
 
         self.__dtype: Any = dtype
-        self.__device: str = device
 
         match attention:
             case "dot_product":
@@ -19,28 +18,28 @@ class EmotionModel(LightningModule):
             case "scaled_dot_product":
                 self.__attention = ScaledDotProductAttention(scaler)
             case "additive":
-                self.__attention = AdditiveAttention(dropout, dtype=dtype, device=device)
+                self.__attention = AdditiveAttention(dropout, dtype=dtype)
             case "dual_linear":
-                self.__attention = DualLinearAttention(dropout, dtype=dtype, device=device)
+                self.__attention = DualLinearAttention(dropout, dtype=dtype)
 
-        self.__weight = torch.nn.LazyLinear(7, bias=bias, device=device, dtype=dtype)
+        self.__weight = torch.nn.LazyLinear(7, bias=bias, dtype=dtype)
 
         self.__train_prediction: list = []
         self.__validation_prediction: list = []
         self.__test_prediction: list = []
 
     def forward(self, representation: torch.tensor, input_emotion: torch.tensor) -> torch.tensor:
-        decomposed_representation: torch.tensor = representation.diag().to(dtype=self.__dtype, device=self.__device)
+        decomposed_representation: torch.tensor = representation.diag().to(dtype=self.__dtype)
 
-        output: torch.tensor = self.__attention(input_emotion, decomposed_representation).to(dtype=self.__dtype,
-                                                                                             device=self.__device)
+        output: torch.tensor = self.__attention(input_emotion, decomposed_representation).to(dtype=self.__dtype)
 
-        attention_score: torch.tensor = torch.softmax(torch.sum(output, dim=1, dtype=self.__dtype), dim=0,
-            dtype=self.__dtype).to(device=self.__device)
+        attention_score: torch.tensor = torch.softmax(torch.sum(output, dim=1, dtype=self.__dtype),
+                                                      dim=0,
+                                                      dtype=self.__dtype)
 
         difference: torch.tensor = (torch.clamp(
             torch.sum(self.__weight((attention_score.diag()) ** 3), dim=1, dtype=self.__dtype), -1, 1, )
-                                    .to(dtype=self.__dtype, device=self.__device))
+                                    .to(dtype=self.__dtype))
 
         return representation + difference
 
@@ -48,8 +47,8 @@ class EmotionModel(LightningModule):
         representation: list = representation_src
         for composition in emotion_compositions:
             new_representation: torch.tensor = self.forward(
-                torch.tensor(representation[-1], dtype=self.__dtype, device=self.__device),
-                torch.tensor(composition, dtype=self.__dtype, device=self.__device), )
+                torch.tensor(representation[-1], dtype=self.__dtype),
+                torch.tensor(composition, dtype=self.__dtype))
             representation.append(new_representation)
 
         return representation
