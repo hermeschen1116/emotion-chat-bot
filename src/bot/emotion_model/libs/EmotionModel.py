@@ -29,17 +29,14 @@ class EmotionModel(LightningModule):
         self.__test_prediction: list = []
 
     def forward(self, representation: torch.tensor, input_emotion: torch.tensor) -> torch.tensor:
-        decomposed_representation: torch.tensor = representation.diag().to(dtype=self.__dtype)
+        decomposed_representation: torch.tensor = representation.diag()
 
-        output: torch.tensor = self.__attention(input_emotion, decomposed_representation).to(dtype=self.__dtype)
+        output: torch.tensor = self.__attention(input_emotion, decomposed_representation)
 
-        attention_score: torch.tensor = torch.softmax(torch.sum(output, dim=1, dtype=self.__dtype),
-                                                      dim=0,
-                                                      dtype=self.__dtype)
+        attention_score: torch.tensor = torch.softmax(torch.sum(output, dim=1), dim=0)
 
         difference: torch.tensor = (torch.clamp(
-            torch.sum(self.__weight((attention_score.diag()) ** 3), dim=1, dtype=self.__dtype), -1, 1, )
-                                    .to(dtype=self.__dtype))
+            torch.sum(self.__weight((attention_score.diag()) ** 3), dim=1), -1, 1, ))
 
         return representation + difference
 
@@ -47,8 +44,8 @@ class EmotionModel(LightningModule):
         representation: list = representation_src
         for composition in emotion_compositions:
             new_representation: torch.tensor = self.forward(
-                torch.tensor(representation[-1], dtype=self.__dtype),
-                torch.tensor(composition, dtype=self.__dtype))
+                torch.tensor(representation[-1]),
+                torch.tensor(composition))
             representation.append(new_representation)
 
         return representation
