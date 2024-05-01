@@ -45,7 +45,7 @@ dataset_path = logger.use_artifact(args.dataset).download()
 dataset = load_from_disk(dataset_path)
 
 model = EmotionModel(wandb.config["attention_type"])
-model = torch.compile(model)
+# model = torch.compile(model)
 
 trainer = Trainer(
     logger=logger,
