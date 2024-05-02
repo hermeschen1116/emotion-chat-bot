@@ -1,0 +1,10 @@
+{
+  "job_type": "train",
+  "project": "emotion-chat-bot-ncu",
+  "group": "Emotion Model",
+  "notes": "train model",
+  "config": {
+    "attention_type": "dot_product",
+    "num_epochs": 5
+  }
+}
