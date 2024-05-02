@@ -44,8 +44,13 @@ dataset = dataset.map(lambda samples: {
 }, input_columns="dialog", batched=True, num_proc=16)
 
 dataset = dataset.map(lambda samples: {
-    "dialog": [sample[:-1] if len(sample) > 2 and len(sample) % 2 == 0 else sample for sample in samples["dialog"]],
-    "emotion": [sample[:-1] if len(sample) > 2 and len(sample) % 2 == 0 else sample for sample in samples["emotion"]]
+    "dialog": [sample[:-1] if len(sample) % 2 == 0 else sample for sample in samples["dialog"]],
+    "emotion": [sample[:-1] if len(sample) % 2 == 0 else sample for sample in samples["emotion"]]
+}, batched=True, num_proc=16)
+
+dataset = dataset.map(lambda samples: {
+    "dialog": [sample for sample in samples["dialog"] if len(sample) > 2],
+    "emotion": [sample for sample in samples["emotion"] if len(sample) > 2]
 }, batched=True, num_proc=16)
 
 dataset = dataset.map(lambda samples: {
