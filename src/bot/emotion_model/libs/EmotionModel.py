@@ -1,22 +1,26 @@
-import torch.nn.functional as nn
-from lightning import LightningModule
-from torcheval.metrics.functional import multiclass_f1_score, multiclass_accuracy
-
 from .Attention import *
 
+import torch
 
-class EmotionModel(LightningModule):
-    def __init__(self, attention: str, dropout: Optional[float] = 0.5, scaler: Optional[float] = None,
-                 bias: Optional[bool] = True, dtype: Optional[Any] = torch.float32):
+
+class EmotionModel(torch.nn.Module):
+    def __init__(
+        self,
+        attention: str,
+        dropout: Optional[float] = 0.5,
+        scaler: Optional[float] = None,
+        bias: Optional[bool] = True,
+        dtype: Optional[Any] = torch.float,
+    ):
         super(EmotionModel, self).__init__()
 
         self.__dtype: Any = dtype
 
         match attention:
             case "dot_product":
-                self.__attention = DotProductAttention()
+                self.__attention = DotProductAttention(dtype=dtype)
             case "scaled_dot_product":
-                self.__attention = ScaledDotProductAttention(scaler)
+                self.__attention = ScaledDotProductAttention(scaler, dtype=dtype)
             case "additive":
                 self.__attention = AdditiveAttention(dropout, dtype=dtype)
             case "dual_linear":
@@ -24,90 +28,20 @@ class EmotionModel(LightningModule):
 
         self.__weight = torch.nn.LazyLinear(7, bias=bias, dtype=dtype)
 
-        self.__train_prediction: list = []
-        self.__validation_prediction: list = []
-        self.__test_prediction: list = []
-
     def forward(self, representation: torch.tensor, input_emotion: torch.tensor) -> torch.tensor:
         decomposed_representation: torch.tensor = representation.diag()
 
-        output: torch.tensor = self.__attention(input_emotion, decomposed_representation)
+        attention_score: torch.tensor = self.__attention(input_emotion, decomposed_representation)
 
-        attention_score: torch.tensor = torch.softmax(torch.sum(output, dim=1), dim=0)
-
-        difference: torch.tensor = (torch.clamp(
-            torch.sum(self.__weight((attention_score.diag()) ** 3), dim=1), -1, 1, ))
+        difference: torch.tensor = torch.clamp(
+            torch.sum(self.__weight((attention_score**3).to(dtype=self.__dtype)), dim=1), -1, 1)
 
         return representation + difference
 
-    def representation_evolution(self, representation_src: list, emotion_compositions: list) -> list:
-        representation: list = representation_src
+    def representation_evolute(self, representation_src: list, emotion_compositions: list) -> torch.tensor:
+        representations: list = representation_src
         for composition in emotion_compositions:
-            new_representation: torch.tensor = self.forward(
-                torch.tensor(representation[-1]),
-                torch.tensor(composition))
-            representation.append(new_representation)
+            new_representation: torch.tensor = self.forward(torch.tensor(representations[-1]), torch.tensor(composition))
+            representations.append(list(new_representation))
 
-        return representation
-
-    def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters())
-        return optimizer
-
-    def on_train_epoch_start(self) -> None:
-        self.__train_prediction.clear()
-
-    def training_step(self, batch, batch_idx) -> dict:
-        representation, emotion_composition = batch["bot_representation"], batch["user_dialog_emotion_composition"]
-        labels = batch["bot_emotion"]
-
-        output: list = self.representation_evolution(representation, emotion_composition)
-        prediction: list = [torch.argmax(representation) for representation in output]
-        self.__train_prediction.append({"prediction": torch.tensor(prediction), "truth": torch.tensor(labels)})
-
-        loss = nn.cross_entropy(torch.tensor(prediction), torch.tensor(labels))
-
-        self.log("train/loss", loss, on_step=True, on_epoch=True, prog_bar=True, logger=True)
-
-        return {"loss": loss.item()}
-
-    def on_train_epoch_end(self) -> dict:
-        all_prediction: torch.tensor = torch.cat([turn["prediction"] for turn in self.__train_prediction])
-        all_truth: torch.tensor = torch.cat([turn["truth"] for turn in self.__train_prediction])
-
-        f1_score = multiclass_f1_score(all_truth, all_prediction, num_classes=7, average="weighted")
-        accuracy = multiclass_accuracy(all_truth, all_prediction, num_classes=7)
-
-        self.log("train/f1_score", f1_score, on_step=False, on_epoch=True, prog_bar=True, logger=True, )
-        self.log("train/accuracy", accuracy, on_step=False, on_epoch=True, prog_bar=True, logger=True, )
-
-        return {"f1_score": f1_score.item(), "accuracy": accuracy.item()}
-
-    def on_validation_epoch_start(self) -> None:
-        self.__validation_prediction.clear()
-
-    def validation_step(self, batch, batch_idx) -> dict:
-        representation, emotion_composition = batch["bot_representation"], batch["user_dialog_emotion_composition"]
-        labels = batch["bot_emotion"]
-
-        output: list = self.representation_evolution(representation, emotion_composition)
-        prediction: list = [torch.argmax(representation) for representation in output]
-        self.__validation_prediction.append({"prediction": torch.tensor(prediction), "truth": torch.tensor(labels)})
-
-        loss = nn.cross_entropy(torch.tensor(prediction), torch.tensor(labels))
-
-        self.log("validation/loss", loss, on_step=False, on_epoch=True, prog_bar=True, logger=True, )
-
-        return {"validation_loss": loss.item()}
-
-    def on_validation_epoch_end(self) -> dict:
-        all_prediction: torch.tensor = torch.cat([turn["prediction"] for turn in self.__validation_prediction])
-        all_truth: torch.tensor = torch.cat([turn["truth"] for turn in self.__validation_prediction])
-
-        f1_score = multiclass_f1_score(all_truth, all_prediction, num_classes=7, average="weighted")
-        accuracy = multiclass_accuracy(all_truth, all_prediction, num_classes=7)
-
-        self.log("validation/f1_score", f1_score, on_step=False, on_epoch=True, prog_bar=True, logger=True, )
-        self.log("validation/accuracy", accuracy, on_step=False, on_epoch=True, prog_bar=True, logger=True, )
-
-        return {"validation_f1_score": f1_score.item(), "validation_accuracy": accuracy.item(), }
+        return torch.tensor(representations[1:], dtype=torch.float, requires_grad=True)

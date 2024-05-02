@@ -2,6 +2,7 @@
   "job_type": "evaluation",
   "project": "emotion-chat-bot-ncu",
   "group": "Emotion Model",
+  "notes": "Evaluate modified model",
   "config": {
     "attention_type": "dual_linear"
   }

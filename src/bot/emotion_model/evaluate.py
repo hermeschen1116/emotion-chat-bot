@@ -1,3 +1,4 @@
+from argparse import ArgumentParser
 from dataclasses import dataclass
 from typing import Any, Optional
 
@@ -17,8 +18,12 @@ class ScriptArguments(CommonScriptArguments):
     device: Optional[str] = HfArg(aliases="--device", default_factory=get_torch_device)
 
 
+config_getter = ArgumentParser()
+config_getter.add_argument("--json_file", required=True, type=str)
+config = config_getter.parse_args()
+
 parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
-args, wandb_args = parser.parse_json_file("./args/evaluate_arg.json")
+args, wandb_args = parser.parse_json_file(config.json_file)
 
 # Initialize Wandb
 run = wandb.init(
@@ -34,10 +39,10 @@ run = wandb.init(
 dataset_path = run.use_artifact("daily_dialog_for_EM:latest").download()
 eval_dataset = load_from_disk(dataset_path)["test"]
 
-model = EmotionModel(wandb_args.config["attention_type"], dtype=args.dtype, device=args.device)
+model = EmotionModel(wandb_args.config["attention_type"], dtype=args.dtype)
 
 eval_dataset = eval_dataset.map(lambda samples: {
-    "bot_representation": [model.representation_evolution(sample[0], sample[1])
+    "bot_representation": [model.representation_evolute(sample[0], sample[1])
                            for sample in zip(samples["bot_representation"],
                                              samples["user_dialog_emotion_composition"])]
 }, batched=True)
@@ -67,7 +72,8 @@ eval_dataset = eval_dataset.map(lambda samples: {
 result = eval_dataset.map(lambda samples: {
     "bot_most_possible_emotion": [", ".join(sample) for sample in samples["bot_most_possible_emotion"]],
     "bot_emotion": [", ".join(sample) for sample in samples["bot_emotion"]]
-}, remove_columns=["bot_representation", "bot_dialog", "user_dialog", "user_dialog_emotion_composition"], batched=True, num_proc=16)
+}, remove_columns=["bot_representation", "bot_dialog", "user_dialog", "user_dialog_emotion_composition"], batched=True,
+                          num_proc=16)
 
 wandb.log({"evaluation_result": wandb.Table(dataframe=result.to_pandas())})
 
