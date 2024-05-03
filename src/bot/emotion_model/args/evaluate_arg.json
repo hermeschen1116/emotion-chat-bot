@@ -4,6 +4,6 @@
   "group": "Emotion Model",
   "notes": "evaluate baseline performance emotion model with different attention",
   "config": {
-    "attention_type": "dual_linear"
+    "attention_type": "dot_product"
   }
 }
