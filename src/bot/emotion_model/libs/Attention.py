@@ -68,8 +68,8 @@ class AdditiveAttention(torch.nn.Module):
         self.__dropout = torch.nn.Dropout(p=dropout if dropout is not None else 0.5)
 
     def forward(self, query: torch.tensor, keys: torch.tensor) -> torch.tensor:
-        q: torch.tensor = self.__weight_Q(query)
-        k: torch.tensor = self.__weight_K(keys)
+        q: torch.tensor = self.__weight_Q(query.to(dtype=self.__dtype))
+        k: torch.tensor = self.__weight_K(keys.to(dtype=self.__dtype))
 
         raw_attention: torch.tensor = self.__weight_V(torch.tanh(self.__dropout(q) + self.__dropout(k)))
 
@@ -89,8 +89,8 @@ class DualLinearAttention(torch.nn.Module):
         self.__dropout = torch.nn.Dropout(p=dropout if dropout is not None else 0.5)
 
     def forward(self, query: torch.tensor, keys: torch.tensor) -> torch.tensor:
-        q: torch.tensor = self.__weight_Q(query)
-        k: torch.tensor = self.__weight_K(keys)
+        q: torch.tensor = self.__weight_Q(query.to(dtype=self.__dtype))
+        k: torch.tensor = self.__weight_K(keys.to(dtype=self.__dtype))
 
         raw_attention: torch.tensor = torch.sum(self.__dropout(q) * self.__dropout(k), dim=1)
 
