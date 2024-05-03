@@ -4,7 +4,9 @@
   "group": "Emotion Model",
   "notes": "train model",
   "config": {
+    "trained_model_name": "EM_dot_product",
     "attention_type": "dot_product",
-    "num_epochs": 5
+    "num_epochs": 1,
+    "learning_rate": 1e-3
   }
 }
