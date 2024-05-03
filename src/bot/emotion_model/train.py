@@ -75,7 +75,8 @@ for i in range(wandb.config["num_epochs"]):
         loss.backward()
         optimizer.step()
 
-    wandb.log({"train/train_loss": running_loss / len(train_dataloader)})
+    if i + 1 == wandb.config["num_epochs"]:
+        wandb.log({"train/train_loss": running_loss / len(train_dataloader)})
 
     running_loss: torch.float = 0
     true_labels: list = []
@@ -95,13 +96,14 @@ for i in range(wandb.config["num_epochs"]):
             true_labels += sample["bot_emotion"]
             predicted_labels.append(torch.argmax(output, dim=1))
 
-        wandb.log({"val/val_loss": running_loss / len(validation_dataloader)})
-        wandb.log({
-            "val/f1_score": multiclass_f1_score(torch.cat(true_labels), torch.cat(predicted_labels),
-                                                num_classes=7, average="weighted"),
-            "val/accuracy": multiclass_accuracy(torch.cat(true_labels), torch.cat(predicted_labels),
-                                                num_classes=7)
-        })
+        if i + 1 == wandb.config["num_epochs"]:
+            wandb.log({"val/val_loss": running_loss / len(validation_dataloader)})
+            wandb.log({
+                "val/f1_score": multiclass_f1_score(torch.cat(true_labels), torch.cat(predicted_labels),
+                                                    num_classes=7, average="weighted"),
+                "val/accuracy": multiclass_accuracy(torch.cat(true_labels), torch.cat(predicted_labels),
+                                                    num_classes=7)
+            })
 
 model_artifact = wandb.Artifact(wandb.config["trained_model_name"], type="model")
 
