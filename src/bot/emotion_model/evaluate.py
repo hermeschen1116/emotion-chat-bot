@@ -39,7 +39,9 @@ run = wandb.init(
 dataset_path = run.use_artifact("daily_dialog_for_EM:latest").download()
 eval_dataset = load_from_disk(dataset_path)["test"]
 
-model = EmotionModel(wandb_args.config["attention_type"], dtype=args.dtype)
+model_path = run.use_artifact(wandb.config["model_name"], type="model").download()
+model = torch.load(f"{model_path}/model")
+# model = EmotionModel(wandb_args.config["attention_type"], dtype=args.dtype)
 model = torch.compile(model)
 
 eval_dataset = eval_dataset.map(lambda samples: {

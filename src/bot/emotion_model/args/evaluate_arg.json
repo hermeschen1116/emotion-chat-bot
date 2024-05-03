@@ -2,8 +2,8 @@
   "job_type": "evaluation",
   "project": "emotion-chat-bot-ncu",
   "group": "Emotion Model",
-  "notes": "evaluate baseline performance emotion model with different attention",
+  "notes": "evaluate performance trained emotion model with different attention",
   "config": {
-    "attention_type": "dot_product"
+    "model_name": "EM_attention_type_test:v0"
   }
 }

@@ -24,7 +24,7 @@ from libs.EmotionModel import EmotionModel, representation_evolute
 @dataclass
 class ScriptArguments(CommonScriptArguments):
     dataset: Optional[str] = HfArg(aliases="--dataset", default="daily_dialog_for_EM:latest")
-    path_to_save_model: Optional[str] = HfArg(aliases="--path-to-save-model", default="./model")
+    path_to_save_model: Optional[str] = HfArg(aliases="--path-to-save-model", default="./model/")
     dtype: Optional[Any] = HfArg(aliases="--dtype", default=torch.float32)
     device: Optional[str] = HfArg(aliases="--device", default_factory=get_torch_device)
 
@@ -109,7 +109,7 @@ model_artifact = wandb.Artifact(wandb.config["trained_model_name"], type="model"
 
 model = torch.compile(model)
 torch.save(model.state_dict(), args.path_to_save_model)
-model_artifact.add_file(args.path_to_save_model)
+model_artifact.add_dir(args.path_to_save_model)
 run.log_artifact(model_artifact)
 
 wandb.finish()
