@@ -9,7 +9,7 @@ from torcheval.metrics.functional import multiclass_f1_score, multiclass_accurac
 from transformers.hf_argparser import HfArgumentParser, HfArg
 
 from libs.CommonConfig import CommonWanDBArguments, CommonScriptArguments, get_torch_device
-from libs.EmotionModel import EmotionModel
+from libs.EmotionModel import EmotionModel, representation_evolute
 
 
 @dataclass
@@ -43,7 +43,7 @@ model = EmotionModel(wandb_args.config["attention_type"], dtype=args.dtype)
 model = torch.compile(model)
 
 eval_dataset = eval_dataset.map(lambda samples: {
-    "bot_representation": [model.representation_evolute(sample[0], sample[1])
+    "bot_representation": [representation_evolute(model, sample[0], sample[1])
                            for sample in zip(samples["bot_representation"],
                                              samples["user_dialog_emotion_composition"])]
 }, batched=True)

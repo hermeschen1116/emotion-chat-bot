@@ -3,6 +3,15 @@ from .Attention import *
 import torch
 
 
+def representation_evolute(model, representation_src: list, emotion_compositions: list) -> torch.tensor:
+    representations: list = representation_src
+    for composition in emotion_compositions:
+        new_representation: torch.tensor = model.forward(torch.tensor(representations[-1]), torch.tensor(composition))
+        representations.append(list(new_representation))
+
+    return torch.tensor(representations[1:], dtype=torch.float, requires_grad=True)
+
+
 class EmotionModel(torch.nn.Module):
     def __init__(
         self,
@@ -37,11 +46,3 @@ class EmotionModel(torch.nn.Module):
             torch.sum(self.__weight((attention_score**3).to(dtype=self.__dtype)), dim=1), -1, 1)
 
         return representation + difference
-
-    def representation_evolute(self, representation_src: list, emotion_compositions: list) -> torch.tensor:
-        representations: list = representation_src
-        for composition in emotion_compositions:
-            new_representation: torch.tensor = self.forward(torch.tensor(representations[-1]), torch.tensor(composition))
-            representations.append(list(new_representation))
-
-        return torch.tensor(representations[1:], dtype=torch.float, requires_grad=True)
