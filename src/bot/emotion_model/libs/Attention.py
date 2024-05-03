@@ -62,9 +62,9 @@ class AdditiveAttention(torch.nn.Module):
 
         self.__dtype: Any = dtype
 
-        self.__weight_Q = torch.nn.LazyLinear(7, bias=False, dtype=dtype)
-        self.__weight_K = torch.nn.LazyLinear(7, bias=False, dtype=dtype)
-        self.__weight_V = torch.nn.LazyLinear(1, bias=False, dtype=dtype)
+        self.__weight_Q = torch.nn.Linear(7, 7, bias=False, dtype=dtype)
+        self.__weight_K = torch.nn.Linear(7, 7, bias=False, dtype=dtype)
+        self.__weight_V = torch.nn.Linear(7, 7, bias=False, dtype=dtype)
         self.__dropout = torch.nn.Dropout(p=dropout if dropout is not None else 0.5)
 
     def forward(self, query: torch.tensor, keys: torch.tensor) -> torch.tensor:
@@ -84,8 +84,8 @@ class DualLinearAttention(torch.nn.Module):
 
         self.__dtype: Any = dtype
 
-        self.__weight_Q = torch.nn.LazyLinear(7, bias=False, dtype=dtype)
-        self.__weight_K = torch.nn.LazyLinear(7, bias=False, dtype=dtype)
+        self.__weight_Q = torch.nn.Linear(7, 7, bias=False, dtype=dtype)
+        self.__weight_K = torch.nn.Linear(7, 7, bias=False, dtype=dtype)
         self.__dropout = torch.nn.Dropout(p=dropout if dropout is not None else 0.5)
 
     def forward(self, query: torch.tensor, keys: torch.tensor) -> torch.tensor:

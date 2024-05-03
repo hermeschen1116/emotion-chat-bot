@@ -35,7 +35,7 @@ class EmotionModel(torch.nn.Module):
             case "dual_linear":
                 self.__attention = DualLinearAttention(dropout, dtype=dtype)
 
-        self.__weight = torch.nn.LazyLinear(7, bias=bias, dtype=dtype)
+        self.__weight = torch.nn.Linear(7,7, bias=bias, dtype=dtype)
 
     def forward(self, representation: torch.tensor, input_emotion: torch.tensor) -> torch.tensor:
         decomposed_representation: torch.tensor = representation.diag()
