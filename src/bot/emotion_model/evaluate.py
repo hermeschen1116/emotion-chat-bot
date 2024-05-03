@@ -40,6 +40,7 @@ dataset_path = run.use_artifact("daily_dialog_for_EM:latest").download()
 eval_dataset = load_from_disk(dataset_path)["test"]
 
 model = EmotionModel(wandb_args.config["attention_type"], dtype=args.dtype)
+model = torch.compile(model)
 
 eval_dataset = eval_dataset.map(lambda samples: {
     "bot_representation": [model.representation_evolute(sample[0], sample[1])
@@ -48,23 +49,20 @@ eval_dataset = eval_dataset.map(lambda samples: {
 }, batched=True)
 
 eval_dataset = eval_dataset.map(lambda samples: {
-    "bot_most_possible_emotion": [[torch.argmax(torch.tensor(representation)) for representation in sample]
-                                  for sample in samples]
+    "bot_most_possible_emotion": [torch.argmax(torch.tensor(sample), dim=1) for sample in samples]
 }, input_columns="bot_representation", batched=True, num_proc=16)
 
-emotion_pred: torch.tensor = torch.tensor([emotion for sample in eval_dataset["bot_most_possible_emotion"]
-                                           for emotion in sample[1:]])
-emotion_true: torch.tensor = torch.tensor([emotion for sample in eval_dataset["bot_emotion"]
-                                           for emotion in sample])
+predicted_labels: torch.tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_most_possible_emotion"]])
+true_labels: torch.tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_emotion"]])
 
 wandb.log({
-    "F1-score": multiclass_f1_score(emotion_true, emotion_pred, num_classes=7, average="micro"),
-    "Accuracy": multiclass_accuracy(emotion_true, emotion_pred, num_classes=7)
+    "F1-score": multiclass_f1_score(true_labels, predicted_labels, num_classes=7, average="weighted"),
+    "Accuracy": multiclass_accuracy(true_labels, predicted_labels, num_classes=7)
 })
 
 emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
 eval_dataset = eval_dataset.map(lambda samples: {
-    "bot_most_possible_emotion": [[emotion_labels[emotion_id] for emotion_id in sample[1:]]
+    "bot_most_possible_emotion": [[emotion_labels[emotion_id] for emotion_id in sample]
                                   for sample in samples["bot_most_possible_emotion"]],
     "bot_emotion": [[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples["bot_emotion"]]
 }, batched=True, num_proc=16)
@@ -72,8 +70,9 @@ eval_dataset = eval_dataset.map(lambda samples: {
 result = eval_dataset.map(lambda samples: {
     "bot_most_possible_emotion": [", ".join(sample) for sample in samples["bot_most_possible_emotion"]],
     "bot_emotion": [", ".join(sample) for sample in samples["bot_emotion"]]
-}, remove_columns=["bot_representation", "bot_dialog", "user_dialog", "user_dialog_emotion_composition"], batched=True,
-                          num_proc=16)
+}, batched=True, num_proc=16)
+
+result = result.remove_columns(["bot_representation", "bot_dialog", "user_dialog", "user_dialog_emotion_composition"])
 
 wandb.log({"evaluation_result": wandb.Table(dataframe=result.to_pandas())})
 
