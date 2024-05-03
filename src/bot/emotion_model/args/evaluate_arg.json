@@ -4,6 +4,7 @@
   "group": "Emotion Model",
   "notes": "evaluate performance trained emotion model with different attention",
   "config": {
-    "model_name": "EM_attention_type_test:v0"
+    "attention_type": "dot_product",
+    "model_name": "EM_attention_type_test:v6"
   }
 }

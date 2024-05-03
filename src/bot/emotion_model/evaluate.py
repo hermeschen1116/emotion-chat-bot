@@ -3,6 +3,8 @@ from dataclasses import dataclass
 from typing import Any, Optional
 
 import torch
+from safetensors.torch import load_model
+
 import wandb
 from datasets import load_from_disk
 from torcheval.metrics.functional import multiclass_f1_score, multiclass_accuracy
@@ -39,10 +41,9 @@ run = wandb.init(
 dataset_path = run.use_artifact("daily_dialog_for_EM:latest").download()
 eval_dataset = load_from_disk(dataset_path)["test"]
 
-model_path = run.use_artifact(wandb.config["model_name"], type="model").download()
-model = torch.load(f"{model_path}/model")
-# model = EmotionModel(wandb_args.config["attention_type"], dtype=args.dtype)
-model = torch.compile(model)
+# model_path = run.use_artifact(wandb.config["model_name"], type="model").download()
+model = EmotionModel(wandb_args.config["attention_type"], dtype=args.dtype)
+# load_model(model, f"{model_path}/model.safetensors")
 
 eval_dataset = eval_dataset.map(lambda samples: {
     "bot_representation": [representation_evolute(model, sample[0], sample[1])
