@@ -1,6 +1,5 @@
 {
   "dtype": "torch.float16",
-  "device": "mps",
   "job_type": "train",
   "project": "emotion-chat-bot-ncu",
   "group": "Emotion Model",
