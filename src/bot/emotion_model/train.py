@@ -1,5 +1,4 @@
-import os
-import shutil
+import tempfile
 from argparse import ArgumentParser
 from dataclasses import dataclass
 from typing import Any, Optional
@@ -7,6 +6,7 @@ from typing import Any, Optional
 import torch
 import torch.nn.functional as f
 from datasets import load_from_disk
+from safetensors.torch import save_model
 from torch.utils.data import DataLoader
 from torcheval.metrics.functional import multiclass_f1_score, multiclass_accuracy
 from tqdm.auto import tqdm
@@ -24,7 +24,6 @@ from libs.EmotionModel import EmotionModel, representation_evolute
 @dataclass
 class ScriptArguments(CommonScriptArguments):
     dataset: Optional[str] = HfArg(aliases="--dataset", default="daily_dialog_for_EM:latest")
-    path_to_save_model: Optional[str] = HfArg(aliases="--path-to-save-model", default="./model/")
     dtype: Optional[Any] = HfArg(aliases="--dtype", default=torch.float32)
     device: Optional[str] = HfArg(aliases="--device", default_factory=get_torch_device)
 
@@ -50,7 +49,7 @@ run = wandb.init(
 dataset_path = run.use_artifact(args.dataset).download()
 dataset = load_from_disk(dataset_path)
 
-model = EmotionModel(wandb.config["attention_type"])
+model = EmotionModel(dropout=wandb.config["dropout"], bias=wandb.config["bias"], dtype=args.dtype, device=args.device)
 
 loss_function = torch.nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=wandb.config["learning_rate"])
@@ -96,23 +95,20 @@ for i in range(wandb.config["num_epochs"]):
             true_labels += sample["bot_emotion"]
             predicted_labels.append(torch.argmax(output, dim=1))
 
-        if i + 1 == wandb.config["num_epochs"]:
-            wandb.log({"val/val_loss": running_loss / len(validation_dataloader)})
-            wandb.log({
-                "val/f1_score": multiclass_f1_score(torch.cat(true_labels), torch.cat(predicted_labels),
-                                                    num_classes=7, average="weighted"),
-                "val/accuracy": multiclass_accuracy(torch.cat(true_labels), torch.cat(predicted_labels),
-                                                    num_classes=7)
-            })
+        wandb.log({"val/val_loss": running_loss / len(validation_dataloader)})
+        wandb.log({
+            "val/f1_score": multiclass_f1_score(torch.cat(true_labels), torch.cat(predicted_labels),
+                                                num_classes=7, average="weighted"),
+            "val/accuracy": multiclass_accuracy(torch.cat(true_labels), torch.cat(predicted_labels),
+                                                num_classes=7)
+        })
 
 model_artifact = wandb.Artifact(wandb.config["trained_model_name"], type="model")
 
 model = torch.compile(model)
-torch.save(model.state_dict(), args.path_to_save_model)
-model_artifact.add_dir(args.path_to_save_model)
-run.log_artifact(model_artifact)
+with tempfile.mkdtemp() as temp_dir:
+    save_model(model, f"{temp_dir}/{wandb.config['trained_model_name']}.safetensors")
+    model_artifact.add_file(f"{temp_dir}/{wandb.config['trained_model_name']}.safetensors")
+    run.log_artifact(model_artifact)
 
 wandb.finish()
-
-if os.path.exists(args.path_to_save_model):
-    shutil.rmtree(args.path_to_save_model, ignore_errors=True)

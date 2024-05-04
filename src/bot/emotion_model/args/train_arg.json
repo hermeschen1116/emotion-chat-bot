@@ -2,11 +2,12 @@
   "job_type": "train",
   "project": "emotion-chat-bot-ncu",
   "group": "Emotion Model",
-  "notes": "train model",
+  "notes": "train model for final use, using dual linear attention",
   "config": {
-    "trained_model_name": "EM_attention_type_test",
-    "attention_type": "dual_linear",
-    "num_epochs": 2,
+    "trained_model_name": "emotion_model",
+    "bias": true,
+    "dropout": 0.5,
+    "num_epochs": 3,
     "learning_rate": 1e-3
   }
 }
