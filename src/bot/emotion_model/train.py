@@ -1,7 +1,7 @@
 import tempfile
 from argparse import ArgumentParser
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Optional
 
 import torch
 import torch.nn.functional as f
@@ -23,7 +23,6 @@ from libs.EmotionModel import EmotionModel, representation_evolute
 
 @dataclass
 class ScriptArguments(CommonScriptArguments):
-    dataset: Optional[str] = HfArg(aliases="--dataset", default="daily_dialog_for_EM:latest")
     dtype: Optional[str] = HfArg(aliases="--dtype", default="torch.float32")
     device: Optional[str] = HfArg(aliases="--device", default_factory=get_torch_device)
 
@@ -47,7 +46,7 @@ run = wandb.init(
 )
 
 # Load Dataset
-dataset_path = run.use_artifact(args.dataset).download()
+dataset_path = run.use_artifact(wandb.config["dataset"]).download()
 dataset = load_from_disk(dataset_path)
 
 model = EmotionModel(dropout=wandb.config["dropout"], bias=wandb.config["bias"], dtype=dtype, device=args.device)

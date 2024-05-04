@@ -6,6 +6,7 @@
   "group": "Emotion Model",
   "notes": "train model for final use, using dual linear attention",
   "config": {
+    "dataset": "daily_dialog_for_EM:latest",
     "trained_model_name": "emotion_model",
     "bias": true,
     "dropout": 0.5,

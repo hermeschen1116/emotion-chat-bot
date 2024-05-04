@@ -1,22 +1,21 @@
 from argparse import ArgumentParser
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Optional
 
 import torch
-from safetensors.torch import load_model
-
-import wandb
 from datasets import load_from_disk
+from safetensors.torch import load_model
 from torcheval.metrics.functional import multiclass_f1_score, multiclass_accuracy
 from transformers.hf_argparser import HfArgumentParser, HfArg
 
+import wandb
 from libs.CommonConfig import CommonWanDBArguments, CommonScriptArguments, get_torch_device
 from libs.EmotionModel import EmotionModel, representation_evolute
 
 
 @dataclass
 class ScriptArguments(CommonScriptArguments):
-    dtype: Optional[Any] = HfArg(aliases="--dtype", default=torch.float32)
+    dtype: Optional[str] = HfArg(aliases="--dtype", default="torch.float32")
     device: Optional[str] = HfArg(aliases="--device", default_factory=get_torch_device)
 
 
@@ -26,6 +25,7 @@ config = config_getter.parse_args()
 
 parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
 args, wandb_args = parser.parse_json_file(config.json_file)
+dtype: torch.dtype = eval(args.dtype)
 
 # Initialize Wandb
 run = wandb.init(
@@ -38,12 +38,12 @@ run = wandb.init(
     resume=wandb_args.resume
 )
 
-dataset_path = run.use_artifact("daily_dialog_for_EM:latest").download()
+dataset_path = run.use_artifact(wandb.config["dataset"]).download()
 eval_dataset = load_from_disk(dataset_path)["test"]
 
-# model_path = run.use_artifact(wandb.config["model_name"], type="model").download()
-model = EmotionModel(wandb_args.config["attention_type"], dtype=args.dtype)
-# load_model(model, f"{model_path}/model.safetensors")
+model_path = run.use_artifact(wandb.config["model"], type="model").download()
+model = torch.compile(EmotionModel(dtype=dtype, device=args.device))
+load_model(model, f"{model_path}/model.safetensors")
 
 eval_dataset = eval_dataset.map(lambda samples: {
     "bot_representation": [representation_evolute(model, sample[0], sample[1])
