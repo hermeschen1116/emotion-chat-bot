@@ -106,7 +106,7 @@ for i in range(wandb.config["num_epochs"]):
 model_artifact = wandb.Artifact(wandb.config["trained_model_name"], type="model")
 
 model = torch.compile(model)
-with tempfile.mkdtemp() as temp_dir:
+with tempfile.TemporaryDirectory() as temp_dir:
     save_model(model, f"{temp_dir}/{wandb.config['trained_model_name']}.safetensors")
     model_artifact.add_file(f"{temp_dir}/{wandb.config['trained_model_name']}.safetensors")
     run.log_artifact(model_artifact)
