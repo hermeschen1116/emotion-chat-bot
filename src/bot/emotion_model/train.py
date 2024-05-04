@@ -24,7 +24,7 @@ from libs.EmotionModel import EmotionModel, representation_evolute
 @dataclass
 class ScriptArguments(CommonScriptArguments):
     dataset: Optional[str] = HfArg(aliases="--dataset", default="daily_dialog_for_EM:latest")
-    dtype: Optional[Any] = HfArg(aliases="--dtype", default=torch.float32)
+    dtype: Optional[str] = HfArg(aliases="--dtype", default="torch.float32")
     device: Optional[str] = HfArg(aliases="--device", default_factory=get_torch_device)
 
 
@@ -34,6 +34,7 @@ config = config_getter.parse_args()
 
 parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
 args, wandb_args = parser.parse_json_file(config.json_file)
+dtype: torch.dtype = eval(args.dtype)
 
 run = wandb.init(
     job_type=wandb_args.job_type,
@@ -49,7 +50,7 @@ run = wandb.init(
 dataset_path = run.use_artifact(args.dataset).download()
 dataset = load_from_disk(dataset_path)
 
-model = EmotionModel(dropout=wandb.config["dropout"], bias=wandb.config["bias"], dtype=args.dtype, device=args.device)
+model = EmotionModel(dropout=wandb.config["dropout"], bias=wandb.config["bias"], dtype=dtype, device=args.device)
 
 loss_function = torch.nn.CrossEntropyLoss()
 optimizer = torch.optim.Adam(model.parameters(), lr=wandb.config["learning_rate"])
