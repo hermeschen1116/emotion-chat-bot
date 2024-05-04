@@ -17,12 +17,12 @@ class EmotionModel(torch.nn.Module):
         self,
         dropout: Optional[float] = 0.5,
         bias: Optional[bool] = True,
-        dtype: Optional[Any] = torch.float,
+        dtype: Optional[torch.dtype] = torch.float,
         device: Optional[str] = "cpu"
     ):
         super(EmotionModel, self).__init__()
 
-        self.__dtype: Any = dtype
+        self.__dtype: torch.dtype = dtype
         self.__device: str = device
 
         self.__weight_Q = torch.nn.Linear(7, 7, bias=False, dtype=dtype, device=device)

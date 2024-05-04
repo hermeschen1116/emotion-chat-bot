@@ -1,4 +1,4 @@
-from typing import Any, Optional
+from typing import Optional
 
 import torch
 
@@ -15,7 +15,7 @@ def diagonal_indices(source: torch.tensor) -> torch.tensor:
     return torch.tensor([i for i in range(source_shape[0])])
 
 
-def diagonal_softmax(source: torch.tensor, dtype: Any = torch.float) -> torch.tensor:
+def diagonal_softmax(source: torch.tensor, dtype: Optional[torch.dtype] = torch.float) -> torch.tensor:
     diagonal: torch.tensor = diagonal_indices(source)
 
     softmax_diagonal: torch.tensor = torch.softmax(source[diagonal, diagonal], dim=0, dtype=dtype)
@@ -27,9 +27,9 @@ def diagonal_softmax(source: torch.tensor, dtype: Any = torch.float) -> torch.te
 
 
 class DotProductAttention(torch.nn.Module):
-    def __init__(self, dtype: Any = torch.float) -> None:
+    def __init__(self, dtype: Optional[torch.dtype] = torch.float) -> None:
         super(DotProductAttention, self).__init__()
-        self.__dtype: Any = dtype
+        self.__dtype: torch.dtype = dtype
 
     def forward(self, query: torch.tensor, keys: torch.tensor) -> torch.tensor:
         raw_attention: torch.tensor = torch.sum(query * keys, dim=1)
@@ -40,10 +40,10 @@ class DotProductAttention(torch.nn.Module):
 class ScaledDotProductAttention(torch.nn.Module):
     def __init__(self,
                  scaler: Optional[float] = None,
-                 dtype: Any = torch.float) -> None:
+                 dtype: torch.dtype = torch.float) -> None:
         super(ScaledDotProductAttention, self).__init__()
 
-        self.__dtype: Any = dtype
+        self.__dtype: torch.dtype = dtype
         self.__scaler: float = scaler
 
     def forward(self, query: torch.tensor, keys: torch.tensor) -> torch.tensor:
@@ -57,10 +57,10 @@ class ScaledDotProductAttention(torch.nn.Module):
 class AdditiveAttention(torch.nn.Module):
     def __init__(self,
                  dropout: Optional[float] = None,
-                 dtype: Optional[Any] = torch.float) -> None:
+                 dtype: Optional[torch.dtype] = torch.float) -> None:
         super(AdditiveAttention, self).__init__()
 
-        self.__dtype: Any = dtype
+        self.__dtype: torch.dtype = dtype
 
         self.__weight_Q = torch.nn.Linear(7, 7, bias=False, dtype=dtype)
         self.__weight_K = torch.nn.Linear(7, 7, bias=False, dtype=dtype)
@@ -80,10 +80,10 @@ class AdditiveAttention(torch.nn.Module):
 class DualLinearAttention(torch.nn.Module):
     def __init__(self,
                  dropout: Optional[float] = None,
-                 dtype: Optional[Any] = torch.float) -> None:
+                 dtype: Optional[torch.dtype] = torch.float) -> None:
         super(DualLinearAttention, self).__init__()
 
-        self.__dtype: Any = dtype
+        self.__dtype: torch.dtype = dtype
 
         self.__weight_Q = torch.nn.Linear(7, 7, bias=False, dtype=dtype)
         self.__weight_K = torch.nn.Linear(7, 7, bias=False, dtype=dtype)
