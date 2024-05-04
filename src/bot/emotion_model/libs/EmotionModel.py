@@ -15,34 +15,33 @@ def representation_evolute(model, representation_src: list, emotion_compositions
 class EmotionModel(torch.nn.Module):
     def __init__(
         self,
-        attention: str,
         dropout: Optional[float] = 0.5,
-        scaler: Optional[float] = None,
         bias: Optional[bool] = True,
         dtype: Optional[Any] = torch.float,
+        device: Optional[str] = "cpu"
     ):
         super(EmotionModel, self).__init__()
 
         self.__dtype: Any = dtype
+        self.__device: str = device
 
-        match attention:
-            case "dot_product":
-                self.__attention = DotProductAttention(dtype=dtype)
-            case "scaled_dot_product":
-                self.__attention = ScaledDotProductAttention(scaler, dtype=dtype)
-            case "additive":
-                self.__attention = AdditiveAttention(dropout, dtype=dtype)
-            case "dual_linear":
-                self.__attention = DualLinearAttention(dropout, dtype=dtype)
-
-        self.__weight = torch.nn.Linear(7,7, bias=bias, dtype=dtype)
+        self.__weight_Q = torch.nn.Linear(7, 7, bias=False, dtype=dtype, device=device)
+        self.__weight_K = torch.nn.Linear(7, 7, bias=False, dtype=dtype, device=device)
+        self.__dropout = torch.nn.Dropout(p=dropout)
+        self.__weight_D = torch.nn.Linear(7, 7, bias=bias, dtype=dtype, device=device)
 
     def forward(self, representation: torch.tensor, input_emotion: torch.tensor) -> torch.tensor:
-        decomposed_representation: torch.tensor = representation.diag()
+        decomposed_representation: torch.tensor = representation.diag().to(dtype=self.__dtype, device=self.__device)
 
-        attention_score: torch.tensor = self.__attention(input_emotion, decomposed_representation)
+        q: torch.tensor = self.__weight_Q(input_emotion.to(dtype=self.__dtype, device=self.__device))
+        k: torch.tensor = self.__weight_K(decomposed_representation)
+
+        raw_attention: torch.tensor = torch.sum(self.__dropout(q) * self.__dropout(k), dim=1, dtype=self.__dtype)
+
+        attention_score: torch.tensor = (diagonal_softmax(raw_attention.squeeze().diag(), dtype=self.__dtype)
+                                         .to(device=self.__device))
 
         difference: torch.tensor = torch.clamp(
-            torch.sum(self.__weight((attention_score**3).to(dtype=self.__dtype)), dim=1), -1, 1)
+            torch.sum(self.__weight_D((attention_score ** 3)), dim=1), -1, 1)
 
-        return representation + difference
+        return representation.to(dtype=self.__dtype, device=self.__device) + difference
