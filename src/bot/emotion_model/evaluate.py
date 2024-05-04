@@ -43,7 +43,7 @@ eval_dataset = load_from_disk(dataset_path)["test"]
 
 model_path = run.use_artifact(wandb.config["model"], type="model").download()
 model = torch.compile(EmotionModel(dtype=dtype, device=args.device))
-load_model(model, f"{model_path}/model.safetensors")
+load_model(model, f"{model_path}/emotion_model.safetensors")
 
 eval_dataset = eval_dataset.map(lambda samples: {
     "bot_representation": [representation_evolute(model, sample[0], sample[1])
