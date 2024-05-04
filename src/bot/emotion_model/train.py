@@ -52,7 +52,7 @@ dataset = load_from_disk(dataset_path)
 model = EmotionModel(dropout=wandb.config["dropout"], bias=wandb.config["bias"], dtype=dtype, device=args.device)
 
 loss_function = torch.nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=wandb.config["learning_rate"])
+optimizer = torch.optim.Adagrad(model.parameters(), lr=wandb.config["learning_rate"])
 
 train_dataloader = DataLoader(dataset["train"])
 validation_dataloader = DataLoader(dataset["validation"])
