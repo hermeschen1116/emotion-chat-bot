@@ -1,5 +1,6 @@
 import os
 import shutil
+from argparse import ArgumentParser
 from dataclasses import dataclass
 from typing import Optional
 
@@ -22,8 +23,12 @@ class ScriptArguments(CommonScriptArguments):
     dataset_path: Optional[str] = HfArg(aliases="--dataset-path", default="./dataset")
 
 
+config_getter = ArgumentParser()
+config_getter.add_argument("--json_file", required=True, type=str)
+config = config_getter.parse_args()
+
 parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
-args, wandb_args = parser.parse_json_file("./args/data_process_arg.json")
+args, wandb_args = parser.parse_json_file(config.json_file)
 
 run = wandb.init(
     job_type=wandb_args.job_type,
@@ -46,6 +51,11 @@ dataset = dataset.map(lambda samples: {
 dataset = dataset.map(lambda samples: {
     "dialog": [sample[:-1] if len(sample) % 2 == 0 else sample for sample in samples["dialog"]],
     "emotion": [sample[:-1] if len(sample) % 2 == 0 else sample for sample in samples["emotion"]]
+}, batched=True, num_proc=16)
+
+dataset = dataset.map(lambda samples: {
+    "dialog": [sample for sample in samples["dialog"] if len(sample) > 2],
+    "emotion": [sample for sample in samples["emotion"] if len(sample) > 2]
 }, batched=True, num_proc=16)
 
 dataset = dataset.map(lambda samples: {
@@ -83,7 +93,7 @@ sentiment_analysis_model = torch.compile(sentiment_analysis_model)
 
 dataset = dataset.map(lambda sample: {
     "user_dialog_emotion_composition": [get_sentiment_composition(analyser(dialog))
-                                       for dialog in sample]
+                                        for dialog in sample]
 }, input_columns="user_dialog")
 
 dataset_artifact = wandb.Artifact(
