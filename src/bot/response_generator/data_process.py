@@ -34,20 +34,18 @@ run = wandb.init(
 )
 
 dataset = load_dataset("daily_dialog",
-                       num_proc=16,
-                       save_infos=True,
+                       num_proc=16, save_infos=True,
                        trust_remote_code=True).remove_columns("act")
 
 dataset = dataset.rename_column("emotion", "emotion_id")
 emotion_labels: list = dataset["train"].features["emotion_id"].feature.names
 emotion_labels[0] = "neutral"
-dataset = dataset.map(lambda samples: {
-    "emotion": [[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples]
-}, input_columns="emotion_id", remove_columns="emotion_id", batched=True, num_proc=16)
+dataset = dataset.map(
+    lambda samples: {"emotion": [[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples]},
+    input_columns="emotion_id", remove_columns="emotion_id", batched=True, num_proc=16)
 
-dataset = dataset.map(lambda samples: {
-    "dialog": [[dialog.strip() for dialog in sample] for sample in samples]
-}, input_columns="dialog", batched=True, num_proc=16)
+dataset = dataset.map(lambda samples: {"dialog": [[dialog.strip() for dialog in sample] for sample in samples]},
+                      input_columns="dialog", batched=True, num_proc=16)
 
 dataset = dataset.map(lambda samples: {
     "emotion": [sample[:-1] if len(sample) % 2 == 1 else sample for sample in samples["emotion"]],
@@ -86,34 +84,30 @@ dataset["test"] = dataset["test"].map(lambda samples: {
 }, batched=True, num_proc=16)
 
 dataset["test"] = dataset["test"].map(lambda sample: {
-    "history": [
-        "\n".join([f"""{'user' if i % 2 == 0 else 'bot'}({v[0]}): {v[1]}"""
-                   for i, v in enumerate(zip(sample["emotion_history"], sample["dialog_history"]))])
-    ]}, remove_columns=["emotion_history", "dialog_history"], num_proc=16)
+    "history": ["\n".join([f"""{'user' if i % 2 == 0 else 'bot'}({v[0]}): {v[1]}"""
+                           for i, v in enumerate(zip(sample["emotion_history"], sample["dialog_history"]))])]
+}, remove_columns=["emotion_history", "dialog_history"], num_proc=16)
 
 test_dataset_artifact = wandb.Artifact(
     f"{args.dataset_name}_test",
     type="dataset",
-    description="modified version of daily dialog dataset from huggingface for response generator module",
-    incremental=True
+    description="modified version of daily dialog dataset from huggingface for response generator module"
 )
 
 with tempfile.TemporaryDirectory() as temp_dir:
     dataset["test"].save_to_disk(f"{temp_dir}/{args.dataset_name}_test", num_proc=16)
-    test_dataset_artifact.add_file(f"{temp_dir}/{args.dataset_name}_test")
+    test_dataset_artifact.add_dir(f"{temp_dir}/{args.dataset_name}_test")
     run.log_artifact(test_dataset_artifact)
 
 dataset_artifact = wandb.Artifact(
     f"{args.dataset_name}_train",
     type="dataset",
-    description="modified version of daily dialog dataset from huggingface for response generator module",
-    metadata=dict(dataset),
-    incremental=True
+    description="modified version of daily dialog dataset from huggingface for response generator module"
 )
 
 with tempfile.TemporaryDirectory() as temp_dir:
     dataset["train"].save_to_disk(f"{temp_dir}/{args.dataset_name}_train", num_proc=16)
-    dataset_artifact.add_file(f"{temp_dir}/{args.dataset_name}_train")
+    dataset_artifact.add_dir(f"{temp_dir}/{args.dataset_name}_train")
     run.log_artifact(dataset_artifact)
 
 wandb.finish()

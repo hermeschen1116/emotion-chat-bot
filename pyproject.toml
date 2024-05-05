@@ -12,17 +12,9 @@ package-mode = false
 [tool.poetry.dependencies]
 python = "~3.11"
 wheel = "^0.43.0"
-<<<<<<< Updated upstream
-torch = "^2.2.2"
 huggingface-hub = "^0.21.3"
-datasets = "^2.18.0"
-||||||| Stash base
-torch = "^2.3.0"
-datasets = "^2.18.0"
-=======
 torch = "^2.3.0"
 datasets = "^2.19.0"
->>>>>>> Stashed changes
 peft = "^0.9.0"
 trl = "^0.7.11"
 transformers = "4.38.2"
@@ -30,19 +22,12 @@ accelerate = "^0.28.0"
 evaluate = "^0.4.1"
 wandb = "^0.16.5"
 torcheval = "^0.0.7"
-<<<<<<< Updated upstream
 python-dotenv = "^1.0.1"
+lightning = "^2.2.3"
 
 [tool.poetry.group.cuda.dependencies]
-flash-attn = "^2.5.6"
 bitsandbytes = "^0.42.0"
-||||||| Stash base
-flash-attn = "^2.5.6"
-lightning = "^2.2.3"
-=======
 flash-attn = "^2.5.8"
-lightning = "^2.2.3"
->>>>>>> Stashed changes
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"
