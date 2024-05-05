@@ -1,54 +1,64 @@
-# 專題
-中央大學專題
+# 帶有情緒模組的聊天機器人之實作
 
-### HOW-TO
-執行 `run_SA.ipynb`
+> 中央大學專題實驗
 
-### ISSUES
-1. **The model did not return a loss from the inputs, only the following keys: logits. For reference, the inputs it received are input_ids,attention_mask.**
+## 目標
 
+1. 新增額外的情感模組，使模型能以類似人類的方式處理情緒
+2. 使模型能具有自己的情感或近似的狀態
 
-    如果沒有 `df.rename({'utterance': 'text', 'emotions': 'label'}, axis=1)` [好像會讓他讀不到，一定要是這個形式。](https://discuss.huggingface.co/t/the-model-did-not-return-a-loss-from-the-inputs-only-the-following-keys-logits-for-reference-the-inputs-it-received-are-input-values/25420/13)
+## 使用技術
 
-2. **Unable to create tensor, you should probably activate truncation and/or padding with 'padding=True' 'truncation=True' to have batched tensors with the same length. Perhaps your features (``label`` in this case) have excessive nesting (inputs type ``list`` where type ``int`` is expected).**
-   
-    這就忘了我的 label 是英文(anger, disgust...)
+- chatbot
+    - 模型：LLaMA2
+    - 模型訓練：PyTorch 2、Peft、Trl
+    - 模型部署：torchserve
+- 互動前端
+    - Vue
 
-### CONTRIBUTION ?
-#### TL;DR
-在 [DailyDialog](https://huggingface.co/datasets/benjaminbeilharz/better_daily_dialog) 上微調 [emotion_text_classifier](https://huggingface.co/michellejieli/emotion_text_classifier)。
-> ACC 從 ~0.66 提升至 ~81
+## 模型架構
 
-#### 整體流程
-* 利用 huggingface 的 load_dataset 來直接存取資料集，並且整理成可用的形式。例如更改 feature 名稱來對應需求。
-* 使用 AutoTokenizer 以及 AutoModelForSequenceClassification 來產生需要的組件，並且使用 trainer.train() 進行訓練。
+### 整體架構
 
+#### 構想
 
+設定一情緒表徵作為模型自身情緒上最理想的狀態，則情緒模組之目的是使自身目前的情緒表徵盡可能相似於理想的表徵。
+由於情緒表徵隨時持續受使用者輸入影響，應不可能達成與理想表徵完全一致的狀態，
+因此透過情緒模組在產生回應情緒上的不確定性，預期能達成近似於模型自身具有感情的效果。
 
+#### 機制
 
-### To-Do
-- [X] mapping output to dailydialog style
-- [X] test performance
-- [ ] ...
----
-### 專題作業時程
-#### Sentiment Analysis （3月初）
-* Test prompt and optimize 
-#### Response Generator （3月底）
-* Test prompt and optimize
-#### Candidate Generator （4月中）
-* Test prompt
-* Test different length of history
-* Optimize 
-* (option) use Trl to strengthen divergence 
-#### Similarity Analysis （3月底）
-* Find right math formula
-* Experiment 
-#### Emotion Model （4月底）
-* Understand different types of attention mechanism 
-* Build model with attention mechanism 
-* Optimize
-#### Full Model（5月中）
-* Optimize and Improve 
-* Application
+<img src="Model_Architecture.png" alt="Model Architecture"/>
+  
+模組本身會執行三大步驟，依序為辨識情緒、處理情緒、產生情緒。
+  
+- **辨識情緒**
 
+  此步驟直接使用 Daily Dialog 資料集來微調 LLM 進行 Sentimental Analysis，
+  對輸入的語句進行分析後回傳在 Daily Dialog 資料集中使用的 8 種基本情緒的文字型態標籤（ $U_n$ ），後續在模組中直接使用。
+- **處理情緒**<br>
+
+  此處分為兩個子模組進行處理，同理心子模組（Empathy Model）與情緒子模組（Emotion Model）。
+  分為兩個模組的目的是為了讓模型以類似人類的方式應對情緒，情緒刺激會對人類有長期和短期的影響，而人類也會同理對方情緒作為應對的考量。
+  
+  - *同理心子模組（Empathy Model）*
+    
+    考量到人類在同理他人時也會參考先前的應對作為參考，此處使用情緒應對的歷史
+    （包括當前輸入 $U_n$ 和作為候選應對的 8 種情緒標籤 $C_n'$ （也就是資料集中的 8 種情緒） ，因此會有總共 8 組歷史）和使用者的文字輸入作為輸入，
+    先產生對應八種情緒的候選回應，並分別預測面對這 8 種回應對方可能的回應情緒（ $U_{n+1}'$ ）。此處的輸出會再作為情緒子模組的輸入。
+  - *情緒子模組（Emotion Model）*
+    
+    情緒子模組主要是反應情緒刺激的短期影響，輸入為情緒（ $U$ ），輸出為反映當前情緒刺激的情緒表徵（ $E$ ）。
+    此子模組會進行兩次，第一次為反應當前的情緒輸入（ $U_n$ ）產生對應的情緒表徵（ $E_n$ ），此處的 $E_n$ 會作為第二次的輸入也會保存為當前模型的情緒表徵;
+    第二次的執行為進行自身未來的情緒表徵的預測，以第一次的輸出（ $E_n$ ）和同理心模組的 8 個預測（ $U_{n+1}'$ ）作為輸入，
+    預測在進行下一輪對話後自身的情緒狀態（ $E_{n+1}'$ ），因此同樣會有 8 個預測。
+    
+    > 情緒表徵 $E$ ：為一組含 8 個浮點數（介於 1 和 -1 間）的數組，分別代表 8 種基本情緒在該狀態下的強度
+
+- **產生情緒**
+  
+  此處會將處理情緒中產生的 8 組情緒表徵預測（ $E_{n+1}'$ ）與理想的情緒表徵（ $E_{Ideal}$ ）作比較， 
+  將情緒候選（ $C_n'$ ）中對應的情緒表徵預測與理想表徵最相近的一個作為最終的輸出（ $C_n$ ），意義為期望未來自身的狀態能接近於理想（自身最安穩）的狀態。
+  假設理想的情緒中開心的情緒強度較強，預想中輸出的結果應該多數會是開心，因此預先設定的理想情緒表徵 $E_{Ideal} 也可以說是模型的性格。
+
+## 參考資料
