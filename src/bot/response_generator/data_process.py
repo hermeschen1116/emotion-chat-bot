@@ -1,37 +1,37 @@
-import os
-import shutil
+import tempfile
+from argparse import ArgumentParser
 from dataclasses import dataclass
+from typing import Optional
 
-import huggingface_hub
 import wandb
 from datasets import load_dataset
-from dotenv import load_dotenv
 from transformers import HfArgumentParser
+from transformers.hf_argparser import HfArg
 
-from libs.Config import WanDBArguments
+from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
 
 
 @dataclass
-class ScriptArguments:
-    dataset_path: str = None
+class ScriptArguments(CommonScriptArguments):
+    dataset_name: Optional[str] = HfArg(aliases="--dataset-name", default="daily_dialog_for_RG")
 
 
-parser = HfArgumentParser((ScriptArguments, WanDBArguments))
-args, wandb_args = parser.parse_args_into_dataclasses()
+config_getter = ArgumentParser()
+config_getter.add_argument("--json_file", required=True, type=str)
+config = config_getter.parse_args()
 
-load_dotenv(encoding="utf-8")
-huggingface_hub.login(token=os.environ.get("HF_TOKEN", ""), add_to_git_credential=True)
-wandb.login(key=os.environ.get("WANDB_API_KEY", ""), relogin=True)
+parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
+args, wandb_args = parser.parse_json_file(config.json_file)
 
-run = wandb.init(wandb_args)
-# run = wandb.init(
-#     job_type="dataset",
-#     project="emotion-chat-bot-ncu",
-#     group="Response Generator",
-#     notes=arguments.note,
-#     mode=arguments.wandb_mode,
-#     resume="auto"
-# )
+run = wandb.init(
+    job_type=wandb_args.job_type,
+    config=wandb_args.config,
+    project=wandb_args.project,
+    group=wandb_args.group,
+    notes=wandb_args.notes,
+    mode=wandb_args.mode,
+    resume=wandb_args.resume
+)
 
 dataset = load_dataset("daily_dialog",
                        num_proc=16,
@@ -52,6 +52,11 @@ dataset = dataset.map(lambda samples: {
 dataset = dataset.map(lambda samples: {
     "emotion": [sample[:-1] if len(sample) % 2 == 1 else sample for sample in samples["emotion"]],
     "dialog": [sample[:-1] if len(sample) % 2 == 1 else sample for sample in samples["dialog"]]
+}, batched=True, num_proc=16)
+
+dataset = dataset.map(lambda samples: {
+    "emotion": [sample for sample in samples["emotion"] if len(sample) != 0],
+    "dialog": [sample for sample in samples["dialog"] if len(sample) != 0]
 }, batched=True, num_proc=16)
 
 dataset["test"] = dataset["test"].map(lambda samples: {
@@ -87,34 +92,28 @@ dataset["test"] = dataset["test"].map(lambda sample: {
     ]}, remove_columns=["emotion_history", "dialog_history"], num_proc=16)
 
 test_dataset_artifact = wandb.Artifact(
-    "daily_dialog_for_RG_test",
+    f"{args.dataset_name}_test",
     type="dataset",
     description="modified version of daily dialog dataset from huggingface for response generator module",
-    metadata=dict(dataset),
     incremental=True
 )
 
-dataset["test"].save_to_disk(f"{args.dataset_path}_test", num_proc=16)
-test_dataset_artifact.add_dir(f"{args.dataset_path}_test")
-
-run.log_artifact(test_dataset_artifact)
+with tempfile.TemporaryDirectory() as temp_dir:
+    dataset["test"].save_to_disk(f"{temp_dir}/{args.dataset_name}_test", num_proc=16)
+    test_dataset_artifact.add_file(f"{temp_dir}/{args.dataset_name}_test")
+    run.log_artifact(test_dataset_artifact)
 
 dataset_artifact = wandb.Artifact(
-    "daily_dialog_for_RG_train",
+    f"{args.dataset_name}_train",
     type="dataset",
     description="modified version of daily dialog dataset from huggingface for response generator module",
     metadata=dict(dataset),
     incremental=True
 )
 
-dataset["train"].save_to_disk(f"{args.dataset_path}_train", num_proc=16)
-dataset_artifact.add_dir(f"{args.dataset_path}_train")
-
-run.log_artifact(dataset_artifact)
+with tempfile.TemporaryDirectory() as temp_dir:
+    dataset["train"].save_to_disk(f"{temp_dir}/{args.dataset_name}_train", num_proc=16)
+    dataset_artifact.add_file(f"{temp_dir}/{args.dataset_name}_train")
+    run.log_artifact(dataset_artifact)
 
 wandb.finish()
-
-if os.path.exists(f"{args.dataset_path}_train"):
-    shutil.rmtree(f"{args.dataset_path}_train", ignore_errors=True)
-if os.path.exists(f"{args.dataset_path}_test"):
-    shutil.rmtree(f"{args.dataset_path}_test", ignore_errors=True)
