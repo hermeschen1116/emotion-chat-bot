@@ -2,9 +2,5 @@
   "job_type": "dataset",
   "project": "emotion-chat-bot-ncu",
   "group": "Response Generator",
-  "notes": "build up dataset for RG",
-  "config": {
-    "sentiment_analysis_model": "../sentiment_analysis/emotion_text_classifier_on_dd_v1",
-    "sentiment_analysis_tokenizer": "michellejieli/emotion_text_classifier"
-  }
+  "notes": "build up dataset for RG"
 }
