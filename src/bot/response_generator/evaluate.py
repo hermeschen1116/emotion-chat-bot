@@ -25,7 +25,7 @@ config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)
 config = config_getter.parse_args()
 
-parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments, BitsAndBytesConfig))
+parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
 args, wandb_args = parser.parse_json_file(config.json_file)
 
 chat_template: dict = eval(open(args.chat_template_file, "r", encoding="utf-8", closefd=True).read())
