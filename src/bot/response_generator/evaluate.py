@@ -1,39 +1,50 @@
-import os
+from argparse import ArgumentParser
 from dataclasses import dataclass
 
-import huggingface_hub
 import torch
-import wandb
 from datasets import load_from_disk
-from dotenv import load_dotenv
 from torcheval.metrics.functional import (multiclass_accuracy,
                                           multiclass_f1_score)
 from tqdm.auto import tqdm
 from transformers import (AutoModelForCausalLM,
                           AutoModelForSequenceClassification,
                           AutoTokenizer,
-                          BitsAndBytesConfig,
-                          GenerationConfig,
-                          pipeline, HfArgumentParser)
+                          HfArgumentParser, GenerationConfig, BitsAndBytesConfig, TextClassificationPipeline)
+from transformers.hf_argparser import HfArg
 
-from libs.Config import WanDBArguments
-
-
-# from Pipeline import ResponseGeneratorPipeline
+import wandb
+from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments, get_torch_device
 
 
 @dataclass
-class ScriptArguments:
-    huggingface_api_token: str = ""
-    wandb_api_token: str = ""
-    chat_template_file: str = None
+class ScriptArguments(CommonScriptArguments):
+    chat_template_file: str = HfArg(aliases="--chat_template_file")
 
 
-# commandline inputs
-parser = HfArgumentParser((ScriptArguments, WanDBArguments, BitsAndBytesConfig, GenerationConfig))
-args, wandb_args, quantization_config, generation_config = parser.parse_args()
+config_getter = ArgumentParser()
+config_getter.add_argument("--json_file", required=True, type=str)
+config = config_getter.parse_args()
+
+parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments, BitsAndBytesConfig))
+args, wandb_args, quantization_config = parser.parse_json_file(config.json_file)
 
 chat_template: dict = eval(open(args.chat_template_file, "r", encoding="utf-8", closefd=True).read())
+
+run = wandb.init(
+    job_type=wandb_args.job_type,
+    config=wandb_args.config,
+    project=wandb_args.project,
+    group=wandb_args.group,
+    notes=wandb_args.notes,
+    mode=wandb_args.mode,
+    resume=wandb_args.resume
+)
+
+wandb.config["chat_template"] = wandb.config["template"]
+wandb.config["instruction_template"] = chat_template["instruction"]
+wandb.config["response_template"] = chat_template["response"]
+wandb.config["special_tokens"] = wandb.config["special_tokens"]
+
 # parser.add_argument("--tokenizer", required=True, type=str)
 # parser.add_argument("--fine_tuned_model", required=False, type=str, default="")
 # parser.add_argument("--sentiment_analysis_tokenizer",
@@ -45,18 +56,6 @@ chat_template: dict = eval(open(args.chat_template_file, "r", encoding="utf-8", 
 #                     type=str,
 #                     default="michellejieli/emotion_text_classifier")
 # parser.add_argument("--system_prompt", required=False, type=str, default=None)
-
-# prevent env load failed
-load_dotenv(encoding="utf-8")
-huggingface_hub.login(token=os.environ.get("HF_TOKEN", args.huggingface_api_token), add_to_git_credential=True)
-wandb.login(key=os.environ.get("WANDB_API_KEY", args.wandb_api_token), relogin=True)
-
-# Initialize Wandb
-run = wandb.init(wandb_args)
-wandb.config["chat_template"] = wandb.config["template"]
-wandb.config["instruction_template"] = chat_template["instruction"]
-wandb.config["response_template"] = chat_template["response"]
-wandb.config["special_tokens"] = wandb.config["special_tokens"]
 # wandb_config: dict = {
 #     "tokenizer": wandb_args.config["tokenizer"],
 #     "fine_tuned_model": wandb_args.config["fine_tuned_model"],
@@ -85,46 +84,38 @@ tokenizer = AutoTokenizer.from_pretrained(wandb_args.config["tokenizer"], trust_
 tokenizer.padding_side = "left"
 tokenizer.clean_up_tokenization_spaces = True
 tokenizer.chat_template = wandb.config["template"]
-tokenizer.add_special_tokens(wandb.config["special_tokens"], replace_additional_special_tokens=True)
+# tokenizer.add_special_tokens(wandb.config["special_tokens"], replace_additional_special_tokens=True)
 
-test_data = dataset.map(lambda sample: {
-    "prompt": tokenizer.apply_chat_template(sample,
-                                            tokenize=False,
-                                            padding=True,
-                                            max_length=4096,
-                                            return_tensors="pt"
-                                            )
-}, input_columns="prompt", num_proc=16)
-wandb.config["example_prompt"] = test_data[0]["prompt"]
+wandb.config["example_prompt"] = tokenizer.apply_chat_template(dataset[0]["prompt"])
 
 # Load Model
 quantization_config = quantization_config if torch.cuda.is_available() else None
 
 model = AutoModelForCausalLM.from_pretrained(
-    run.use_model(wandb_args.config["fine_tuned_model"]),
+    # run.use_model(wandb_args.config["fine_tuned_model"]),
+    wandb_args.config["fine_tuned_model"],
     quantization_config=quantization_config,
     attn_implementation="flash_attention_2",
     device_map="auto",
     low_cpu_mem_usage=True,
     trust_remote_code=True
 )
-model.resize_token_embeddings(len(tokenizer))
-wandb.config["model_configuration"] = model.config.to_dict()
+# model.resize_token_embeddings(len(tokenizer))
 model = torch.compile(model)
 
 # Generate Response
 device: str = "cuda" if torch.cuda.is_available() else "cpu"
-# generation_config = GenerationConfig(
-#     max_new_tokens=20,
-#     min_new_tokens=5,
-#     repetition_penalty=1.5,
-#     use_cache=True,
-#     pad_token_id=tokenizer.pad_token_id,
-#     eos_token_id=tokenizer.eos_token_id
-# )
+generation_config = GenerationConfig(
+    max_new_tokens=20,
+    min_new_tokens=5,
+    repetition_penalty=1.5,
+    use_cache=True,
+    pad_token_id=tokenizer.pad_token_id,
+    eos_token_id=tokenizer.eos_token_id
+)
 
 test_response: list = []
-for sample in tqdm(test_data, colour="green"):
+for sample in tqdm(dataset, colour="green"):
     tokenized_prompt = tokenizer.apply_chat_template(sample["prompt"],
                                                      tokenize=True,
                                                      padding=True,
@@ -132,17 +123,10 @@ for sample in tqdm(test_data, colour="green"):
                                                      add_generation_prompt=True,
                                                      return_tensors="pt").to(device)
     encoded_response = model.generate(tokenized_prompt, generation_config=generation_config)
-    response_raw = tokenizer.decode(encoded_response[0], skip_special_tokens=True, clean_up_tokenization_spaces=True)
-    response = response_raw.replace(response_raw.split("[/INST]")[0], "").removeprefix("[/INST]").strip()
+    response = tokenizer.decode(encoded_response[0], skip_special_tokens=True, clean_up_tokenization_spaces=True)
     test_response.append(response)
 
-result = test_data.add_column("test_response", test_response).remove_columns("prompt")
-
-# text_generator = ResponseGeneratorPipeline(model=model, tokenizer=tokenizer, device=device)
-#
-# result = test_data.map(lambda sample: {
-#     "test_response": text_generator(sample)
-# }, input_columns="prompt", remove_columns="prompt", batched=True, num_proc=16)
+result = dataset.add_column("test_response", test_response).remove_columns("prompt")
 
 # Sentiment Analysis
 sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(
@@ -150,16 +134,20 @@ sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(
     quantization_config=quantization_config,
     device_map="auto",
     low_cpu_mem_usage=True)
-# sentiment_analysis_model = torch.compile(sentiment_analysis_model)
 
 sentiment_analysis_tokenizer = AutoTokenizer.from_pretrained(wandb_args.config["sentiment_analysis_tokenizer"],
                                                              trust_remote_code=True)
 
-analyser = pipeline("sentiment-analysis",
-                    model=sentiment_analysis_model,
-                    tokenizer=sentiment_analysis_tokenizer,
-                    device_map="auto",
-                    trust_remote_code=True)
+analyser = TextClassificationPipeline(
+    model=sentiment_analysis_model,
+    tokenizer=sentiment_analysis_tokenizer,
+    framework="pt",
+    task="sentiment-analysis",
+    num_workers=16,
+    device=get_torch_device(),
+    torch_dtype="auto",
+    trust_remote_code=True
+)
 
 # to prevent "The model 'OptimizedModule' is not supported for sentiment-analysis." problem
 sentiment_analysis_model = torch.compile(sentiment_analysis_model)
@@ -167,10 +155,6 @@ sentiment_analysis_model = torch.compile(sentiment_analysis_model)
 result = result.map(lambda sample: {
     "test_response_sentiment": analyser(sample)
 }, input_columns="test_response", batched=True)
-
-result = result.map(lambda sample: {
-    "test_response_sentiment": sample["label"] if sample["label"] != "joy" else "happiness"
-}, input_columns="test_response_sentiment", num_proc=16)
 
 # Metrics
 emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
