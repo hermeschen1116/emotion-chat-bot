@@ -18,7 +18,7 @@ from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments, get_t
 
 @dataclass
 class ScriptArguments(CommonScriptArguments):
-    chat_template_file: str = HfArg(aliases="--chat_template_file")
+    chat_template_file: str = HfArg(aliases="--chat-template-file", default="")
 
 
 config_getter = ArgumentParser()
@@ -144,17 +144,13 @@ analyser = TextClassificationPipeline(
     framework="pt",
     task="sentiment-analysis",
     num_workers=16,
-    device=get_torch_device(),
-    torch_dtype="auto",
-    trust_remote_code=True
+    torch_dtype="auto"
 )
 
 # to prevent "The model 'OptimizedModule' is not supported for sentiment-analysis." problem
 sentiment_analysis_model = torch.compile(sentiment_analysis_model)
 
-result = result.map(lambda sample: {
-    "test_response_sentiment": analyser(sample)
-}, input_columns="test_response", batched=True)
+result = result.add_column("test_response_sentiment", analyser(result["test_response"]))
 
 # Metrics
 emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
@@ -173,7 +169,7 @@ sentiment_pred: torch.tensor = torch.tensor([sample["test_response_sentiment_id"
 
 num_emotion_labels: int = len(emotion_labels)
 wandb.log({
-    "F1-score": multiclass_f1_score(sentiment_true, sentiment_pred, num_classes=num_emotion_labels, average="micro"),
+    "F1-score": multiclass_f1_score(sentiment_true, sentiment_pred, num_classes=num_emotion_labels, average="weighted"),
     "Accuracy": multiclass_accuracy(sentiment_true, sentiment_pred, num_classes=num_emotion_labels)
 })
 wandb.log({"evaluation_result": wandb.Table(dataframe=result.to_pandas())})
