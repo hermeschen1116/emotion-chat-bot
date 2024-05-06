@@ -53,7 +53,7 @@ dataset = load_from_disk(dataset_path)
 tokenizer = AutoTokenizer.from_pretrained(wandb.config["tokenizer"], trust_remote_code=True)
 tokenizer.padding_side = "left"
 tokenizer.clean_up_tokenization_spaces = True
-tokenizer.chat_template = wandb.config["chat_template"]
+# tokenizer.chat_template = wandb.config["chat_template"]
 # tokenizer.add_special_tokens(wandb.config["special_tokens"], replace_additional_special_tokens=True)
 
 wandb.config["example_prompt"] = tokenizer.apply_chat_template(dataset[0]["prompt"], tokenize=False)
@@ -78,7 +78,7 @@ model = AutoModelForCausalLM.from_pretrained(
 model = torch.compile(model)
 
 # Generate Response
-device: str = "cuda" if torch.cuda.is_available() else "cpu"
+device: str = get_torch_device()
 generation_config = GenerationConfig(
     max_new_tokens=20,
     min_new_tokens=5,
@@ -90,14 +90,15 @@ generation_config = GenerationConfig(
 
 test_response: list = []
 for sample in tqdm(dataset, colour="green"):
-    tokenized_prompt = tokenizer.apply_chat_template(sample["prompt"],
+    tokenized_prompt: torch.tensor = tokenizer.apply_chat_template(sample["prompt"],
                                                      tokenize=True,
                                                      padding=True,
                                                      max_length=1024,
                                                      add_generation_prompt=True,
                                                      return_tensors="pt").to(device)
-    encoded_response = model.generate(tokenized_prompt, generation_config=generation_config)
-    response = tokenizer.decode(encoded_response[0], skip_special_tokens=True, clean_up_tokenization_spaces=True)
+    generated_tokens: torch.tensor = model.generate(tokenized_prompt, generation_config=generation_config)
+    encoded_response: torch.tensor = generated_tokens[0][tokenized_prompt.shape[1]:]
+    response: str = tokenizer.decode(encoded_response, skip_special_tokens=True, clean_up_tokenization_spaces=True)
     test_response.append(response)
 
 result = dataset.add_column("test_response", test_response).remove_columns("prompt")
