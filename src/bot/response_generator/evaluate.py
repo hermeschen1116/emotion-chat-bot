@@ -26,7 +26,7 @@ config_getter.add_argument("--json_file", required=True, type=str)
 config = config_getter.parse_args()
 
 parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments, BitsAndBytesConfig))
-args, wandb_args, quantization_config = parser.parse_json_file(config.json_file)
+args, wandb_args = parser.parse_json_file(config.json_file)
 
 chat_template: dict = eval(open(args.chat_template_file, "r", encoding="utf-8", closefd=True).read())
 
@@ -39,61 +39,35 @@ run = wandb.init(
     mode=wandb_args.mode,
     resume=wandb_args.resume
 )
-
-wandb.config["chat_template"] = wandb.config["template"]
+wandb.config["chat_template"] = chat_template["template"]
 wandb.config["instruction_template"] = chat_template["instruction"]
 wandb.config["response_template"] = chat_template["response"]
-wandb.config["special_tokens"] = wandb.config["special_tokens"]
+wandb.config["special_tokens"] = chat_template["special_tokens"]
 
-# parser.add_argument("--tokenizer", required=True, type=str)
-# parser.add_argument("--fine_tuned_model", required=False, type=str, default="")
-# parser.add_argument("--sentiment_analysis_tokenizer",
-#                     required=False,
-#                     type=str,
-#                     default="michellejieli/emotion_text_classifier")
-# parser.add_argument("--sentiment_analysis_model",
-#                     required=False,
-#                     type=str,
-#                     default="michellejieli/emotion_text_classifier")
-# parser.add_argument("--system_prompt", required=False, type=str, default=None)
-# wandb_config: dict = {
-#     "tokenizer": wandb_args.config["tokenizer"],
-#     "fine_tuned_model": wandb_args.config["fine_tuned_model"],
-#     "system_prompt": arguments.system_prompt,
-#     "chat_template": wandb.config["template"],
-#     "instruction_template": chat_template["instruction"],
-#     "response_template": chat_template["response"],
-#     "additional_special_tokens": wandb.config["special_tokens"]
-# }
-# run = wandb.init(
-#     job_type="evaluation",
-#     config=wandb_config,
-#     project="emotion-chat-bot-ncu",
-#     group="Response Generator",
-#     notes=arguments.experiment_detail,
-#     mode=arguments.wandb_mode,
-#     allow_val_change=True
-# )
 
 # Load and Process Dataset
-dataset_path = run.use_artifact("daily_dialog_for_RG_test:latest").download()
+dataset_path = run.use_artifact(wandb.config["dataset"]).download()
 dataset = load_from_disk(dataset_path)
 
 # Load Tokenizer
-tokenizer = AutoTokenizer.from_pretrained(wandb_args.config["tokenizer"], trust_remote_code=True)
+tokenizer = AutoTokenizer.from_pretrained(wandb.config["tokenizer"], trust_remote_code=True)
 tokenizer.padding_side = "left"
 tokenizer.clean_up_tokenization_spaces = True
-tokenizer.chat_template = wandb.config["template"]
+tokenizer.chat_template = wandb.config["chat_template"]
 # tokenizer.add_special_tokens(wandb.config["special_tokens"], replace_additional_special_tokens=True)
 
-wandb.config["example_prompt"] = tokenizer.apply_chat_template(dataset[0]["prompt"])
+wandb.config["example_prompt"] = tokenizer.apply_chat_template(dataset[0]["prompt"], tokenize=False)
 
 # Load Model
+quantization_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_compute_dtype=torch.float16
+)
 quantization_config = quantization_config if torch.cuda.is_available() else None
 
 model = AutoModelForCausalLM.from_pretrained(
     # run.use_model(wandb_args.config["fine_tuned_model"]),
-    wandb_args.config["fine_tuned_model"],
+    wandb.config["fine_tuned_model"],
     quantization_config=quantization_config,
     attn_implementation="flash_attention_2",
     device_map="auto",
@@ -130,12 +104,12 @@ result = dataset.add_column("test_response", test_response).remove_columns("prom
 
 # Sentiment Analysis
 sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(
-    wandb_args.config["sentiment_analysis_model"],
+    wandb.config["sentiment_analysis_model"],
     quantization_config=quantization_config,
     device_map="auto",
     low_cpu_mem_usage=True)
 
-sentiment_analysis_tokenizer = AutoTokenizer.from_pretrained(wandb_args.config["sentiment_analysis_tokenizer"],
+sentiment_analysis_tokenizer = AutoTokenizer.from_pretrained(wandb.config["sentiment_analysis_tokenizer"],
                                                              trust_remote_code=True)
 
 analyser = TextClassificationPipeline(

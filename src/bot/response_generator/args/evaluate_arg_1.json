@@ -1,0 +1,14 @@
+{
+  "chat_template_file": "./chat_template/gemma.json",
+  "job_type": "evaluation",
+  "project": "emotion-chat-bot-ncu",
+  "group": "Response Generator",
+  "notes": "evaluate baseline performance for some possible base model",
+  "config": {
+    "dataset": "daily_dialog_for_RG_test:latest",
+    "tokenizer": "meta-llama/Meta-Llama-3-8B",
+    "fine_tuned_model": "meta-llama/Meta-Llama-3-8B",
+    "sentiment_analysis_tokenizer": "michellejieli/emotion_text_classifier",
+    "sentiment_analysis_model": "michellejieli/emotion_text_classifier"
+  }
+}
