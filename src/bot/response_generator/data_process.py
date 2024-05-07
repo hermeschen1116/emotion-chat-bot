@@ -41,12 +41,13 @@ dataset = load_dataset("daily_dialog",
 dataset = dataset.rename_column("emotion", "emotion_id")
 emotion_labels: list = dataset["train"].features["emotion_id"].feature.names
 emotion_labels[0] = "neutral"
-dataset = dataset.map(
-    lambda samples: {"emotion": [[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples]},
-    input_columns="emotion_id", remove_columns="emotion_id", batched=True, num_proc=16)
+dataset = dataset.map(lambda samples: {
+    "emotion": [[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples]
+}, input_columns="emotion_id", remove_columns="emotion_id", batched=True, num_proc=16)
 
-dataset = dataset.map(lambda samples: {"dialog": [[dialog.strip() for dialog in sample] for sample in samples]},
-                      input_columns="dialog", batched=True, num_proc=16)
+dataset = dataset.map(lambda samples: {
+    "dialog": [[dialog.strip() for dialog in sample] for sample in samples]
+}, input_columns="dialog", batched=True, num_proc=16)
 
 dataset = dataset.map(lambda samples: {
     "emotion": [sample[:-1] if len(sample) % 2 == 1 else sample for sample in samples["emotion"]],
@@ -74,8 +75,8 @@ dataset_artifact = wandb.Artifact(
 )
 
 with tempfile.TemporaryDirectory() as temp_dir:
-    dataset.to_json(f"{temp_dir}/{args.dataset_name}.json", num_proc=16)
-    dataset_artifact.add_file(f"{temp_dir}/{args.dataset_name}.json")
+    dataset.save_to_disk(temp_dir, num_proc=16)
+    dataset_artifact.add_dir(temp_dir)
     run.log_artifact(dataset_artifact)
 
 wandb.finish()
