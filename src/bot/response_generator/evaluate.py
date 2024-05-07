@@ -11,7 +11,7 @@ from transformers import (AutoModelForCausalLM,
                           AutoTokenizer,
                           HfArgumentParser,
                           BitsAndBytesConfig,
-                          TextClassificationPipeline)
+                          TextClassificationPipeline, GenerationConfig)
 from transformers.hf_argparser import HfArg
 
 from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments, get_torch_device
@@ -107,6 +107,11 @@ model = torch.compile(model)
 
 # Generate Response
 device: str = get_torch_device()
+generation_config = GenerationConfig(max_new_tokens=20,
+                                     min_new_tokens=5,
+                                     repetition_penalty=1.5,
+                                     pad_token_id=tokenizer.pad_token_id,
+                                     eos_token_id=tokenizer.eos_token_id)
 
 test_response: list = []
 for sample in tqdm(dataset, colour="yellow"):
@@ -116,7 +121,7 @@ for sample in tqdm(dataset, colour="yellow"):
                                                                    max_length=1024,
                                                                    add_generation_prompt=True,
                                                                    return_tensors="pt").to(device)
-    generated_tokens: torch.tensor = model.generate(tokenized_prompt)
+    generated_tokens: torch.tensor = model.generate(tokenized_prompt, generation_config=generation_config)
     encoded_response: torch.tensor = generated_tokens[0][tokenized_prompt.shape[1]:]
     response = tokenizer.decode(encoded_response,
                                 skip_special_tokens=True,
