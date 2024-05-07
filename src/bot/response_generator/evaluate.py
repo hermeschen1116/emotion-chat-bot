@@ -63,6 +63,20 @@ dataset = dataset.map(lambda samples: {
     ) for sample in samples]
 }, input_columns="prompt", batched=True, num_proc=16)
 
+dataset = dataset.map(lambda samples: {
+    "prompt": [[{
+        "role": turn["role"],
+        "dialog": turn["content"]["dialog"]
+    } for turn in sample] for sample in samples]
+}, input_columns="prompt", batched=True, num_proc=16)
+
+system_prompt: list = [{"role": "system", "content": wandb.config["system_prompt"]}]
+system_prompt = system_prompt if wandb.config["system_prompt"] != "" else []
+
+dataset = dataset.map(lambda samples: {
+    "prompt": [system_prompt + sample for sample in samples]
+}, input_columns="prompt", batched=True, num_proc=16)
+
 # Load Tokenizer
 tokenizer = AutoTokenizer.from_pretrained(wandb.config["tokenizer"], trust_remote_code=True)
 tokenizer.padding_side = "left"
