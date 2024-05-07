@@ -84,6 +84,7 @@ tokenizer.clean_up_tokenization_spaces = True
 # tokenizer.chat_template = wandb.config["chat_template"]
 # tokenizer.add_special_tokens(wandb.config["special_tokens"])
 tokenizer.add_special_tokens({"pad_token": "[pad]" if tokenizer.pad_token is None else tokenizer.pad_token})
+print(dataset[0]["prompt"])
 wandb.config["example_prompt"] = tokenizer.apply_chat_template(dataset[0]["prompt"], tokenize=False)
 
 # Load Model
