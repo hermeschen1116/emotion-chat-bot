@@ -10,7 +10,6 @@ from transformers import (AutoModelForCausalLM,
                           AutoModelForSequenceClassification,
                           AutoTokenizer,
                           HfArgumentParser,
-                          GenerationConfig,
                           BitsAndBytesConfig,
                           TextClassificationPipeline)
 from transformers.hf_argparser import HfArg
@@ -104,31 +103,27 @@ model = AutoModelForCausalLM.from_pretrained(
     low_cpu_mem_usage=True,
     trust_remote_code=True
 )
-# model.resize_token_embeddings(len(tokenizer))
 model = torch.compile(model)
 
 # Generate Response
 device: str = get_torch_device()
-generation_config = GenerationConfig(
-    max_new_tokens=20,
-    min_new_tokens=5,
-    repetition_penalty=1.5,
-    use_cache=True,
-    pad_token_id=tokenizer.pad_token_id,
-    eos_token_id=tokenizer.eos_token_id
-)
 
+test_response: list = []
 for sample in tqdm(dataset, colour="yellow"):
     tokenized_prompt: torch.tensor = tokenizer.apply_chat_template(sample["prompt"],
                                                                    tokenize=True,
                                                                    padding=True,
+                                                                   max_length=1024,
                                                                    add_generation_prompt=True,
                                                                    return_tensors="pt").to(device)
-    generated_tokens: torch.tensor = model.generate(tokenized_prompt, generation_config=generation_config)
+    generated_tokens: torch.tensor = model.generate(tokenized_prompt)
     encoded_response: torch.tensor = generated_tokens[0][tokenized_prompt.shape[1]:]
-    sample["test_response"] = tokenizer.decode(encoded_response,
-                                               skip_special_tokens=True,
-                                               clean_up_tokenization_spaces=True)
+    response = tokenizer.decode(encoded_response,
+                                skip_special_tokens=True,
+                                clean_up_tokenization_spaces=True)
+    test_response.append(response)
+
+result = dataset.add_column("test_response", test_response)
 
 # Sentiment Analysis
 sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(

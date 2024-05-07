@@ -53,7 +53,7 @@ tokenizer = AutoTokenizer.from_pretrained(wandb.config["base_model"])
 tokenizer.padding_side = "right"
 tokenizer.clean_up_tokenization_spaces = True
 tokenizer.chat_template = wandb.config["template"]
-tokenizer.add_special_tokens(wandb.config["special_tokens"], replace_additional_special_tokens=True)
+tokenizer.add_special_tokens(wandb.config["special_tokens"])
 
 wandb.config["example_prompt"] = tokenizer.apply_chat_template(dataset[0]["prompt"], tokenize=False)
 
