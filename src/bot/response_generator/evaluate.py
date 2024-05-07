@@ -165,7 +165,7 @@ result = result.map(lambda samples: {
     "emotion_bot_id": [emotion_id[sample] for sample in samples["emotion_bot"]],
     "test_response_sentiment_id": [emotion_id[sample["label"]]
                                    for sample in samples["test_response_sentiment"]]
-}, input_columns="emotion_bot", batched=True, num_proc=16)
+}, batched=True, num_proc=16)
 
 sentiment_true: torch.tensor = torch.tensor([sample for sample in result["emotion_bot_id"].to_list()])
 sentiment_pred: torch.tensor = torch.tensor([sample for sample in result["test_response_sentiment_id"].to_list()])
