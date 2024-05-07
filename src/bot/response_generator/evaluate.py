@@ -121,8 +121,7 @@ generation_config = GenerationConfig(
 for sample in tqdm(dataset, colour="yellow"):
     tokenized_prompt: torch.tensor = tokenizer.apply_chat_template(sample["prompt"],
                                                                    tokenize=True,
-                                                                   padding="max_length",
-                                                                   max_length=1024,
+                                                                   padding=True,
                                                                    add_generation_prompt=True,
                                                                    return_tensors="pt").to(device)
     generated_tokens: torch.tensor = model.generate(tokenized_prompt, generation_config=generation_config)
