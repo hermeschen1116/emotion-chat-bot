@@ -51,7 +51,7 @@ dataset_path = run.use_artifact(wandb.config["dataset"]).download()
 dataset = load_from_disk(dataset_path)["test"]
 
 dataset = dataset.map(lambda samples: {
-    "emotion_dialog": [sample[-1]["content"]["dialog"] for sample in samples],
+    "dialog_bot": [sample[-1]["content"]["dialog"] for sample in samples],
     "emotion_bot": [sample[-1]["content"]["emotion"] for sample in samples],
     "prompt": [sample[:-1] for sample in samples]
 }, input_columns="prompt", batched=True, num_proc=16)
@@ -128,7 +128,7 @@ for sample in tqdm(dataset, colour="yellow"):
                                 clean_up_tokenization_spaces=True)
     test_response.append(response)
 
-result = dataset.add_column("test_response", test_response)
+result = dataset.add_column("test_response", test_response).remove_columns("prompt")
 
 # Sentiment Analysis
 sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(
@@ -163,12 +163,11 @@ emotion_id: dict = {label: index for index, label in enumerate(emotion_labels)}
 
 result = result.map(lambda samples: {
     "emotion_bot_id": [emotion_id[sample] for sample in samples["emotion_bot"]],
-    "test_response_sentiment_id": [emotion_id[sample["label"]]
-                                   for sample in samples["test_response_sentiment"]]
+    "test_response_sentiment_id": [emotion_id[sample["label"]] for sample in samples["test_response_sentiment"]]
 }, batched=True, num_proc=16)
 
-sentiment_true: torch.tensor = torch.tensor([sample for sample in result["emotion_bot_id"].to_list()])
-sentiment_pred: torch.tensor = torch.tensor([sample for sample in result["test_response_sentiment_id"].to_list()])
+sentiment_true: torch.tensor = torch.tensor(result["emotion_bot_id"])
+sentiment_pred: torch.tensor = torch.tensor(result["test_response_sentiment_id"])
 result = result.remove_columns(["emotion_bot_id", "test_response_sentiment_id"])
 
 num_emotion_labels: int = len(emotion_labels)
