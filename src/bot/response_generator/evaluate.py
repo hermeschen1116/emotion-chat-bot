@@ -66,7 +66,7 @@ dataset = dataset.map(lambda samples: {
 dataset = dataset.map(lambda samples: {
     "prompt": [[{
         "role": turn["role"],
-        "dialog": turn["content"]["dialog"]
+        "content": turn["content"]["dialog"]
     } for turn in sample] for sample in samples]
 }, input_columns="prompt", batched=True, num_proc=16)
 
