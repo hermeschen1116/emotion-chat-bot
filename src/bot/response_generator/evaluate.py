@@ -25,8 +25,8 @@ config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)
 config = config_getter.parse_args()
 
-parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
-args, wandb_args = parser.parse_json_file(config.json_file)
+parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments, BitsAndBytesConfig))
+args, wandb_args, quantization_config = parser.parse_json_file(config.json_file)
 
 chat_template: dict = eval(open(args.chat_template_file, "r", encoding="utf-8", closefd=True).read())
 
@@ -55,24 +55,13 @@ tokenizer.padding_side = "left"
 tokenizer.clean_up_tokenization_spaces = True
 tokenizer.chat_template = wandb.config["chat_template"]
 tokenizer.add_special_tokens(wandb.config["special_tokens"], replace_additional_special_tokens=True)
-dataset = dataset.map(lambda samples: {
-    "prompt": [[{
-        "role": prompt["role"],
-        "content": prompt["content"]["dialog"]
-    } for prompt in sample] for sample in samples]
-}, input_columns="prompt", batched=True, num_proc=16)
 wandb.config["example_prompt"] = tokenizer.apply_chat_template(dataset[0]["prompt"], tokenize=False)
 
 # Load Model
-quantization_config = BitsAndBytesConfig(
-    load_in_4bit=True,
-    bnb_4bit_compute_dtype=torch.float16
-)
 quantization_config = quantization_config if torch.cuda.is_available() else None
 
 model = AutoModelForCausalLM.from_pretrained(
-    # run.use_model(wandb_args.config["fine_tuned_model"]),
-    wandb.config["fine_tuned_model"],
+    run.use_model(wandb.config["fine_tuned_model"]),
     quantization_config=quantization_config,
     attn_implementation="flash_attention_2",
     device_map="auto",
