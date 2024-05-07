@@ -39,10 +39,10 @@ run = wandb.init(
     mode=wandb_args.mode,
     resume=wandb_args.resume
 )
-#wandb.config["chat_template"] = chat_template["template"]
-#wandb.config["instruction_template"] = chat_template["instruction"]
-#wandb.config["response_template"] = chat_template["response"]
-#wandb.config["special_tokens"] = chat_template["special_tokens"]
+wandb.config["chat_template"] = chat_template["template"]
+wandb.config["instruction_template"] = chat_template["instruction"]
+wandb.config["response_template"] = chat_template["response"]
+wandb.config["special_tokens"] = chat_template["special_tokens"]
 
 
 # Load and Process Dataset
@@ -53,9 +53,8 @@ dataset = load_from_disk(dataset_path)
 tokenizer = AutoTokenizer.from_pretrained(wandb.config["tokenizer"], trust_remote_code=True)
 tokenizer.padding_side = "left"
 tokenizer.clean_up_tokenization_spaces = True
-# tokenizer.chat_template = wandb.config["chat_template"]
-# tokenizer.add_special_tokens(wandb.config["special_tokens"], replace_additional_special_tokens=True)
-tokenizer.add_special_tokens({"pad_token": "<pad>" if tokenizer.pad_token is None else tokenizer.pad_token})
+tokenizer.chat_template = wandb.config["chat_template"]
+tokenizer.add_special_tokens(wandb.config["special_tokens"], replace_additional_special_tokens=True)
 dataset = dataset.map(lambda samples: {
     "prompt": [[{
         "role": prompt["role"],
