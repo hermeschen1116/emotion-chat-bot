@@ -155,7 +155,7 @@ analyser = TextClassificationPipeline(
 # to prevent "The model 'OptimizedModule' is not supported for sentiment-analysis." problem
 sentiment_analysis_model = torch.compile(sentiment_analysis_model)
 
-result = dataset.add_column("test_response_sentiment", analyser(dataset["test_response"]))
+result = result.add_column("test_response_sentiment", analyser(result["test_response"]))
 
 # Metrics
 emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
