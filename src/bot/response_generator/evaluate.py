@@ -98,7 +98,7 @@ model = AutoModelForCausalLM.from_pretrained(
     # run.use_model(wandb.config["fine_tuned_model"]),
     wandb.config["fine_tuned_model"],
     quantization_config=quantization_config,
-    attn_implementation="flash_attention_2",
+    # attn_implementation="flash_attention_2",
     device_map="auto",
     low_cpu_mem_usage=True,
     trust_remote_code=True
@@ -161,14 +161,9 @@ result = result.add_column("test_response_sentiment", analyser(result["test_resp
 emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
 emotion_id: dict = {label: index for index, label in enumerate(emotion_labels)}
 
-result = result.map(lambda samples: {
-    "emotion_bot_id": [emotion_id[sample] for sample in samples["emotion_bot"]],
-    "test_response_sentiment_id": [emotion_id[sample["label"]] for sample in samples["test_response_sentiment"]]
-}, batched=True, num_proc=16)
-
-sentiment_true: torch.tensor = torch.tensor(result["emotion_bot_id"])
-sentiment_pred: torch.tensor = torch.tensor(result["test_response_sentiment_id"])
-result = result.remove_columns(["emotion_bot_id", "test_response_sentiment_id"])
+sentiment_true: torch.tensor = torch.tensor([emotion_id[sample] for sample in result["emotion_bot"]])
+sentiment_pred: torch.tensor = torch.tensor([emotion_id[sample["label"]]
+                                             for sample in result["test_response_sentiment"]])
 
 num_emotion_labels: int = len(emotion_labels)
 wandb.log({
