@@ -8,6 +8,7 @@ class ResponseGeneratorPipeline(ConversationalPipeline):
         input_ids = self.tokenizer.apply_chat_template(conversation,
                                                        tokenize=True,
                                                        padding=True,
+                                                       max_length=1024,
                                                        add_generation_prompt=True,
                                                        return_tensors="pt")
 
