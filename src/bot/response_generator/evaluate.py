@@ -27,8 +27,8 @@ config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)
 config = config_getter.parse_args()
 
-parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments, BitsAndBytesConfig))
-args, wandb_args, quantization_config = parser.parse_json_file(config.json_file)
+parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
+args, wandb_args = parser.parse_json_file(config.json_file)
 
 # chat_template: dict = eval(open(args.chat_template_file, "r", encoding="utf-8", closefd=True).read())
 
@@ -73,7 +73,10 @@ tokenizer.add_special_tokens({"pad_token": "[pad]" if tokenizer.pad_token is Non
 wandb.config["example_prompt"] = tokenizer.apply_chat_template(dataset[0]["prompt"], tokenize=False)
 
 # Load Model
-quantization_config = quantization_config if torch.cuda.is_available() else None
+quantization_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_compute_dtype=torch.float16
+)
 
 model = AutoModelForCausalLM.from_pretrained(
     # run.use_model(wandb.config["fine_tuned_model"]),

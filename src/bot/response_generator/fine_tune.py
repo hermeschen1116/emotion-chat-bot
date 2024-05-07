@@ -24,8 +24,8 @@ class ScriptArguments(CommonScriptArguments):
     fine_tuned_model_name: Optional[str] = HfArg(aliases="--fine-tuned-model-name", default="response_generator")
 
 
-parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments, BitsAndBytesConfig, LoraConfig, TrainingArguments))
-args, wandb_args, quantization_config, lora_config, trainer_arguments = parser.parse_args()
+parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments, LoraConfig, TrainingArguments))
+args, wandb_args, lora_config, trainer_arguments = parser.parse_args()
 
 chat_template: dict = eval(open(args.chat_template_file, "r", encoding="utf-8", closefd=True).read())
 
@@ -57,7 +57,12 @@ tokenizer.add_special_tokens(wandb.config["special_tokens"], replace_additional_
 
 wandb.config["example_prompt"] = tokenizer.apply_chat_template(dataset[0]["prompt"], tokenize=False)
 
-quantization_config = quantization_config if torch.cuda.is_available() else None
+quantization_config = BitsAndBytesConfig(
+    load_in_4bit=True,
+    bnb_4bit_quant_type="nf4",
+    bnb_4bit_compute_dtype=torch.float16,
+    bnb_4bit_use_double_quant=False
+)
 
 # Load Model
 base_model = AutoModelForCausalLM.from_pretrained(
