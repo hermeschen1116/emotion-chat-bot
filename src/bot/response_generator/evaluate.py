@@ -55,7 +55,7 @@ tokenizer.padding_side = "left"
 tokenizer.clean_up_tokenization_spaces = True
 # tokenizer.chat_template = wandb.config["chat_template"]
 # tokenizer.add_special_tokens(wandb.config["special_tokens"], replace_additional_special_tokens=True)
-tokenizer.pad_token = "<pad>" if tokenizer.pad_token is None else tokenizer.pad_token
+tokenizer.add_special_tokens({"pad_token": "<pad>" if tokenizer.pad_token is None else tokenizer.pad_token})
 dataset = dataset.map(lambda samples: {
     "prompt": [[{
         "role": prompt["role"],
