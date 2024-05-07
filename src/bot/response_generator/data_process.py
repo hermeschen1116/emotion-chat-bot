@@ -14,6 +14,7 @@ from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
 @dataclass
 class ScriptArguments(CommonScriptArguments):
     dataset_name: Optional[str] = HfArg(aliases="--dataset-name", default="daily_dialog_for_RG")
+    dataset_description: Optional[str] = HfArg(aliases="--dataset-description", default="")
 
 
 config_getter = ArgumentParser()
@@ -57,16 +58,6 @@ dataset = dataset.map(lambda samples: {
     "dialog": [sample for sample in samples["dialog"] if len(sample) != 0]
 }, batched=True, num_proc=16)
 
-dataset["test"] = dataset["test"].map(lambda samples: {
-    "emotion_history": [sample[:-1] for sample in samples],
-    "emotion_bot": [sample[-1] for sample in samples]
-}, input_columns="emotion", batched=True, num_proc=16)
-
-dataset["test"] = dataset["test"].map(lambda samples: {
-    "dialog_history": [sample[:-1] for sample in samples],
-    "dialog_bot": [sample[-1] for sample in samples]
-}, input_columns="dialog", batched=True, num_proc=16)
-
 dataset = dataset.map(lambda samples: {
     "prompt": [[{
         "role": "user" if i % 2 == 0 else "assistant",
@@ -75,39 +66,16 @@ dataset = dataset.map(lambda samples: {
         for sample in zip(samples["emotion"], samples["dialog"])]
 }, remove_columns=["emotion", "dialog"], batched=True, num_proc=16)
 
-dataset["test"] = dataset["test"].map(lambda samples: {
-    "prompt": [[{
-        "role": "user" if i % 2 == 0 else "assistant",
-        "content": {"emotion": emotion, "dialog": dialog}}
-        for i, (emotion, dialog) in enumerate(zip(sample[0], sample[1]))]
-        for sample in zip(samples["emotion_history"], samples["dialog_history"])]
-}, batched=True, num_proc=16)
-
-dataset["test"] = dataset["test"].map(lambda sample: {
-    "history": ["\n".join([f"""{'user' if i % 2 == 0 else 'bot'}({v[0]}): {v[1]}"""
-                           for i, v in enumerate(zip(sample["emotion_history"], sample["dialog_history"]))])]
-}, remove_columns=["emotion_history", "dialog_history"], num_proc=16)
-
-test_dataset_artifact = wandb.Artifact(
-    f"{args.dataset_name}_test",
-    type="dataset",
-    description="modified version of daily dialog dataset from huggingface for response generator module"
-)
-
-with tempfile.TemporaryDirectory() as temp_dir:
-    dataset["test"].save_to_disk(f"{temp_dir}/{args.dataset_name}_test", num_proc=16)
-    test_dataset_artifact.add_dir(f"{temp_dir}/{args.dataset_name}_test")
-    run.log_artifact(test_dataset_artifact)
-
 dataset_artifact = wandb.Artifact(
-    f"{args.dataset_name}_train",
+    args.dataset_name,
     type="dataset",
-    description="modified version of daily dialog dataset from huggingface for response generator module"
+    description=args.dataset_description,
+    metadata=dict(dataset)
 )
 
 with tempfile.TemporaryDirectory() as temp_dir:
-    dataset["train"].save_to_disk(f"{temp_dir}/{args.dataset_name}_train", num_proc=16)
-    dataset_artifact.add_dir(f"{temp_dir}/{args.dataset_name}_train")
+    dataset.to_json(f"{temp_dir}/{args.dataset_name}.json", num_proc=16)
+    dataset_artifact.add_file(f"{temp_dir}/{args.dataset_name}.json")
     run.log_artifact(dataset_artifact)
 
 wandb.finish()

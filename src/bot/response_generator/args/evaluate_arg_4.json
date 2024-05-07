@@ -5,7 +5,7 @@
   "group": "Response Generator",
   "notes": "evaluate baseline performance for some possible base model",
   "config": {
-    "dataset": "daily_dialog_for_RG_test:latest",
+    "dataset": "daily_dialog_for_RG:latest",
     "tokenizer": "google/gemma-7b",
     "fine_tuned_model": "google/gemma-7b",
     "sentiment_analysis_tokenizer": "michellejieli/emotion_text_classifier",

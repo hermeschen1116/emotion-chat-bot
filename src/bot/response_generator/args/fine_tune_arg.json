@@ -4,7 +4,7 @@
   "group": "Emotion Model",
   "notes": "fine tune model",
   "config": {
-    "dataset": "daily_dialog_for_RG_train:latest",
+    "dataset": "daily_dialog_for_RG:latest",
     "base_model": "",
     "tokenizer": "",
     "num_epochs": 1,
