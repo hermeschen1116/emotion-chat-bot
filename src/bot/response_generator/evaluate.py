@@ -39,10 +39,10 @@ run = wandb.init(
     mode=wandb_args.mode,
     resume=wandb_args.resume
 )
-wandb.config["chat_template"] = chat_template["template"]
-wandb.config["instruction_template"] = chat_template["instruction"]
-wandb.config["response_template"] = chat_template["response"]
-wandb.config["special_tokens"] = chat_template["special_tokens"]
+#wandb.config["chat_template"] = chat_template["template"]
+#wandb.config["instruction_template"] = chat_template["instruction"]
+#wandb.config["response_template"] = chat_template["response"]
+#wandb.config["special_tokens"] = chat_template["special_tokens"]
 
 
 # Load and Process Dataset
@@ -55,7 +55,13 @@ tokenizer.padding_side = "left"
 tokenizer.clean_up_tokenization_spaces = True
 # tokenizer.chat_template = wandb.config["chat_template"]
 # tokenizer.add_special_tokens(wandb.config["special_tokens"], replace_additional_special_tokens=True)
-
+tokenizer.pad_token = "<pad>" if tokenizer.pad_token is None else tokenizer.pad_token
+dataset = dataset.map(lambda samples: {
+    "prompt": [[{
+        "role": prompt["role"],
+        "content": prompt["content"]["dialog"]
+    } for prompt in sample] for sample in samples]
+}, input_columns="prompt", batched=True, num_proc=16)
 wandb.config["example_prompt"] = tokenizer.apply_chat_template(dataset[0]["prompt"], tokenize=False)
 
 # Load Model
@@ -91,11 +97,11 @@ generation_config = GenerationConfig(
 test_response: list = []
 for sample in tqdm(dataset, colour="green"):
     tokenized_prompt: torch.tensor = tokenizer.apply_chat_template(sample["prompt"],
-                                                     tokenize=True,
-                                                     padding=True,
-                                                     max_length=1024,
-                                                     add_generation_prompt=True,
-                                                     return_tensors="pt").to(device)
+                                                                   tokenize=True,
+                                                                   padding=True,
+                                                                   max_length=1024,
+                                                                   add_generation_prompt=True,
+                                                                   return_tensors="pt").to(device)
     generated_tokens: torch.tensor = model.generate(tokenized_prompt, generation_config=generation_config)
     encoded_response: torch.tensor = generated_tokens[0][tokenized_prompt.shape[1]:]
     response: str = tokenizer.decode(encoded_response, skip_special_tokens=True, clean_up_tokenization_spaces=True)
@@ -136,7 +142,7 @@ sentiment_true = result.map(lambda samples: {
 }, input_columns="emotion_bot", batched=True, num_proc=16).to_list()
 
 sentiment_pred = result.map(lambda samples: {
-    "test_response_sentiment_id": [emotion_label_to_id[sample] for sample in samples]
+    "test_response_sentiment_id": [emotion_label_to_id[sample["label"]] for sample in samples]
 }, input_columns="test_response_sentiment", batched=True, num_proc=16).to_list()
 
 sentiment_true: torch.tensor = torch.tensor([sample["emotion_bot_id"] for sample in sentiment_true])

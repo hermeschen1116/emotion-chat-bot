@@ -9,6 +9,6 @@
     "tokenizer": "meta-llama/Llama-2-7b-hf",
     "fine_tuned_model": "meta-llama/Llama-2-7b-hf",
     "sentiment_analysis_tokenizer": "michellejieli/emotion_text_classifier",
-    "sentiment_analysis_model": "michellejieli/emotion_text_classifier"
+    "sentiment_analysis_model": "../sentiment_analysis/emotion_text_classifier_on_dd_v1"
   }
 }
