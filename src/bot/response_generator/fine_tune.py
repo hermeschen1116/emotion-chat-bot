@@ -93,7 +93,6 @@ base_model = AutoModelForCausalLM.from_pretrained(
     quantization_config=quantization_config,
     use_flash_attention_2=args.enable_flash_attention,
     # attn_implementation="flash_attention_2",
-    load_in_4bit=True,
     torch_dtype=torch.float16,
     use_cache=False,
     device_map="auto",
