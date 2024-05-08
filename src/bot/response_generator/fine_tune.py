@@ -11,7 +11,7 @@ from transformers.hf_argparser import HfArg
 from transformers.utils.hub import move_cache
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 
-from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments, get_torch_device
+from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments, get_torch_device, TrainerArguments
 
 move_cache()
 
@@ -22,7 +22,7 @@ class ScriptArguments(CommonScriptArguments):
     fine_tuned_model_name: Optional[str] = HfArg(aliases="--fine-tuned-model-name", default="response_generator")
 
 
-parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments, TrainingArguments))
+parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments, TrainerArguments))
 args, wandb_args, trainer_arguments = parser.parse_args()
 
 chat_template: dict = eval(open(args.chat_template_file, "r", encoding="utf-8", closefd=True).read())

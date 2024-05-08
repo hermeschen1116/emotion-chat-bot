@@ -8,6 +8,7 @@ import numpy as np
 import torch.cuda
 import wandb
 from dotenv import load_dotenv
+from transformers import TrainingArguments
 from transformers.hf_argparser import HfArg
 
 
@@ -80,125 +81,125 @@ class CommonWanDBArguments:
 
 
 @dataclass
-class TrainerArguments:
-    output_dir: str = HfArg(aliases=["--trainer-output-dir", "--output-dir"], default=None)
-    overwrite_output_dir: bool = False
-    do_train: bool = False
-    do_eval: bool = False
-    do_predict: bool = False
-    evaluation_strategy: Union = 'no'
-    prediction_loss_only: bool = False
-    per_device_train_batch_size: int = 8
-    per_device_eval_batch_size: int = 8
-    per_gpu_train_batch_size: Optional = None
-    per_gpu_eval_batch_size: Optional = None
-    gradient_accumulation_steps: int = 1
-    eval_accumulation_steps: Optional = None
-    eval_delay: Optional = 0
-    earning_rate: float = 5e-05
-    weight_decay: float = 0.0
+class TrainerArguments(TrainingArguments):
+    output_dir: str = HfArg(default="./checkpoints")
+    overwrite_output_dir: bool = HfArg(default=False)
+    do_train: bool = HfArg(default=False)
+    do_eval: bool = HfArg(default=False)
+    do_predict: bool = HfArg(default=False)
+    evaluation_strategy: Union = HfArg(default='no')
+    prediction_loss_only: bool = HfArg(default=False)
+    per_device_train_batch_size: int = HfArg(default=8)
+    per_device_eval_batch_size: int = HfArg(default=8)
+    per_gpu_train_batch_size: Optional = HfArg(default=None)
+    per_gpu_eval_batch_size: Optional = HfArg(default=None)
+    gradient_accumulation_steps: int = HfArg(default=1)
+    eval_accumulation_steps: Optional = HfArg(default=None)
+    eval_delay: Optional = HfArg(default=0)
+    learning_rate: float = HfArg(default=5e-05)
+    weight_decay: float = HfArg(default=0.0)
     adam_beta1: float = 0.9
     adam_beta2: float = 0.999
     adam_epsilon: float = 1e-08
     max_grad_norm: float = 1.0
     num_train_epochs: float = 3.0
     max_steps: int = -1
-    r_scheduler_type: Union = 'linear'
+    lr_scheduler_type: Union = 'linear'
     lr_scheduler_kwargs: Optional = dict
     warmup_ratio: float = 0.0
     warmup_steps: int = 0
-    og_level: Optional = 'passive'
+    log_level: Optional = 'passive'
     log_level_replica: Optional = 'warning'
     log_on_each_node: bool = True
-    logging_dir: Optional = None
+    logging_dir: Optional = HfArg(default=None)
     logging_strategy: Union = 'steps'
-    logging_first_step: bool = False
+    logging_first_step: bool = HfArg(default=False)
     logging_steps: float = 500
-    ogging_nan_inf_filter: bool = True
+    logging_nan_inf_filter: bool = True
     save_strategy: Union = 'steps'
     save_steps: float = 500
-    save_total_limit: Optional = None
+    save_total_limit: Optional = HfArg(default=None)
     save_safetensors: Optional = True
-    save_on_each_node: bool = False
-    save_only_model: bool = False
-    no_cuda: bool = False
-    use_cpu: bool = False
-    use_mps_device: bool = False
+    save_on_each_node: bool = HfArg(default=False)
+    save_only_model: bool = HfArg(default=False)
+    no_cuda: bool = HfArg(default=False)
+    use_cpu: bool = HfArg(default=False)
+    use_mps_device: bool = HfArg(default=False)
     seed: int = 42
-    data_seed: Optional = None
-    jit_mode_eval: bool = False
-    use_ipex: bool = False
-    bf16: bool = False
-    fp16: bool = False
+    data_seed: Optional = HfArg(default=None)
+    jit_mode_eval: bool = HfArg(default=False)
+    use_ipex: bool = HfArg(default=False)
+    bf16: bool = HfArg(default=False)
+    fp16: bool = HfArg(default=False)
     fp16_opt_level: str = 'O1'
     half_precision_backend: str = 'auto'
-    bf16_full_eval: bool = False
-    fp16_full_eval: bool = False
-    tf32: Optional = None
+    bf16_full_eval: bool = HfArg(default=False)
+    fp16_full_eval: bool = HfArg(default=False)
+    tf32: Optional = HfArg(default=None)
     local_rank: int = -1
-    ddp_backend: Optional = None
-    tpu_num_cores: Optional = None
-    tpu_metrics_debug: bool = False
+    ddp_backend: Optional = HfArg(default=None)
+    tpu_num_cores: Optional = HfArg(default=None)
+    tpu_metrics_debug: bool = HfArg(default=False)
     debug: Union = ''
-    dataloader_drop_last: bool = False
-    eval_steps: Optional = None
+    dataloader_drop_last: bool = HfArg(default=False)
+    eval_steps: Optional = HfArg(default=None)
     dataloader_num_workers: int = 0
-    dataloader_prefetch_factor: Optional = None
+    dataloader_prefetch_factor: Optional = HfArg(default=None)
     past_index: int = -1
-    run_name: Optional = None
-    disable_tqdm: Optional = None
+    run_name: Optional = HfArg(default=None)
+    disable_tqdm: Optional = HfArg(default=None)
     remove_unused_columns: Optional = True
-    label_names: Optional = None
-    load_best_model_at_end: Optional = False
-    metric_for_best_model: Optional = None
-    greater_is_better: Optional = None
-    ignore_data_skip: bool = False
+    label_names: Optional = HfArg(default=None)
+    load_best_model_at_end: Optional = HfArg(default=False)
+    metric_for_best_model: Optional = HfArg(default=None)
+    greater_is_better: Optional = HfArg(default=None)
+    ignore_data_skip: bool = HfArg(default=False)
     fsdp: Union = ''
     fsdp_min_num_params: int = 0
-    fsdp_config: Union = None
-    fsdp_transformer_layer_cls_to_wrap: Optional = None
-    accelerator_config: Optional = None
-    deepspeed: Optional = None
+    fsdp_config: Union = HfArg(default=None)
+    fsdp_transformer_layer_cls_to_wrap: Optional = HfArg(default=None)
+    accelerator_config: Optional = HfArg(default=None)
+    deepspeed: Optional = HfArg(default=None)
     label_smoothing_factor: float = 0.0
     optim: Union = 'adamw_torch'
-    optim_args: Optional = None
-    adafactor: bool = False
-    group_by_length: bool = False
+    optim_args: Optional = HfArg(default=None)
+    adafactor: bool = HfArg(default=False)
+    group_by_length: bool = HfArg(default=False)
     length_column_name: Optional = 'length'
-    report_to: Optional = None
-    ddp_find_unused_parameters: Optional = None
-    ddp_bucket_cap_mb: Optional = None
-    ddp_broadcast_buffers: Optional = None
+    report_to: Optional = HfArg(default=None)
+    ddp_find_unused_parameters: Optional = HfArg(default=None)
+    ddp_bucket_cap_mb: Optional = HfArg(default=None)
+    ddp_broadcast_buffers: Optional = HfArg(default=None)
     dataloader_pin_memory: bool = True
-    dataloader_persistent_workers: bool = False
+    dataloader_persistent_workers: bool = HfArg(default=False)
     skip_memory_metrics: bool = True
-    use_legacy_prediction_loop: bool = False
-    push_to_hub: bool = False
-    resume_from_checkpoint: Optional = None
-    hub_model_id: Optional = None
+    use_legacy_prediction_loop: bool = HfArg(default=False)
+    push_to_hub: bool = HfArg(default=False)
+    resume_from_checkpoint: Optional = HfArg(default=None)
+    hub_model_id: Optional = HfArg(default=None)
     hub_strategy: Union = 'every_save'
-    hub_token: Optional = None
-    hub_private_repo: bool = False
-    hub_always_push: bool = False
-    gradient_checkpointing: bool = False
-    gradient_checkpointing_kwargs: Optional = None
-    include_inputs_for_metrics: bool = False
+    hub_token: Optional = HfArg(default=None)
+    hub_private_repo: bool = HfArg(default=False)
+    hub_always_push: bool = HfArg(default=False)
+    gradient_checkpointing: bool = HfArg(default=False)
+    gradient_checkpointing_kwargs: Optional = HfArg(default=None)
+    include_inputs_for_metrics: bool = HfArg(default=False)
     fp16_backend: str = 'auto'
-    push_to_hub_model_id: Optional = None
-    push_to_hub_organization: Optional = None
-    push_to_hub_token: Optional = None
+    push_to_hub_model_id: Optional = HfArg(default=None)
+    push_to_hub_organization: Optional = HfArg(default=None)
+    push_to_hub_token: Optional = HfArg(default=None)
     mp_parameters: str = ''
-    auto_find_batch_size: bool = False
-    full_determinism: bool = False
-    torchdynamo: Optional = None
+    auto_find_batch_size: bool = HfArg(default=False)
+    full_determinism: bool = HfArg(default=False)
+    torchdynamo: Optional = HfArg(default=None)
     ray_scope: Optional = 'last'
     ddp_timeout: Optional = 1800
-    torch_compile: bool = False
-    torch_compile_backend: Optional = None
-    torch_compile_mode: Optional = None
-    dispatch_batches: Optional = None
-    split_batches: Optional = None
-    include_tokens_per_second: Optional = False
-    include_num_input_tokens_seen: Optional = False
-    neftune_noise_alpha: Optional = None
-    optim_target_modules: Union = None
+    torch_compile: bool = HfArg(default=False)
+    torch_compile_backend: Optional = HfArg(default=None)
+    torch_compile_mode: Optional = HfArg(default=None)
+    dispatch_batches: Optional = HfArg(default=None)
+    split_batches: Optional = HfArg(default=None)
+    include_tokens_per_second: Optional = HfArg(default=False)
+    include_num_input_tokens_seen: Optional = HfArg(default=False)
+    neftune_noise_alpha: Optional = HfArg(default=None)
+    # optim_target_modules: Union = HfArg(default=None)
