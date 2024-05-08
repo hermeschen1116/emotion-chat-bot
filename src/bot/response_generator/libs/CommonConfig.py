@@ -81,7 +81,7 @@ class CommonWanDBArguments:
 
 
 @dataclass
-class TrainerArguments(TrainingArguments):
+class TrainerArguments:
     output_dir: str = HfArg(default="./checkpoints")
     overwrite_output_dir: bool = HfArg(default=False)
     do_train: bool = HfArg(default=False)

@@ -6,7 +6,7 @@ import torch
 import wandb
 from datasets import load_from_disk, concatenate_datasets
 from peft import LoraConfig, PeftModel
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, HfArgumentParser, TrainingArguments
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, HfArgumentParser
 from transformers.hf_argparser import HfArg
 from transformers.utils.hub import move_cache
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
