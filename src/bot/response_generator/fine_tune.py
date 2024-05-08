@@ -19,6 +19,7 @@ move_cache()
 @dataclass
 class ScriptArguments(CommonScriptArguments):
     chat_template_file: str = HfArg(aliases="--chat-template-file", default="")
+    pretraining_tp: int = HfArg(aliases="--pretraining-tp", default=None)
     enable_flash_attention: bool = HfArg(aliases="--enable-flash-attention", default=True)
 
 
@@ -52,7 +53,6 @@ dataset = load_from_disk(dataset_path)
 dataset = concatenate_datasets([dataset["train"], dataset["validation"]])
 
 system_prompt: list = [{"role": "system", "content": {"emotion": "", "dialog": wandb.config["system_prompt"]}}]
-system_prompt = system_prompt if wandb.config["system_prompt"] != "" else []
 
 dataset = dataset.map(lambda samples: {
     "prompt": [system_prompt + sample for sample in samples]
@@ -100,7 +100,7 @@ base_model = AutoModelForCausalLM.from_pretrained(
     low_cpu_mem_usage=True,
     trust_remote_code=True
 )
-base_model.config.pretraining_tp = 1
+base_model.config.pretraining_tp = args.pretraining_tp
 base_model.resize_token_embeddings(len(tokenizer))
 base_model = PeftModel.from_pretrained(base_model, f"{wandb.config['base_model']}_lora", config=lora_config)
 base_model = base_model.merge_and_unload()

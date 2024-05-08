@@ -1,6 +1,6 @@
 {
   "chat_template_file": "./chat_template/Llama3.json",
-  "enable_flash_attention": true,
+  "pretraining_tp": 1,
   "job_type": "fine_tune",
   "project": "emotion-chat-bot-ncu",
   "group": "Emotion Model",
