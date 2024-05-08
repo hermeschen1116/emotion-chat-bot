@@ -65,7 +65,9 @@ tokenizer.clean_up_tokenization_spaces = True
 tokenizer.chat_template = wandb.config["chat_template"]
 tokenizer.add_special_tokens(wandb.config["special_tokens"])
 
-dataset["prompt"] = tokenizer.apply_chat_template(dataset["prompt"], tokenize=False)
+dataset = dataset.map(lambda samples: {
+    "prompt": [tokenizer.apply_chat_template(sample, tokenize=False) for sample in samples]
+}, input_columns="prompt", batched=True, num_proc=16)
 wandb.config["example_prompt"] = dataset[0]["prompt"]
 
 
