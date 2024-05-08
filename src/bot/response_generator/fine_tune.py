@@ -6,12 +6,12 @@ import torch
 import wandb
 from datasets import load_from_disk, concatenate_datasets
 from peft import LoraConfig, PeftModel
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, HfArgumentParser
+from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, HfArgumentParser, TrainingArguments
 from transformers.hf_argparser import HfArg
 from transformers.utils.hub import move_cache
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 
-from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments, get_torch_device, TrainerArguments
+from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments, get_torch_device
 
 move_cache()
 
@@ -19,11 +19,10 @@ move_cache()
 @dataclass
 class ScriptArguments(CommonScriptArguments):
     chat_template_file: str = HfArg(aliases="--chat-template-file", default="")
-    fine_tuned_model_name: Optional[str] = HfArg(aliases="--fine-tuned-model-name", default="response_generator")
 
 
-parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments, TrainerArguments))
-args, wandb_args, trainer_arguments = parser.parse_args()
+parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
+args, wandb_args = parser.parse_args()
 
 chat_template: dict = eval(open(args.chat_template_file, "r", encoding="utf-8", closefd=True).read())
 
@@ -104,6 +103,35 @@ data_collator = DataCollatorForCompletionOnlyLM(
     tokenizer=tokenizer
 )
 
+trainer_arguments = TrainingArguments(
+    output_dir="./checkpoints",
+    overwrite_output_dir=True,
+    per_device_train_batch_size=4,
+    gradient_accumulation_steps=1,
+    learning_rate=wandb.config["learning_rate"],
+    weight_decay=wandb.config["weight_decay"],
+    max_grad_norm=wandb.config["max_grad_norm"],
+    num_train_epochs=wandb.config["num_epochs"],
+    lr_scheduler_type="constant",
+    warmup_ratio=wandb.config["warmup_ratio"],
+    max_steps=wandb.config["max_steps"],
+    logging_steps=25,
+    save_steps=25,
+    save_total_limit=5,
+    bf16=True,
+    fp16=False,
+    dataloader_num_workers=16,
+    optim=wandb.config["optim"],
+    group_by_length=True,
+    report_to=["wandb"],
+    gradient_checkpointing=True,
+    gradient_checkpointing_kwargs={
+        "use_reentrant": True
+    },
+    auto_find_batch_size=True,
+    torch_compile=False
+)
+
 # Setup Tuner
 tuner = SFTTrainer(
     model=base_model,
@@ -120,7 +148,7 @@ with torch.autocast(get_torch_device()):
     tuner.train()
 
 model_artifact = wandb.Artifact(
-    args.fine_tuned_model_name,
+    wandb.config["fine_tuned_mode"],
     type="model",
     description=args.description_for_fine_tuned_model
 )
