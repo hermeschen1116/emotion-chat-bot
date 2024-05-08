@@ -2,7 +2,7 @@
   "chat_template_file": "./chat_template/Llama3.json",
   "job_type": "fine_tune",
   "project": "emotion-chat-bot-ncu",
-  "group": "Emotion Model",
+  "group": "Response Generator",
   "notes": "fine tune model",
   "config": {
     "dataset": "daily_dialog_for_RG:latest",
