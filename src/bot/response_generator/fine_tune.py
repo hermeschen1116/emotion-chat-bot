@@ -106,8 +106,8 @@ base_model = peft.get_peft_model(base_model, lora_config)
 # base_model = base_model.merge_and_unload()
 
 data_collator = DataCollatorForCompletionOnlyLM(
-    wandb.config["response"],
-    instruction_template=wandb.config["instruction"],
+    wandb.config["response_template"],
+    instruction_template=wandb.config["instruction_template"],
     tokenizer=tokenizer
 )
 
