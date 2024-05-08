@@ -110,15 +110,6 @@ data_collator = DataCollatorForCompletionOnlyLM(
     tokenizer=tokenizer
 )
 
-accelerate_config = Accelerator(
-    dataloader_config=DataLoaderConfiguration(
-        dispatch_batches=None,
-        split_batches=False,
-        even_batches=True,
-        use_seedable_sampler=True
-    )
-)
-
 trainer_arguments = TrainingArguments(
     output_dir="./checkpoints",
     overwrite_output_dir=True,
@@ -145,8 +136,7 @@ trainer_arguments = TrainingArguments(
         "use_reentrant": True
     },
     # auto_find_batch_size=True,
-    torch_compile=False,
-    accelerator_config=accelerate_config
+    torch_compile=False
 )
 
 # Setup Tuner
