@@ -154,7 +154,7 @@ with torch.autocast(get_torch_device()):
     tuner.train()
 
 model_artifact = wandb.Artifact(
-    wandb.config["fine_tuned_mode"],
+    wandb.config["fine_tuned_model"],
     type="model",
     description=args.description_for_fine_tuned_model
 )
