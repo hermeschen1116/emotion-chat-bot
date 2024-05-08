@@ -61,7 +61,7 @@ dataset = dataset.map(lambda samples: {
 tokenizer = AutoTokenizer.from_pretrained(wandb.config["base_model"])
 tokenizer.padding_side = "right"
 tokenizer.clean_up_tokenization_spaces = True
-tokenizer.chat_template = wandb.config["template"]
+tokenizer.chat_template = wandb.config["chat_template"]
 tokenizer.add_special_tokens(wandb.config["special_tokens"])
 
 dataset["prompt"] = tokenizer.apply_chat_template(dataset["prompt"], tokenize=False)
