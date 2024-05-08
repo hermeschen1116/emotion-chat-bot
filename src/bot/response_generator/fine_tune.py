@@ -4,18 +4,16 @@ from typing import Optional
 
 import torch
 import wandb
-from datasets import load_from_disk
-from peft import LoraConfig
+from datasets import load_from_disk, concatenate_datasets
+from peft import LoraConfig, PeftModel
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, HfArgumentParser, TrainingArguments
 from transformers.hf_argparser import HfArg
 from transformers.utils.hub import move_cache
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 
-from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
+from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments, get_torch_device
 
 move_cache()
-
-# commandline input
 
 
 @dataclass
@@ -47,6 +45,14 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 # Load Dataset
 dataset_path = run.use_artifact(wandb.config["dataset"]).download()
 dataset = load_from_disk(dataset_path)
+dataset = concatenate_datasets([dataset["train"], dataset["validation"]])
+
+system_prompt: list = [{"role": "system", "content": {"emotion": "", "dialog": wandb.config["system_prompt"]}}]
+system_prompt = system_prompt if wandb.config["system_prompt"] != "" else []
+
+dataset = dataset.map(lambda samples: {
+    "prompt": [system_prompt + sample for sample in samples]
+}, input_columns="prompt", batched=True, num_proc=16)
 
 # Load Tokenizer
 tokenizer = AutoTokenizer.from_pretrained(wandb.config["base_model"])
@@ -55,13 +61,15 @@ tokenizer.clean_up_tokenization_spaces = True
 tokenizer.chat_template = wandb.config["template"]
 tokenizer.add_special_tokens(wandb.config["special_tokens"])
 
-wandb.config["example_prompt"] = tokenizer.apply_chat_template(dataset[0]["prompt"], tokenize=False)
+dataset["prompt"] = tokenizer.apply_chat_template(dataset["prompt"], tokenize=False)
+wandb.config["example_prompt"] = dataset[0]["prompt"]
+
 
 quantization_config = BitsAndBytesConfig(
     load_in_4bit=True,
     bnb_4bit_quant_type="nf4",
-    bnb_4bit_compute_dtype=torch.float16,
-    bnb_4bit_use_double_quant=False
+    bnb_4bit_compute_dtype=torch.bfloat16,
+    bnb_4bit_use_double_quant=True
 )
 
 # Load Model
@@ -70,12 +78,16 @@ base_model = AutoModelForCausalLM.from_pretrained(
     quantization_config=quantization_config,
     attn_implementation="flash_attention_2",
     pretraining_tp=1,
+    load_in_4bit=True,
+    torch_dtype=torch.float16,
     use_cache=False,
     device_map="auto",
     low_cpu_mem_usage=True,
     trust_remote_code=True
 )
 base_model.resize_token_embeddings(len(tokenizer))
+model = PeftModel.from_pretrained(base_model, f"{wandb.config['base_model']}_lora")
+model = model.merge_and_unload()
 
 data_collator = DataCollatorForCompletionOnlyLM(
     wandb.config["response"],
@@ -89,14 +101,14 @@ tuner = SFTTrainer(
     args=trainer_arguments,
     data_collator=data_collator,
     train_dataset=dataset,
-    peft_config=lora_config,
     dataset_text_field="prompt",
     tokenizer=tokenizer,
     max_seq_length=4096,
     dataset_num_proc=16
 )
 
-tuner.train()
+with torch.autocast(get_torch_device()):
+    tuner.train()
 
 model_artifact = wandb.Artifact(
     args.fine_tuned_model_name,

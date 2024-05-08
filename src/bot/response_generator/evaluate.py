@@ -62,14 +62,7 @@ dataset = dataset.map(lambda samples: {
     ) for sample in samples]
 }, input_columns="prompt", batched=True, num_proc=16)
 
-dataset = dataset.map(lambda samples: {
-    "prompt": [[{
-        "role": turn["role"],
-        "content": turn["content"]["dialog"]
-    } for turn in sample] for sample in samples]
-}, input_columns="prompt", batched=True, num_proc=16)
-
-system_prompt: list = [{"role": "system", "content": wandb.config["system_prompt"]}]
+system_prompt: list = [{"role": "system", "content": {"emotion": "", "dialog": wandb.config["system_prompt"]}}]
 system_prompt = system_prompt if wandb.config["system_prompt"] != "" else []
 
 dataset = dataset.map(lambda samples: {
@@ -98,7 +91,7 @@ model = AutoModelForCausalLM.from_pretrained(
     # run.use_model(wandb.config["fine_tuned_model"]),
     wandb.config["fine_tuned_model"],
     quantization_config=quantization_config,
-    # attn_implementation="flash_attention_2",
+    attn_implementation="flash_attention_2",
     device_map="auto",
     low_cpu_mem_usage=True,
     trust_remote_code=True
