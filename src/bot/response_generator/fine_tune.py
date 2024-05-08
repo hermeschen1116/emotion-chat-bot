@@ -157,7 +157,6 @@ model_artifact = wandb.Artifact(
     type="model"
 )
 
-tuner.model = tuner.model.merge_and_unload()
 tuner.model = torch.compile(tuner.model)
 with tempfile.TemporaryDirectory() as temp_dir:
     tuner.save_model(temp_dir)
