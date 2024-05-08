@@ -149,8 +149,7 @@ tuner = SFTTrainer(
     dataset_num_proc=16
 )
 
-with torch.autocast(get_torch_device()):
-    tuner.train()
+tuner.train()
 
 model_artifact = wandb.Artifact(
     wandb.config["fine_tuned_model"],
