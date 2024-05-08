@@ -12,7 +12,7 @@ from transformers.hf_argparser import HfArg
 from transformers.utils.hub import move_cache
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 
-from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments, get_torch_device
+from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
 
 move_cache()
 
@@ -59,10 +59,16 @@ dataset = dataset.map(lambda samples: {
 }, input_columns="prompt", batched=True, num_proc=16)
 
 # Load Tokenizer
-tokenizer = AutoTokenizer.from_pretrained(wandb.config["base_model"])
-tokenizer.padding_side = "right"
-tokenizer.clean_up_tokenization_spaces = True
-tokenizer.chat_template = wandb.config["chat_template"]
+tokenizer = AutoTokenizer.from_pretrained(
+    wandb.config["base_model"],
+    padding_side="right",
+    clean_up_tokenization_spaces=True,
+    chat_template=wandb.config["chat_template"],
+    trust_remote_code=True
+)
+# tokenizer.padding_side = "right"
+# tokenizer.clean_up_tokenization_spaces = True
+# tokenizer.chat_template = wandb.config["chat_template"]
 tokenizer.add_special_tokens(wandb.config["special_tokens"])
 
 dataset = dataset.map(lambda samples: {
@@ -149,8 +155,7 @@ tuner = SFTTrainer(
     dataset_num_proc=16
 )
 
-with torch.autocast(get_torch_device()):
-    tuner.train()
+tuner.train()
 
 model_artifact = wandb.Artifact(
     wandb.config["fine_tuned_model"],
