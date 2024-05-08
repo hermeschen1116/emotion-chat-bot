@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import peft
 import torch
 import wandb
+from accelerate import Accelerator, DataLoaderConfiguration
 from datasets import load_from_disk, concatenate_datasets
 from peft import LoraConfig
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, HfArgumentParser, TrainingArguments
@@ -92,7 +93,7 @@ base_model = AutoModelForCausalLM.from_pretrained(
     wandb.config["base_model"],
     quantization_config=quantization_config,
     attn_implementation="flash_attention_2",
-    torch_dtype=torch.float16,
+    # torch_dtype=torch.float16,
     pretraining_tp=1,
     use_cache=False,
     device_map="auto",
@@ -107,6 +108,15 @@ data_collator = DataCollatorForCompletionOnlyLM(
     wandb.config["response_template"],
     instruction_template=wandb.config["instruction_template"],
     tokenizer=tokenizer
+)
+
+accelerate_config = Accelerator(
+    dataloader_config=DataLoaderConfiguration(
+        dispatch_batches=None,
+        split_batches=False,
+        even_batches=True,
+        use_seedable_sampler=True
+    )
 )
 
 trainer_arguments = TrainingArguments(
@@ -135,7 +145,8 @@ trainer_arguments = TrainingArguments(
         "use_reentrant": True
     },
     # auto_find_batch_size=True,
-    torch_compile=False
+    torch_compile=False,
+    accelerator_config=accelerate_config
 )
 
 # Setup Tuner
