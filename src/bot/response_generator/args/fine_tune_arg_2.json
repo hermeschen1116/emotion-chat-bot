@@ -1,5 +1,5 @@
 {
-  "chat_template_file": "./chat_template/llama2_OUT_INST.json",
+  "chat_template_file": "./chat_template/Llama2_OUT_INST.json",
   "job_type": "fine_tune",
   "project": "emotion-chat-bot-ncu",
   "group": "Response Generator",
