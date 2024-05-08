@@ -2,11 +2,10 @@ import tempfile
 from argparse import ArgumentParser
 from dataclasses import dataclass
 
-import peft
 import torch
 import wandb
 from datasets import load_from_disk, concatenate_datasets
-from peft import LoraConfig, prepare_model_for_int8_training
+from peft import LoraConfig
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, HfArgumentParser, TrainingArguments
 from transformers.hf_argparser import HfArg
 from transformers.utils.hub import move_cache
@@ -94,9 +93,9 @@ base_model = AutoModelForCausalLM.from_pretrained(
     trust_remote_code=True
 )
 base_model.resize_token_embeddings(len(tokenizer))
-base_model = prepare_model_for_int8_training(base_model)
-param = base_model.model.decoder.embed_tokens.weight
-param.data = param.data.to(torch.float32)
+# base_model = prepare_model_for_int8_training(base_model)
+# param = base_model.model.decoder.embed_tokens.weight
+# param.data = param.data.to(torch.float32)
 
 lora_config = LoraConfig(
     lora_alpha=16,
@@ -106,7 +105,7 @@ lora_config = LoraConfig(
     task_type="CAUSAL_LM",
     modules_to_save=["lm_head", "embed_tokens"]
 )
-base_model = peft.get_peft_model(base_model, lora_config)
+# base_model = peft.get_peft_model(base_model, lora_config)
 
 data_collator = DataCollatorForCompletionOnlyLM(
     wandb.config["response_template"],
@@ -147,6 +146,7 @@ trainer_arguments = TrainingArguments(
 tuner = SFTTrainer(
     model=base_model,
     args=trainer_arguments,
+    peft_config=lora_config,
     data_collator=data_collator,
     train_dataset=dataset,
     dataset_text_field="prompt",
@@ -164,7 +164,7 @@ model_artifact = wandb.Artifact(
 
 tuner.model = torch.compile(tuner.model)
 with tempfile.TemporaryDirectory() as temp_dir:
-    tuner.save_model(temp_dir)
+    tuner.model.save_pretrained(temp_dir, save_embedding_layers=True)
     model_artifact.add_dir(temp_dir)
     run.log_artifact(model_artifact)
 
