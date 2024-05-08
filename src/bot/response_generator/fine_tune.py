@@ -22,8 +22,8 @@ class ScriptArguments(CommonScriptArguments):
     fine_tuned_model_name: Optional[str] = HfArg(aliases="--fine-tuned-model-name", default="response_generator")
 
 
-parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments, LoraConfig, TrainingArguments))
-args, wandb_args, lora_config, trainer_arguments = parser.parse_args()
+parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments, TrainingArguments))
+args, wandb_args, trainer_arguments = parser.parse_args()
 
 chat_template: dict = eval(open(args.chat_template_file, "r", encoding="utf-8", closefd=True).read())
 
@@ -72,6 +72,15 @@ quantization_config = BitsAndBytesConfig(
     bnb_4bit_use_double_quant=True
 )
 
+lora_config = LoraConfig(
+    lora_alpha=16,
+    lora_dropout=0.1,
+    r=8,
+    bias="none",
+    task_type="CAUSAL_LM",
+    modules_to_save=["lm_head", "embed_tokens"]
+)
+
 # Load Model
 base_model = AutoModelForCausalLM.from_pretrained(
     wandb.config["base_model"],
@@ -86,8 +95,8 @@ base_model = AutoModelForCausalLM.from_pretrained(
     trust_remote_code=True
 )
 base_model.resize_token_embeddings(len(tokenizer))
-model = PeftModel.from_pretrained(base_model, f"{wandb.config['base_model']}_lora")
-model = model.merge_and_unload()
+base_model = PeftModel.from_pretrained(base_model, f"{wandb.config['base_model']}_lora", config=lora_config)
+base_model = base_model.merge_and_unload()
 
 data_collator = DataCollatorForCompletionOnlyLM(
     wandb.config["response"],

@@ -11,12 +11,6 @@
     "num_epochs": 1,
     "system_prompt": ""
   },
-  "lora_alpha": 16,
-  "lora_dropout": 0.1,
-  "r": 8,
-  "bias": "none",
-  "task_type": "CAUSAL_LM",
-  "modules_to_save": ["lm_head", "embed_tokens"],
   "output_dir": "./checkpoints",
   "overwrite_output_dir": true,
   "per_device_train_batch_size": 4,
