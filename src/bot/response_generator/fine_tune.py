@@ -19,6 +19,7 @@ move_cache()
 @dataclass
 class ScriptArguments(CommonScriptArguments):
     chat_template_file: str = HfArg(aliases="--chat-template-file", default="")
+    enable_flash_attention: bool = HfArg(aliases="--enable-flash-attention", default=True)
 
 
 config_getter = ArgumentParser()
@@ -88,8 +89,8 @@ lora_config = LoraConfig(
 base_model = AutoModelForCausalLM.from_pretrained(
     wandb.config["base_model"],
     quantization_config=quantization_config,
-    attn_implementation="flash_attention_2",
-    pretraining_tp=1,
+    use_flash_attention_2=args.enable_flash_attention,
+    # attn_implementation="flash_attention_2",
     load_in_4bit=True,
     torch_dtype=torch.float16,
     use_cache=False,
@@ -97,6 +98,7 @@ base_model = AutoModelForCausalLM.from_pretrained(
     low_cpu_mem_usage=True,
     trust_remote_code=True
 )
+base_model.config.pretraining_tp = 1
 base_model.resize_token_embeddings(len(tokenizer))
 base_model = PeftModel.from_pretrained(base_model, f"{wandb.config['base_model']}_lora", config=lora_config)
 base_model = base_model.merge_and_unload()
