@@ -20,8 +20,6 @@ move_cache()
 @dataclass
 class ScriptArguments(CommonScriptArguments):
     chat_template_file: str = HfArg(aliases="--chat-template-file", default="")
-    pretraining_tp: int = HfArg(aliases="--pretraining-tp", default=None)
-    enable_flash_attention: bool = HfArg(aliases="--enable-flash-attention", default=True)
 
 
 config_getter = ArgumentParser()
@@ -92,15 +90,14 @@ lora_config = LoraConfig(
 base_model = AutoModelForCausalLM.from_pretrained(
     wandb.config["base_model"],
     quantization_config=quantization_config,
-    use_flash_attention_2=args.enable_flash_attention,
-    # attn_implementation="flash_attention_2",
+    attn_implementation="flash_attention_2",
     torch_dtype=torch.float16,
+    pretraining_tp=1,
     use_cache=False,
     device_map="auto",
     low_cpu_mem_usage=True,
     trust_remote_code=True
 )
-base_model.config.pretraining_tp = args.pretraining_tp
 base_model.resize_token_embeddings(len(tokenizer))
 base_model = peft.get_peft_model(base_model, lora_config)
 # base_model = base_model.merge_and_unload()
