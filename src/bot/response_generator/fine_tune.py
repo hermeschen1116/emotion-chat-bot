@@ -50,7 +50,6 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 dataset_path = run.use_artifact(wandb.config["dataset"]).download()
 dataset = load_from_disk(dataset_path)
 dataset = concatenate_datasets([dataset["train"], dataset["validation"]])
-dataset = dataset.train_test_split(train_size=0.001)["train"]
 
 system_prompt: list = [{"role": "system", "content": {"emotion": "", "dialog": wandb.config["system_prompt"]}}]
 
@@ -66,9 +65,6 @@ tokenizer = AutoTokenizer.from_pretrained(
     chat_template=wandb.config["chat_template"],
     trust_remote_code=True
 )
-# tokenizer.padding_side = "right"
-# tokenizer.clean_up_tokenization_spaces = True
-# tokenizer.chat_template = wandb.config["chat_template"]
 tokenizer.add_special_tokens(wandb.config["special_tokens"])
 
 dataset = dataset.map(lambda samples: {
