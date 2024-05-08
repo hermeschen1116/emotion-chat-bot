@@ -50,6 +50,7 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 dataset_path = run.use_artifact(wandb.config["dataset"]).download()
 dataset = load_from_disk(dataset_path)
 dataset = concatenate_datasets([dataset["train"], dataset["validation"]])
+dataset = dataset.train_test_split(train_size=0.001)["train"]
 
 system_prompt: list = [{"role": "system", "content": {"emotion": "", "dialog": wandb.config["system_prompt"]}}]
 
@@ -100,7 +101,6 @@ base_model = AutoModelForCausalLM.from_pretrained(
 )
 base_model.resize_token_embeddings(len(tokenizer))
 base_model = peft.get_peft_model(base_model, lora_config)
-base_model = base_model.merge_and_unload()
 
 data_collator = DataCollatorForCompletionOnlyLM(
     wandb.config["response_template"],
@@ -157,6 +157,7 @@ model_artifact = wandb.Artifact(
     type="model"
 )
 
+tuner.model = tuner.model.merge_and_unload()
 tuner.model = torch.compile(tuner.model)
 with tempfile.TemporaryDirectory() as temp_dir:
     tuner.save_model(temp_dir)
