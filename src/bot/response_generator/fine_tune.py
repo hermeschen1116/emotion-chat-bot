@@ -5,7 +5,6 @@ from dataclasses import dataclass
 import peft
 import torch
 import wandb
-from accelerate import Accelerator, DataLoaderConfiguration
 from datasets import load_from_disk, concatenate_datasets
 from peft import LoraConfig
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, HfArgumentParser, TrainingArguments
@@ -51,7 +50,6 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 dataset_path = run.use_artifact(wandb.config["dataset"]).download()
 dataset = load_from_disk(dataset_path)
 dataset = concatenate_datasets([dataset["train"], dataset["validation"]])
-dataset = dataset.train_test_split(train_size=0.001)["train"]
 
 system_prompt: list = [{"role": "system", "content": {"emotion": "", "dialog": wandb.config["system_prompt"]}}]
 
@@ -93,7 +91,7 @@ base_model = AutoModelForCausalLM.from_pretrained(
     wandb.config["base_model"],
     quantization_config=quantization_config,
     attn_implementation="flash_attention_2",
-    # torch_dtype=torch.float16,
+    torch_dtype=torch.float16,
     pretraining_tp=1,
     use_cache=False,
     device_map="auto",
@@ -102,7 +100,7 @@ base_model = AutoModelForCausalLM.from_pretrained(
 )
 base_model.resize_token_embeddings(len(tokenizer))
 base_model = peft.get_peft_model(base_model, lora_config)
-# base_model = base_model.merge_and_unload()
+base_model = base_model.merge_and_unload()
 
 data_collator = DataCollatorForCompletionOnlyLM(
     wandb.config["response_template"],
