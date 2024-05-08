@@ -105,7 +105,6 @@ lora_config = LoraConfig(
     task_type="CAUSAL_LM",
     modules_to_save=["lm_head", "embed_tokens"]
 )
-# base_model = peft.get_peft_model(base_model, lora_config)
 
 data_collator = DataCollatorForCompletionOnlyLM(
     wandb.config["response_template"],
@@ -138,7 +137,7 @@ trainer_arguments = TrainingArguments(
     gradient_checkpointing_kwargs={
         "use_reentrant": True
     },
-    # auto_find_batch_size=True,
+    auto_find_batch_size=True,
     torch_compile=False
 )
 
