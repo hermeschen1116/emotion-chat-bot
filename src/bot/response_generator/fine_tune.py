@@ -2,10 +2,11 @@ import tempfile
 from argparse import ArgumentParser
 from dataclasses import dataclass
 
+import peft
 import torch
 import wandb
 from datasets import load_from_disk, concatenate_datasets
-from peft import LoraConfig, PeftModel
+from peft import LoraConfig
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, HfArgumentParser, TrainingArguments
 from transformers.hf_argparser import HfArg
 from transformers.utils.hub import move_cache
@@ -101,7 +102,7 @@ base_model = AutoModelForCausalLM.from_pretrained(
 )
 base_model.config.pretraining_tp = args.pretraining_tp
 base_model.resize_token_embeddings(len(tokenizer))
-base_model = PeftModel.from_pretrained(base_model, config=lora_config)
+base_model = peft.get_peft_model(base_model, lora_config)
 base_model = base_model.merge_and_unload()
 
 data_collator = DataCollatorForCompletionOnlyLM(
