@@ -26,6 +26,7 @@ python-dotenv = "^1.0.1"
 [tool.poetry.group.cuda.dependencies]
 bitsandbytes = "^0.42.0"
 flash-attn = "^2.5.8"
+unsloth = { git = "https://github.com/unslothai/unsloth.git", extras = ["colab-new"]}
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"
