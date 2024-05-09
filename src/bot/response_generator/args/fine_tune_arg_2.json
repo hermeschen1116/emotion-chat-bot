@@ -1,5 +1,6 @@
 {
   "chat_template_file": "./chat_template/Llama2_OUT_INST.json",
+  "enable_pretraining_tp": true,
   "job_type": "fine_tune",
   "project": "emotion-chat-bot-ncu",
   "group": "Response Generator",
