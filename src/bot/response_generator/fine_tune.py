@@ -5,11 +5,11 @@ from dataclasses import dataclass
 import torch
 import wandb
 from datasets import load_from_disk, concatenate_datasets
-from peft import LoraConfig
-from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, HfArgumentParser, TrainingArguments
+from transformers import HfArgumentParser, TrainingArguments
 from transformers.hf_argparser import HfArg
 from transformers.utils.hub import move_cache
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
+from unsloth import FastLanguageModel
 
 from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
 
@@ -18,6 +18,7 @@ move_cache()
 
 @dataclass
 class ScriptArguments(CommonScriptArguments):
+    enable_pretraining_tp: bool = HfArg(aliases="--enable-pretraining-tp", default=False)
     chat_template_file: str = HfArg(aliases="--chat-template-file", default="")
 
 
@@ -49,7 +50,7 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 dataset_path = run.use_artifact(wandb.config["dataset"]).download()
 dataset = load_from_disk(dataset_path)
 dataset = concatenate_datasets([dataset["train"], dataset["validation"]])
-# dataset = dataset.train_test_split(train_size=0.001)["train"]
+dataset = dataset.train_test_split(train_size=0.001)["train"]
 
 system_prompt: list = [{"role": "system", "content": {"emotion": "", "dialog": wandb.config["system_prompt"]}}]
 
@@ -58,53 +59,39 @@ dataset = dataset.map(lambda samples: {
 }, input_columns="prompt", batched=True, num_proc=16)
 
 # Load Tokenizer
-tokenizer = AutoTokenizer.from_pretrained(
+base_model, tokenizer = FastLanguageModel.from_pretrained(
     wandb.config["base_model"],
-    padding_side="right",
-    clean_up_tokenization_spaces=True,
-    chat_template=wandb.config["chat_template"],
-    trust_remote_code=True
+    attn_implementation="flash_attention_2",
+    # pretraining_tp=1,
+    load_in_4bit=True,
+    quant_type="nf4",
+    use_cache=False,
+    device_map="auto",
+    low_cpu_mem_usage=True,
+    trust_remote_code=True,
 )
+tokenizer.padding_side = "right"
+tokenizer.clean_up_tokenization_spaces = True
+tokenizer.chat_template = wandb.config["chat_template"]
 tokenizer.add_special_tokens(wandb.config["special_tokens"])
+
+if args.enable_pretraining_tp:
+    base_model.config.pretraining_tp = 1
+base_model.resize_token_embeddings(len(tokenizer))
+
+base_model = FastLanguageModel.get_peft_model(
+    base_model,
+    lora_alpha=16,
+    lora_dropout=0.1,
+    r=8,
+    bias="none",
+    modules_to_save=["lm_head", "embed_tokens"]
+)
 
 dataset = dataset.map(lambda samples: {
     "prompt": [tokenizer.apply_chat_template(sample, tokenize=False) for sample in samples]
 }, input_columns="prompt", batched=True, num_proc=16)
 wandb.config["example_prompt"] = dataset[0]["prompt"]
-
-
-quantization_config = BitsAndBytesConfig(
-    load_in_4bit=True,
-    bnb_4bit_quant_type="nf4",
-    bnb_4bit_compute_dtype=torch.bfloat16,
-    bnb_4bit_use_double_quant=True
-)
-
-# Load Model
-base_model = AutoModelForCausalLM.from_pretrained(
-    wandb.config["base_model"],
-    quantization_config=quantization_config,
-    attn_implementation="flash_attention_2",
-    torch_dtype=torch.float16,
-    pretraining_tp=1,
-    use_cache=False,
-    device_map="auto",
-    low_cpu_mem_usage=True,
-    trust_remote_code=True
-)
-base_model.resize_token_embeddings(len(tokenizer))
-# base_model = prepare_model_for_int8_training(base_model)
-# param = base_model.model.decoder.embed_tokens.weight
-# param.data = param.data.to(torch.float32)
-
-lora_config = LoraConfig(
-    lora_alpha=16,
-    lora_dropout=0.1,
-    r=8,
-    bias="none",
-    task_type="CAUSAL_LM",
-    modules_to_save=["lm_head", "embed_tokens"]
-)
 
 data_collator = DataCollatorForCompletionOnlyLM(
     wandb.config["response_template"],
@@ -145,7 +132,6 @@ trainer_arguments = TrainingArguments(
 tuner = SFTTrainer(
     model=base_model,
     args=trainer_arguments,
-    peft_config=lora_config,
     data_collator=data_collator,
     train_dataset=dataset,
     dataset_text_field="prompt",
