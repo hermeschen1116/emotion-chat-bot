@@ -64,7 +64,6 @@ base_model, tokenizer = FastLanguageModel.from_pretrained(
     attn_implementation="flash_attention_2",
     # pretraining_tp=1,
     load_in_4bit=True,
-    quant_type="nf4",
     use_cache=False,
     device_map="auto",
     low_cpu_mem_usage=True,
