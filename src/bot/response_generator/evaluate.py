@@ -51,7 +51,7 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 # Load and Process Dataset
 dataset_path = run.use_artifact(wandb.config["dataset"]).download()
 dataset = load_from_disk(dataset_path)["test"]
-dataset = dataset.train_test_split(test_size=0.001)["test"]
+# dataset = dataset.train_test_split(test_size=0.001)["test"]
 
 dataset = dataset.map(lambda samples: {
     "dialog_bot": [sample[-1]["content"]["dialog"] for sample in samples],
