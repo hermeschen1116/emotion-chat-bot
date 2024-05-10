@@ -1,0 +1,22 @@
+{
+  "chat_template_file": "./chat_template/Llama2_IN_INST.json",
+  "enable_pretraining_tp": true,
+  "job_type": "fine_tune",
+  "project": "emotion-chat-bot-ncu",
+  "group": "Response Generator",
+  "notes": "fine tune model",
+  "config": {
+    "dataset": "daily_dialog_for_RG:latest",
+    "base_model": "mistralai/Mistral-7B-Instruct-v0.1",
+    "tokenizer": "mistralai/Mistral-7B-Instruct-v0.1",
+    "system_prompt": "",
+    "num_epochs": 1,
+    "learning_rate": 2e-4,
+    "weight_decay": 0.001,
+    "max_grad_norm": 0.3,
+    "warmup_ratio": 0.03,
+    "max_steps": -1,
+    "optim": "paged_adamw_32bit",
+    "fine_tuned_model": "response_generator"
+  }
+}
