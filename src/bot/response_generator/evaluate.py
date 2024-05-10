@@ -4,15 +4,16 @@ from dataclasses import dataclass
 import torch
 import wandb
 from datasets import load_from_disk
+from peft import PeftModel
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from tqdm.auto import tqdm
-from transformers import (AutoModelForCausalLM,
-                          AutoModelForSequenceClassification,
+from transformers import (AutoModelForSequenceClassification,
                           AutoTokenizer,
                           HfArgumentParser,
                           BitsAndBytesConfig,
                           TextClassificationPipeline, GenerationConfig)
 from transformers.hf_argparser import HfArg
+from unsloth import FastLanguageModel
 
 from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments, get_torch_device
 
@@ -29,7 +30,7 @@ config = config_getter.parse_args()
 parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
 args, wandb_args = parser.parse_json_file(config.json_file)
 
-# chat_template: dict = eval(open(args.chat_template_file, "r", encoding="utf-8", closefd=True).read())
+chat_template: dict = eval(open(args.chat_template_file, "r", encoding="utf-8", closefd=True).read())
 
 run = wandb.init(
     job_type=wandb_args.job_type,
@@ -40,10 +41,10 @@ run = wandb.init(
     mode=wandb_args.mode,
     resume=wandb_args.resume
 )
-# wandb.config["chat_template"] = chat_template["template"]
-# wandb.config["instruction_template"] = chat_template["instruction"]
-# wandb.config["response_template"] = chat_template["response"]
-# wandb.config["special_tokens"] = chat_template["special_tokens"]
+wandb.config["chat_template"] = chat_template["template"]
+wandb.config["instruction_template"] = chat_template["instruction"]
+wandb.config["response_template"] = chat_template["response"]
+wandb.config["special_tokens"] = chat_template["special_tokens"]
 
 
 # Load and Process Dataset
@@ -63,39 +64,34 @@ dataset = dataset.map(lambda samples: {
 }, input_columns="prompt", batched=True, num_proc=16)
 
 system_prompt: list = [{"role": "system", "content": {"emotion": "", "dialog": wandb.config["system_prompt"]}}]
-system_prompt = system_prompt if wandb.config["system_prompt"] != "" else []
 
 dataset = dataset.map(lambda samples: {
     "prompt": [system_prompt + sample for sample in samples]
 }, input_columns="prompt", batched=True, num_proc=16)
 
 # Load Tokenizer
-tokenizer = AutoTokenizer.from_pretrained(
-    wandb.config["tokenizer"],
-    trust_remote_code=True
+base_model, tokenizer = FastLanguageModel.from_pretrained(
+    wandb.config["base_model"],
+    attn_implementation="flash_attention_2",
+    # pretraining_tp=1,
+    load_in_4bit=True,
+    use_cache=False,
+    device_map="auto",
+    low_cpu_mem_usage=True,
+    trust_remote_code=True,
 )
 tokenizer.padding_side = "left"
 tokenizer.clean_up_tokenization_spaces = True
-# tokenizer.chat_template = wandb.config["chat_template"]
-# tokenizer.add_special_tokens(wandb.config["special_tokens"])
-tokenizer.add_special_tokens({"pad_token": "[pad]" if tokenizer.pad_token is None else tokenizer.pad_token})
+tokenizer.chat_template = wandb.config["chat_template"]
+tokenizer.add_special_tokens(wandb.config["special_tokens"])
+
+if args.enable_pretraining_tp:
+    base_model.config.pretraining_tp = 1
+base_model.resize_token_embeddings(len(tokenizer))
+
 wandb.config["example_prompt"] = tokenizer.apply_chat_template(dataset[0]["prompt"], tokenize=False)
 
-# Load Model
-quantization_config = BitsAndBytesConfig(
-    load_in_4bit=True,
-    bnb_4bit_compute_dtype=torch.float16
-)
-
-model = AutoModelForCausalLM.from_pretrained(
-    # run.use_model(wandb.config["fine_tuned_model"]),
-    wandb.config["fine_tuned_model"],
-    quantization_config=quantization_config,
-    attn_implementation="flash_attention_2",
-    device_map="auto",
-    low_cpu_mem_usage=True,
-    trust_remote_code=True
-)
+model = PeftModel.from_pretrained(base_model, run.use_model(wandb.config["fine_tuned_model"]))
 model = torch.compile(model)
 
 # Generate Response
@@ -126,7 +122,10 @@ result = dataset.add_column("test_response", test_response).remove_columns("prom
 # Sentiment Analysis
 sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(
     wandb.config["sentiment_analysis_model"],
-    quantization_config=quantization_config,
+    quantization_config=BitsAndBytesConfig(
+        load_in_4bit=True,
+        bnb_4bit_compute_dtype=torch.float16
+    ),
     device_map="auto",
     low_cpu_mem_usage=True
 )

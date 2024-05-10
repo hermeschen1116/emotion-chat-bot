@@ -6,7 +6,7 @@
   "notes": "evaluate baseline performance for some possible base model",
   "config": {
     "dataset": "daily_dialog_for_RG:latest",
-    "tokenizer": "meta-llama/Meta-Llama-3-8B",
+    "base_model": "meta-llama/Meta-Llama-3-8B",
     "fine_tuned_model": "meta-llama/Meta-Llama-3-8B",
     "sentiment_analysis_tokenizer": "michellejieli/emotion_text_classifier",
     "sentiment_analysis_model": "../sentiment_analysis/emotion_text_classifier_on_dd_v1",
