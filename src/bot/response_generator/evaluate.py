@@ -11,7 +11,7 @@ from transformers import (AutoModelForSequenceClassification,
                           AutoTokenizer,
                           HfArgumentParser,
                           BitsAndBytesConfig,
-                          TextClassificationPipeline, GenerationConfig)
+                          TextClassificationPipeline, GenerationConfig, TextStreamer)
 from transformers.hf_argparser import HfArg
 from unsloth import FastLanguageModel
 
@@ -20,6 +20,7 @@ from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments, get_t
 
 @dataclass
 class ScriptArguments(CommonScriptArguments):
+    enable_pretraining_tp: bool = HfArg(aliases="--enable-pretraining-tp", default=False)
     chat_template_file: str = HfArg(aliases="--chat-template-file", default="")
 
 
@@ -93,6 +94,8 @@ wandb.config["example_prompt"] = tokenizer.apply_chat_template(dataset[0]["promp
 
 model = PeftModel.from_pretrained(base_model, run.use_model(wandb.config["fine_tuned_model"]))
 model = torch.compile(model)
+FastLanguageModel.for_inference(model)
+streamer = TextStreamer(tokenizer)
 
 # Generate Response
 device: str = get_torch_device()
@@ -110,7 +113,9 @@ for sample in tqdm(dataset, colour="yellow"):
                                                                    max_length=1024,
                                                                    add_generation_prompt=True,
                                                                    return_tensors="pt").to(device)
-    generated_tokens: torch.tensor = model.generate(tokenized_prompt, generation_config=generation_config)
+    generated_tokens: torch.tensor = model.generate(tokenized_prompt,
+                                                    streamer=streamer,
+                                                    generation_config=generation_config)
     encoded_response: torch.tensor = generated_tokens[0][tokenized_prompt.shape[1]:]
     response = tokenizer.decode(encoded_response,
                                 skip_special_tokens=True,
