@@ -1,5 +1,5 @@
 {
-  "chat_template_file": "./chat_template/gemma.json",
+  "chat_template_file": "./chat_template/Llama2_IN_INST.json",
   "job_type": "evaluation",
   "project": "emotion-chat-bot-ncu",
   "group": "Response Generator",
@@ -7,7 +7,7 @@
   "config": {
     "dataset": "daily_dialog_for_RG:latest",
     "base_model": "meta-llama/Llama-2-7b-hf",
-    "fine_tuned_model": "meta-llama/Llama-2-7b-hf",
+    "fine_tuned_model": "response_generator:v10",
     "sentiment_analysis_tokenizer": "michellejieli/emotion_text_classifier",
     "sentiment_analysis_model": "../sentiment_analysis/emotion_text_classifier_on_dd_v1",
     "system_prompt": ""
