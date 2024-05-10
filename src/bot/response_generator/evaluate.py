@@ -95,7 +95,9 @@ wandb.config["example_prompt"] = tokenizer.apply_chat_template(dataset[0]["promp
 model = PeftModel.from_pretrained(base_model, run.use_model(wandb.config["fine_tuned_model"]))
 model = torch.compile(model)
 FastLanguageModel.for_inference(model)
-streamer = TextStreamer(tokenizer)
+streamer = TextStreamer(tokenizer,
+                        skip_special_tokens=True,
+                        clean_up_tokenization_spaces=True)
 
 # Generate Response
 device: str = get_torch_device()
@@ -118,8 +120,9 @@ for sample in tqdm(dataset, colour="yellow"):
                                                     generation_config=generation_config)
     encoded_response: torch.tensor = generated_tokens[0][tokenized_prompt.shape[1]:]
     response = tokenizer.decode(encoded_response,
-                                skip_special_tokens=True,
-                                clean_up_tokenization_spaces=True)
+                                # skip_special_tokens=True,
+                                # clean_up_tokenization_spaces=True
+                                )
     test_response.append(response)
 
 result = dataset.add_column("test_response", test_response).remove_columns("prompt")
