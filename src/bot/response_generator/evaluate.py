@@ -108,7 +108,7 @@ generation_config = GenerationConfig(max_new_tokens=20,
                                      eos_token_id=tokenizer.eos_token_id)
 
 test_response: list = []
-for sample in tqdm(dataset, colour="yellow"):
+for sample in tqdm(dataset, colour="green"):
     tokenized_prompt: torch.tensor = tokenizer.apply_chat_template(sample["prompt"],
                                                                    tokenize=True,
                                                                    padding=True,
@@ -119,11 +119,8 @@ for sample in tqdm(dataset, colour="yellow"):
                                                     streamer=streamer,
                                                     generation_config=generation_config)
     encoded_response: torch.tensor = generated_tokens[0][tokenized_prompt.shape[1]:]
-    response = tokenizer.decode(encoded_response,
-                                # skip_special_tokens=True,
-                                # clean_up_tokenization_spaces=True
-                                )
-    test_response.append(response)
+    response = tokenizer.decode(encoded_response)
+    test_response.append(response.replace(tokenizer.eos_token, "").strip())
 
 result = dataset.add_column("test_response", test_response).remove_columns("prompt")
 
@@ -168,7 +165,9 @@ sentiment_pred: torch.tensor = torch.tensor([emotion_id[sample["label"]]
 num_emotion_labels: int = len(emotion_labels)
 wandb.log({
     "F1-score": multiclass_f1_score(sentiment_true, sentiment_pred, num_classes=num_emotion_labels, average="weighted"),
-    "Accuracy": multiclass_accuracy(sentiment_true, sentiment_pred, num_classes=num_emotion_labels)})
+    "Accuracy": multiclass_accuracy(sentiment_true, sentiment_pred, num_classes=num_emotion_labels)
+})
 wandb.log({"evaluation_result": wandb.Table(dataframe=result.to_pandas())})
+result.to_csv(f"./results/{wandb.config['fine_tuned_model']}.csv", num_proc=16)
 
 wandb.finish()
