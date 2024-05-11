@@ -57,12 +57,11 @@ dataset = load_from_disk(dataset_path)["test"]
 dataset = dataset.map(lambda samples: {
     "dialog_bot": [sample[-1]["content"]["dialog"] for sample in samples],
     "emotion_bot": [sample[-1]["content"]["emotion"] for sample in samples],
-    "prompt": [sample[:-1] for sample in samples]
 }, input_columns="prompt", batched=True, num_proc=16)
 
 dataset = dataset.map(lambda samples: {
     "history": ["\n".join(
-        [f"{turn['role']}({turn['content']['emotion']}): {turn['content']['dialog']}" for turn in sample]
+        [f"{turn['role']}({turn['content']['emotion']}): {turn['content']['dialog']}" for turn in sample[:-1]]
     ) for sample in samples]
 }, input_columns="prompt", batched=True, num_proc=16)
 
