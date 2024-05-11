@@ -1,0 +1,17 @@
+{
+  "chat_template_file": "./chat_template/Llama2_IN_INST_UNI.json",
+  "enable_pretraining_tp": true,
+  "name": "mistral-7b-in_inst_uni",
+  "job_type": "evaluation",
+  "project": "emotion-chat-bot-ncu",
+  "group": "Response Generator",
+  "notes": "evaluate performance of models fine tune on different prompt template",
+  "config": {
+    "dataset": "daily_dialog_for_RG:latest",
+    "base_model": "mistralai/Mistral-7B-v0.1",
+    "fine_tuned_model": "response_generator:v23",
+    "sentiment_analysis_tokenizer": "michellejieli/emotion_text_classifier",
+    "sentiment_analysis_model": "../sentiment_analysis/emotion_text_classifier_on_dd_v1",
+    "system_prompt": ""
+  }
+}
