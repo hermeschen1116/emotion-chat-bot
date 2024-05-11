@@ -57,6 +57,7 @@ class CommonScriptArguments:
 
 @dataclass
 class CommonWanDBArguments:
+    name: Optional[str] = HfArg(aliases=["--wandb-name"], default=None)
     job_type: Optional[str] = HfArg(aliases=["--wandb-job-type", "--job-type"], default=None)
     config: Union[Dict, str, None] = HfArg(aliases="--wandb-type", default_factory=dict)
     project: Optional[str] = HfArg(aliases="--wandb-project", default=None)

@@ -34,6 +34,7 @@ args, wandb_args = parser.parse_json_file(config.json_file)
 chat_template: dict = eval(open(args.chat_template_file, "r", encoding="utf-8", closefd=True).read())
 
 run = wandb.init(
+    name=wandb_args.name,
     job_type=wandb_args.job_type,
     config=wandb_args.config,
     project=wandb_args.project,

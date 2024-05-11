@@ -33,6 +33,7 @@ chat_template: dict = eval(open(args.chat_template_file, "r", encoding="utf-8", 
 
 # Initialize Wandb
 run = wandb.init(
+    name=wandb_args.name,
     job_type=wandb_args.job_type,
     config=wandb_args.config,
     project=wandb_args.project,
