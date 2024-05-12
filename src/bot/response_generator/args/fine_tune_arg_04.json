@@ -10,7 +10,7 @@
     "tokenizer": "meta-llama/Llama-2-7b-hf",
     "base_model": "response_generator:latest",
     "system_prompt": "",
-    "num_epochs": 5,
+    "num_epochs": 1,
     "learning_rate": 2e-4,
     "weight_decay": 0.001,
     "max_grad_norm": 0.3,
