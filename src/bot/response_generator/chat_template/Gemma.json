@@ -1,0 +1,14 @@
+{
+    "template": "{% for message in messages %}{% set emotion = message['content']['emotion'] %}{% set dialog = message['content']['dialog'].strip() %}{% if loop.last and add_generation_prompt %}{{ '<|im_start|>' + message['role'] + '\\n[EMOTION]' + emotion + '[/EMOTION] ' }}{% else %}{{ '<|im_start|>' + message['role'] + '\\n[EMOTION]' + emotion + '[/EMOTION] ' + dialog + '<|im_end|>' + '\\n' }}{% endif %}{% endfor %}",
+    "instruction": "<|im_start|>",
+    "response": "[/EMOTION]",
+    "special_tokens": {
+        "bos_token": "<|im_start|>",
+        "eos_token": "<|im_end|>",
+        "pad_token": "<|pad|>",
+        "additional_special_tokens": [
+            "[EMOTION]",
+            "[/EMOTION]"
+        ]
+    }
+}
