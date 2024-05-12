@@ -18,7 +18,6 @@ move_cache()
 
 @dataclass
 class ScriptArguments(CommonScriptArguments):
-    enable_pretraining_tp: bool = HfArg(aliases="--enable-pretraining-tp", default=False)
     chat_template_file: str = HfArg(aliases="--chat-template-file", default="")
 
 
@@ -63,7 +62,7 @@ dataset = dataset.map(lambda samples: {
 base_model, tokenizer = FastLanguageModel.from_pretrained(
     wandb.config["base_model"],
     attn_implementation="flash_attention_2",
-    # pretraining_tp=1,
+    pretraining_tp=1,
     load_in_4bit=True,
     use_cache=False,
     device_map="auto",
@@ -74,9 +73,6 @@ tokenizer.padding_side = "right"
 tokenizer.clean_up_tokenization_spaces = True
 tokenizer.chat_template = wandb.config["chat_template"]
 tokenizer.add_special_tokens(wandb.config["special_tokens"])
-
-if args.enable_pretraining_tp:
-    base_model.config.pretraining_tp = 1
 base_model.resize_token_embeddings(len(tokenizer))
 
 base_model = FastLanguageModel.get_peft_model(
@@ -87,6 +83,7 @@ base_model = FastLanguageModel.get_peft_model(
     bias="none",
     modules_to_save=["lm_head", "embed_tokens"]
 )
+FastLanguageModel.for_training(base_model)
 
 dataset = dataset.map(lambda samples: {
     "prompt": [tokenizer.apply_chat_template(sample, tokenize=False) for sample in samples]
