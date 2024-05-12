@@ -61,7 +61,7 @@ dataset = dataset.map(lambda samples: {
 
 # Load Tokenizer
 base_model, tokenizer = FastLanguageModel.from_pretrained(
-    wandb.config["base_model"],
+    wandb.config["tokenizer"],
     attn_implementation="flash_attention_2",
     pretraining_tp=1,
     load_in_4bit=True,
@@ -76,7 +76,7 @@ tokenizer.chat_template = wandb.config["chat_template"]
 tokenizer.add_special_tokens(wandb.config["special_tokens"])
 base_model.resize_token_embeddings(len(tokenizer))
 
-base_model = PeftModel.from_pretrained(base_model, run.use_model(wandb.config["fine_tuned_model"]))
+base_model = PeftModel.from_pretrained(base_model, run.use_model(wandb.config["base_model"]))
 # base_model = FastLanguageModel.get_peft_model(
 #     base_model,
 #     lora_alpha=16,
