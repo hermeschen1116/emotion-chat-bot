@@ -1,5 +1,5 @@
 {
-  "chat_template_file": "./chat_template/Llama2_out_INST_UNI.json",
+  "chat_template_file": "./chat_template/Llama2_OUT_INST_UNI.json",
   "enable_pretraining_tp": true,
   "name": "mistral-7b-instruct-out_inst_uni",
   "job_type": "evaluation",
