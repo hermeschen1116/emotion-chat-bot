@@ -76,7 +76,7 @@ tokenizer.chat_template = wandb.config["chat_template"]
 tokenizer.add_special_tokens(wandb.config["special_tokens"])
 base_model.resize_token_embeddings(len(tokenizer))
 
-#base_model = PeftModel.from_pretrained(base_model, run.use_model(wandb.config["base_model"]))
+# base_model = PeftModel.from_pretrained(base_model, run.use_model(wandb.config["base_model"]))
 base_model = FastLanguageModel.get_peft_model(
     base_model,
     target_modules=["all-linear"],
@@ -98,10 +98,10 @@ dataset = dataset.map(lambda samples: {
 }, input_columns="prompt", batched=True, num_proc=16)
 wandb.config["example_prompt"] = dataset[0]["prompt"]
 
-special_tokens_map: dict = dict(zip(tokenizer))
+special_tokens_map: dict = dict(zip(tokenizer.all_special_tokens, tokenizer.all_special_ids))
 data_collator = DataCollatorForCompletionOnlyLM(
-    wandb.config["response_template"],
-    instruction_template=wandb.config["instruction_template"],
+    special_tokens_map[wandb.config["response_template"]],
+    instruction_template=special_tokens_map[wandb.config["instruction_template"]],
     tokenizer=tokenizer
 )
 
