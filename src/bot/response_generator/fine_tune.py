@@ -79,7 +79,15 @@ base_model.resize_token_embeddings(len(tokenizer))
 # base_model = PeftModel.from_pretrained(base_model, run.use_model(wandb.config["base_model"]))
 base_model = FastLanguageModel.get_peft_model(
     base_model,
-    target_modules=["all-linear"],
+    target_modules=[
+        "q_proj",
+        "k_proj",
+        "v_proj",
+        "o_proj",
+        "gate_proj",
+        "up_proj",
+        "down_proj"
+    ],
     lora_alpha=16,
     lora_dropout=0.1,
     r=8,
