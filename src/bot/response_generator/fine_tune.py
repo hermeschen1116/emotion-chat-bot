@@ -98,7 +98,7 @@ dataset = dataset.map(lambda samples: {
 }, input_columns="prompt", batched=True, num_proc=16)
 wandb.config["example_prompt"] = dataset[0]["prompt"]
 
-special_tokens_map: dict = dict(zip(tokenizer.all_special_tokens, tokenizer.all_special_ids))
+special_tokens_map: dict = dict(zip(tokenizer.all_special_tokens, [[ids] for ids in tokenizer.all_special_ids]))
 data_collator = DataCollatorForCompletionOnlyLM(
     special_tokens_map[wandb.config["response_template"]],
     instruction_template=special_tokens_map[wandb.config["instruction_template"]],
