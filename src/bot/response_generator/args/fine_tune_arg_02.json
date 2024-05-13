@@ -1,6 +1,6 @@
 {
-  "chat_template_file": "./chat_template/Llama2_OUT_INST.json",
-  "name": "llama2-7b-out_inst-epoch3",
+  "chat_template_file": "./chat_template/Llama2_OUT_INST_UNI.json",
+  "name": "llama2-7b-out_inst_uni",
   "job_type": "fine_tune",
   "project": "emotion-chat-bot-ncu",
   "group": "Response Generator",
@@ -8,9 +8,12 @@
   "config": {
     "dataset": "daily_dialog_for_RG:latest",
     "tokenizer": "meta-llama/Llama-2-7b-hf",
-    "base_model": "response_generator:latest",
+    "base_model": "meta-llama/Llama-2-7b-hf",
     "system_prompt": "",
-    "num_epochs": 1,
+    "enable_loftq": false,
+    "use_rslora": false,
+    "use_dora": true,
+    "num_epochs": 2,
     "learning_rate": 2e-4,
     "weight_decay": 0.001,
     "max_grad_norm": 0.3,
