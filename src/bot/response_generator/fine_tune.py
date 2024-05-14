@@ -64,7 +64,7 @@ base_model, tokenizer = FastLanguageModel.from_pretrained(
     wandb.config["tokenizer"],
     attn_implementation="flash_attention_2",
     pretraining_tp=1,
-    load_in_4bit=True,
+    load_in_4bit=(False if wandb.config["enable_loftq"] else True),
     use_cache=False,
     device_map="auto",
     low_cpu_mem_usage=True,
@@ -74,6 +74,7 @@ tokenizer.padding_side = "right"
 tokenizer.clean_up_tokenization_spaces = True
 tokenizer.chat_template = wandb.config["chat_template"]
 tokenizer.add_special_tokens(wandb.config["special_tokens"])
+base_model.resize_token_embeddings(len(tokenizer))
 
 # base_model = PeftModel.from_pretrained(base_model, run.use_model(wandb.config["base_model"]))
 base_model = FastLanguageModel.get_peft_model(
@@ -91,12 +92,10 @@ base_model = FastLanguageModel.get_peft_model(
     lora_dropout=0.1,
     r=8,
     bias="none",
-    modules_to_save=["lm_head", "embed_tokens"],
+    init_lora_weights=("loftq" if wandb.config["enable_loftq"] else False),
+    # modules_to_save=["lm_head", "embed_tokens"],
     use_rslora=wandb.config["use_rslora"]
 )
-if wandb.config["enable_loftq"]:
-    replace_lora_weights_loftq(base_model)
-base_model.resize_token_embeddings(len(tokenizer))
 base_model.print_trainable_parameters()
 FastLanguageModel.for_training(base_model)
 
