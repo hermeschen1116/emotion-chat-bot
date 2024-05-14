@@ -32,7 +32,7 @@ chat_template: dict = eval(open(args.chat_template_file, "r", encoding="utf-8", 
 
 # Initialize Wandb
 run = wandb.init(
-    name=wandb_args.name,
+    # name=wandb_args.name,
     job_type=wandb_args.job_type,
     config=wandb_args.config,
     project=wandb_args.project,
@@ -92,9 +92,7 @@ base_model = FastLanguageModel.get_peft_model(
     r=8,
     bias="none",
     modules_to_save=["lm_head", "embed_tokens"],
-    init_lora_weights="loftq" if not wandb.config["enable_loftq"] else True,
-    use_rslora=wandb.config["use_rslora"],
-    use_dora=wandb.config["use_dora"]
+    use_rslora=wandb.config["use_rslora"]
 )
 base_model.print_trainable_parameters()
 FastLanguageModel.for_training(base_model)
