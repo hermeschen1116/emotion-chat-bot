@@ -5,7 +5,6 @@ from dataclasses import dataclass
 import torch
 import wandb
 from datasets import load_from_disk, concatenate_datasets
-from peft import replace_lora_weights_loftq
 from transformers import HfArgumentParser, TrainingArguments
 from transformers.hf_argparser import HfArg
 from transformers.utils.hub import move_cache
@@ -64,7 +63,7 @@ base_model, tokenizer = FastLanguageModel.from_pretrained(
     wandb.config["tokenizer"],
     attn_implementation="flash_attention_2",
     pretraining_tp=1,
-    load_in_4bit=(False if wandb.config["enable_loftq"] else True),
+    load_in_4bit=(not (wandb.config["init_lora_weights"] != "loftq")),
     use_cache=False,
     device_map="auto",
     low_cpu_mem_usage=True,
@@ -88,13 +87,13 @@ base_model = FastLanguageModel.get_peft_model(
         "up_proj",
         "down_proj"
     ],
-    lora_alpha=16,
+    lora_alpha=wandb.config["lora_alpha"],
     lora_dropout=0.1,
-    r=8,
+    r=wandb.config["lora_rank"],
     bias="none",
-    init_lora_weights=("loftq" if wandb.config["enable_loftq"] else False),
-    # modules_to_save=["lm_head", "embed_tokens"],
-    use_rslora=wandb.config["use_rslora"]
+    init_lora_weights=wandb.config["init_lora_weights"],
+    modules_to_save=["lm_head", "embed_tokens"],
+    use_rslora=True
 )
 base_model.print_trainable_parameters()
 FastLanguageModel.for_training(base_model)
