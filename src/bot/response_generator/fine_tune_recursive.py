@@ -12,7 +12,7 @@ from transformers.utils.hub import move_cache
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 from unsloth import FastLanguageModel
 
-from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments, get_torch_device
+from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
 
 move_cache()
 
@@ -66,7 +66,7 @@ base_model, tokenizer = FastLanguageModel.from_pretrained(
     pretraining_tp=1,
     load_in_4bit=(not (wandb.config["init_lora_weights"] != "loftq")),
     use_cache=False,
-    device_map=get_torch_device(),
+    device_map="auto",
     low_cpu_mem_usage=True,
     trust_remote_code=True,
 )
