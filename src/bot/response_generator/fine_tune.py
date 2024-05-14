@@ -5,7 +5,6 @@ from dataclasses import dataclass
 import torch
 import wandb
 from datasets import load_from_disk, concatenate_datasets
-from peft import replace_lora_weights_loftq
 from transformers import HfArgumentParser, TrainingArguments
 from transformers.hf_argparser import HfArg
 from transformers.utils.hub import move_cache
@@ -93,11 +92,10 @@ base_model = FastLanguageModel.get_peft_model(
     r=8,
     bias="none",
     modules_to_save=["lm_head", "embed_tokens"],
+    init_lora_weights="loftq" if not wandb.config["enable_loftq"] else True,
     use_rslora=wandb.config["use_rslora"],
     use_dora=wandb.config["use_dora"]
 )
-if wandb.config["enable_loftq"]:
-    replace_lora_weights_loftq(base_model)
 base_model.print_trainable_parameters()
 FastLanguageModel.for_training(base_model)
 
