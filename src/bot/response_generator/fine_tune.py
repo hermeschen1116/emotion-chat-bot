@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import torch
 import wandb
 from datasets import load_from_disk, concatenate_datasets
+from peft import replace_lora_weights_loftq
 from transformers import HfArgumentParser, TrainingArguments
 from transformers.hf_argparser import HfArg
 from transformers.utils.hub import move_cache
@@ -73,7 +74,6 @@ tokenizer.padding_side = "right"
 tokenizer.clean_up_tokenization_spaces = True
 tokenizer.chat_template = wandb.config["chat_template"]
 tokenizer.add_special_tokens(wandb.config["special_tokens"])
-base_model.resize_token_embeddings(len(tokenizer))
 
 # base_model = PeftModel.from_pretrained(base_model, run.use_model(wandb.config["base_model"]))
 base_model = FastLanguageModel.get_peft_model(
@@ -94,6 +94,9 @@ base_model = FastLanguageModel.get_peft_model(
     modules_to_save=["lm_head", "embed_tokens"],
     use_rslora=wandb.config["use_rslora"]
 )
+if wandb.config["enable_loftq"]:
+    replace_lora_weights_loftq(base_model)
+base_model.resize_token_embeddings(len(tokenizer))
 base_model.print_trainable_parameters()
 FastLanguageModel.for_training(base_model)
 
