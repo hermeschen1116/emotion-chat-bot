@@ -1,6 +1,6 @@
 {
   "chat_template_file": "./chat_template/Llama2_OUT_INST_UNI.json",
-  "name": "llama2-7b-out_inst_uni-rslora-r32-epoch2",
+  "name": "llama2-7b-out_inst_uni-rslora-r64-epoch2",
   "job_type": "fine_tune",
   "project": "emotion-chat-bot-ncu",
   "group": "Response Generator",
@@ -11,8 +11,8 @@
     "base_model": "response_generator:latest",
     "system_prompt": "",
     "init_lora_weights": true,
-    "lora_rank": 32,
-    "lora_alpha": 32,
+    "lora_rank": 64,
+    "lora_alpha": 64,
     "num_epochs": 1,
     "learning_rate": 2e-4,
     "weight_decay": 0.001,
