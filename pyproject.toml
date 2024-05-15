@@ -3,8 +3,8 @@ name = "chat-bot"
 version = "0.1.0"
 description = ""
 authors = [
-    "hermeschen1116 <108386417+hermeschen1116@users.noreply.github.com>",
-    "yangyx30678 <yangyx0000001@gmail.com>"
+	"hermeschen1116 <108386417+hermeschen1116@users.noreply.github.com>",
+	"yangyx30678 <yangyx0000001@gmail.com>"
 ]
 readme = "README.md"
 package-mode = false
@@ -15,20 +15,20 @@ wheel = "^0.43.0"
 huggingface-hub = "^0.21.3"
 torch = "^2.3.0"
 datasets = "^2.19.1"
-peft = "^0.9.0"
+peft = "^0.10.0"
 trl = "^0.8.6"
 transformers = "4.40.2"
 accelerate = "^0.28.0"
 evaluate = "^0.4.1"
 torcheval = "^0.0.7"
 python-dotenv = "^1.0.1"
+unsloth = { git = "https://github.com/unslothai/unsloth.git", extras = ["colab-new"] }
 ninja = "^1.11.1.1"
 einops = "^0.8.0"
 
 [tool.poetry.group.cuda.dependencies]
 bitsandbytes = "^0.42.0"
 flash-attn = "^2.5.8"
-unsloth = { git = "https://github.com/unslothai/unsloth.git", extras = ["colab-new"]}
 xformers = "^0.0.26.post1"
 
 [tool.poetry.group.dev.dependencies]

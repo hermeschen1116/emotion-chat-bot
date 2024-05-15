@@ -9,8 +9,9 @@ from torcheval.metrics.functional import multiclass_f1_score, multiclass_accurac
 from transformers.hf_argparser import HfArgumentParser, HfArg
 
 import wandb
-from libs.CommonConfig import CommonWanDBArguments, CommonScriptArguments, get_torch_device
-from libs.EmotionModel import EmotionModel, representation_evolute
+
+from src.bot.emotion_model.libs import EmotionModel, representation_evolute
+from src.bot.libs import CommonScriptArguments, get_torch_device, CommonWanDBArguments
 
 
 @dataclass

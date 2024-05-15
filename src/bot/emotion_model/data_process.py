@@ -14,8 +14,8 @@ from transformers import (HfArgumentParser,
                           pipeline)
 from transformers.hf_argparser import HfArg
 
-from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
-from libs.DataProcess import generate_dummy_representation, get_sentiment_composition
+from src.bot.emotion_model.libs import generate_dummy_representation, get_sentiment_composition
+from src.bot.libs import CommonScriptArguments, CommonWanDBArguments
 
 
 @dataclass
