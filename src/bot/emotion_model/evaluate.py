@@ -10,8 +10,7 @@ from transformers.hf_argparser import HfArgumentParser, HfArg
 
 import wandb
 
-from src.bot.emotion_model.libs import EmotionModel, representation_evolute
-from src.bot.libs import CommonScriptArguments, get_torch_device, CommonWanDBArguments
+from libs import EmotionModel, representation_evolute, CommonScriptArguments, CommonWanDBArguments, get_torch_device
 
 
 @dataclass
