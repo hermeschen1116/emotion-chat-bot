@@ -15,7 +15,7 @@ from transformers import (AutoModelForSequenceClassification,
 from transformers.hf_argparser import HfArg
 from unsloth import FastLanguageModel
 
-from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments, get_torch_device
+from src.bot.libs import CommonScriptArguments, CommonWanDBArguments, Utils
 
 
 @dataclass
@@ -95,7 +95,7 @@ streamer = TextStreamer(tokenizer,
                         clean_up_tokenization_spaces=True)
 
 # Generate Response
-device: str = get_torch_device()
+device: str = Utils.get_torch_device()
 generation_config = GenerationConfig(max_new_tokens=20,
                                      min_new_tokens=5,
                                      repetition_penalty=1.5,

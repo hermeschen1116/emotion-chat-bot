@@ -12,7 +12,7 @@ from transformers.utils.hub import move_cache
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 from unsloth import FastLanguageModel
 
-from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
+from src.bot.libs import CommonScriptArguments, CommonWanDBArguments
 
 move_cache()
 

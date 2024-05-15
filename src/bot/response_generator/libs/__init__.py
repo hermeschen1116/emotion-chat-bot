@@ -1,3 +1,3 @@
-import sys
+from .Pipeline import ResponseGeneratorPipeline
 
-sys.path.append(__file__)
+__all__ = ["ResponseGeneratorPipeline"]
