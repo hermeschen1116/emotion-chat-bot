@@ -6,16 +6,12 @@ import wandb
 from datasets import load_from_disk
 from peft import PeftModel
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
-from tqdm.auto import tqdm
-from transformers import (AutoModelForSequenceClassification,
-                          AutoTokenizer,
-                          HfArgumentParser,
-                          BitsAndBytesConfig,
-                          TextClassificationPipeline, GenerationConfig, TextStreamer)
+from transformers import (AutoModelForSequenceClassification, AutoTokenizer, BitsAndBytesConfig, GenerationConfig,
+                          HfArgumentParser, TextClassificationPipeline, TextStreamer)
 from transformers.hf_argparser import HfArg
 from unsloth import FastLanguageModel
 
-from libs import CommonScriptArguments, CommonWanDBArguments, get_torch_device
+from libs import CommonScriptArguments, CommonWanDBArguments, ResponseGeneratorPipeline
 
 
 @dataclass
@@ -90,34 +86,32 @@ wandb.config["example_prompt"] = tokenizer.apply_chat_template(dataset[0]["promp
 model = PeftModel.from_pretrained(base_model, run.use_model(wandb.config["fine_tuned_model"]))
 model = torch.compile(model)
 FastLanguageModel.for_inference(model)
-streamer = TextStreamer(tokenizer,
-                        skip_special_tokens=True,
-                        clean_up_tokenization_spaces=True)
 
 # Generate Response
-device: str = get_torch_device()
-generation_config = GenerationConfig(max_new_tokens=20,
-                                     min_new_tokens=5,
-                                     repetition_penalty=1.5,
-                                     pad_token_id=tokenizer.pad_token_id,
-                                     eos_token_id=tokenizer.eos_token_id)
+bot = ResponseGeneratorPipeline(
+    model,
+    tokenizer,
+    framework="pt",
+    task="conversation-generation",
+    num_workers=16,
+    torch_dtype="auto"
+)
 
-test_response: list = []
-for sample in tqdm(dataset, colour="green"):
-    tokenized_prompt: torch.tensor = tokenizer.apply_chat_template(sample["prompt"],
-                                                                   tokenize=True,
-                                                                   padding=True,
-                                                                   max_length=1024,
-                                                                   add_generation_prompt=True,
-                                                                   return_tensors="pt").to(device)
-    generated_tokens: torch.tensor = model.generate(tokenized_prompt,
-                                                    streamer=streamer,
-                                                    generation_config=generation_config)
-    encoded_response: torch.tensor = generated_tokens[0][tokenized_prompt.shape[1]:]
-    response = tokenizer.decode(encoded_response)
-    test_response.append(response.replace(tokenizer.eos_token, "").strip())
+streamer = TextStreamer(
+    tokenizer,
+    skip_special_tokens=True,
+    clean_up_tokenization_spaces=True
+)
 
-result = dataset.add_column("test_response", test_response).remove_columns("prompt")
+generation_config = GenerationConfig(
+    max_new_tokens=20,
+    min_new_tokens=5,
+    repetition_penalty=1.5,
+    pad_token_id=tokenizer.pad_token_id,
+    eos_token_id=tokenizer.eos_token_id
+)
+
+result = dataset.add_column("test_response", bot(dataset["prompt"])).remove_columns("prompt")
 
 # Sentiment Analysis
 sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(
