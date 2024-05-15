@@ -32,7 +32,7 @@ chat_template: dict = eval(open(args.chat_template_file, "r", encoding="utf-8", 
 
 # Initialize Wandb
 run = wandb.init(
-    # name=wandb_args.name,
+    name=wandb_args.name,
     job_type=wandb_args.job_type,
     config=wandb_args.config,
     project=wandb_args.project,
@@ -63,7 +63,7 @@ base_model, tokenizer = FastLanguageModel.from_pretrained(
     wandb.config["tokenizer"],
     attn_implementation="flash_attention_2",
     pretraining_tp=1,
-    load_in_4bit=(not (wandb.config["init_lora_weights"] != "loftq")),
+    load_in_4bit=(wandb.config["init_lora_weights"] != "loftq"),
     use_cache=False,
     device_map="auto",
     low_cpu_mem_usage=True,
@@ -136,7 +136,8 @@ trainer_arguments = TrainingArguments(
         "use_reentrant": True
     },
     auto_find_batch_size=True,
-    torch_compile=False
+    torch_compile=False,
+    neftune_noise_alpha=wandb.config["neftune_noise_alpha"]
 )
 
 # Setup Tuner
