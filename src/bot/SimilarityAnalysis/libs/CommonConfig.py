@@ -10,7 +10,7 @@ import wandb
 from dotenv import load_dotenv
 from transformers.hf_argparser import HfArg
 
-from src.bot.libs.CommonUtils import value_candidate_check
+from .CommonUtils import value_candidate_check
 
 
 @dataclass

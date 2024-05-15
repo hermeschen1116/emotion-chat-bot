@@ -15,8 +15,7 @@ from transformers import (AutoModelForSequenceClassification,
 from transformers.hf_argparser import HfArg
 from unsloth import FastLanguageModel
 
-from src.bot.libs import CommonScriptArguments, CommonWanDBArguments
-from src.bot.libs.CommonUtils import get_torch_device
+from libs import CommonScriptArguments, CommonWanDBArguments, get_torch_device
 
 
 @dataclass

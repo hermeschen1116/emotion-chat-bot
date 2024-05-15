@@ -8,7 +8,7 @@ from datasets import load_dataset
 from transformers import HfArgumentParser
 from transformers.hf_argparser import HfArg
 
-from src.bot.libs import CommonScriptArguments, CommonWanDBArguments
+from libs import CommonScriptArguments, CommonWanDBArguments
 
 
 @dataclass
