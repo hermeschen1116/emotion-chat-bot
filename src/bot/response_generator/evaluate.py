@@ -111,9 +111,12 @@ generation_config = GenerationConfig(
     eos_token_id=tokenizer.eos_token_id
 )
 
-result = (dataset.add_column(
+result = dataset.add_column(
     "test_response",
-    [conversation[-1]["content"]["dialog"] for conversation in bot(dataset["prompt"])]).remove_columns("prompt"))
+    [conversation[-1]["content"]["dialog"] for conversation in bot(dataset["prompt"],
+                                                                   streamer=streamer,
+                                                                   generation_config=generation_config)])
+result = result.remove_columns("prompt")
 
 # Sentiment Analysis
 sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(
