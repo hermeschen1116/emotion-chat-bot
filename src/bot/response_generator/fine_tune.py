@@ -107,14 +107,6 @@ data_collator = DataCollatorForCompletionOnlyLM(
     tokenizer=tokenizer
 )
 
-from transformers import EvalPrediction
-
-def compute_metrics(eval_pred: EvalPrediction):
-    print(eval_pred)
-
-    return {"accuracy": 1}
-
-
 trainer_arguments = TrainingArguments(
     output_dir="./checkpoints",
     overwrite_output_dir=True,
@@ -153,7 +145,6 @@ tuner = SFTTrainer(
     train_dataset=dataset["train"],
     eval_dataset=dataset["test"],
     dataset_text_field="prompt",
-    compute_metrics=compute_metrics,
     tokenizer=tokenizer,
     max_seq_length=4096,
     dataset_num_proc=16
