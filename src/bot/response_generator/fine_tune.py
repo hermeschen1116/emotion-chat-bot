@@ -47,7 +47,7 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 dataset_path = run.use_artifact(wandb.config["dataset"]).download()
 dataset = load_from_disk(dataset_path)
 dataset = concatenate_datasets([dataset["train"], dataset["validation"]])
-# dataset = dataset.train_test_split(train_size=0.001)["train"]
+# dataset = dataset.train_test_split(train_size=0.001, test_size=0.001)
 
 system_prompt: list = [{"role": "system", "content": {"emotion": "", "dialog": wandb.config["system_prompt"]}}]
 
@@ -107,6 +107,14 @@ data_collator = DataCollatorForCompletionOnlyLM(
     tokenizer=tokenizer
 )
 
+from transformers import EvalPrediction
+
+def compute_metrics(eval_pred: EvalPrediction):
+    print(eval_pred)
+
+    return {"accuracy": 1}
+
+
 trainer_arguments = TrainingArguments(
     output_dir="./checkpoints",
     overwrite_output_dir=True,
@@ -142,8 +150,10 @@ tuner = SFTTrainer(
     model=base_model,
     args=trainer_arguments,
     data_collator=data_collator,
-    train_dataset=dataset,
+    train_dataset=dataset["train"],
+    eval_dataset=dataset["test"],
     dataset_text_field="prompt",
+    compute_metrics=compute_metrics,
     tokenizer=tokenizer,
     max_seq_length=4096,
     dataset_num_proc=16
