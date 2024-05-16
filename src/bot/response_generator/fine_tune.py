@@ -7,13 +7,10 @@ import wandb
 from datasets import load_from_disk, concatenate_datasets
 from transformers import HfArgumentParser, TrainingArguments
 from transformers.hf_argparser import HfArg
-from transformers.utils.hub import move_cache
 from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
 from unsloth import FastLanguageModel
 
-from .libs import CommonScriptArguments, CommonWanDBArguments
-
-move_cache()
+from libs import CommonScriptArguments, CommonWanDBArguments
 
 
 @dataclass
