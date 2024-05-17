@@ -34,6 +34,7 @@ xformers = "^0.0.26.post1"
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"
 wandb = "^0.17.0"
+lion-pytorch = "^0.1.4"
 
 [build-system]
 requires = ["poetry-core"]

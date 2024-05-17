@@ -116,8 +116,7 @@ trainer_arguments = TrainingArguments(
     },
     auto_find_batch_size=True,
     torch_compile=False,
-    neftune_noise_alpha=wandb.config["neftune_noise_alpha"],
-    include_inputs_for_metrics=True
+    neftune_noise_alpha=wandb.config["neftune_noise_alpha"]
 )
 
 # Setup Tuner
