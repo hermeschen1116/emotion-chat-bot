@@ -120,7 +120,7 @@ analyser = TextClassificationPipeline(
 
 sentiment_analysis_model = torch.compile(sentiment_analysis_model)
 
-
+# [TODO] a reward function contain length and emotion
 def reward():
 	return 1
 
