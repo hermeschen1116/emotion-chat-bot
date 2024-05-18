@@ -1,6 +1,6 @@
 {
   "chat_template_file": "./chat_template/Llama2_OUT_INST_UNI.json",
-  "name": "llama2-7b-out_inst_uni-rslora-r64_16-neftune_enable-epoch2",
+  "name": "llama2-7b-out_inst_uni-rslora-r64_16-neftune5_enable-epoch2",
   "job_type": "fine_tune",
   "project": "emotion-chat-bot-ncu",
   "group": "Response Generator",
