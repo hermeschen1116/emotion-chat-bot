@@ -6,9 +6,9 @@
   "group": "Response Generator",
   "notes": "fine tune model on different hyperparameters",
   "config": {
-    "dataset": "daily_dialog_for_RG:v39",
+    "dataset": "daily_dialog_for_RG:latest",
     "tokenizer": "meta-llama/Llama-2-7b-hf",
-    "base_model": "response_generator:latest",
+    "base_model": "response_generator:v39",
     "system_prompt": "",
     "init_lora_weights": true,
     "lora_rank": 16,
