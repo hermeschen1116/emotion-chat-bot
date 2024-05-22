@@ -8,7 +8,7 @@
   "config": {
     "dataset": "daily_dialog_for_RG:latest",
     "tokenizer": "meta-llama/Llama-2-7b-hf",
-    "base_model": "response_generator:v39",
+    "base_model": "meta-llama/Llama-2-7b-hf",
     "system_prompt": "",
     "init_lora_weights": true,
     "lora_rank": 16,
@@ -20,7 +20,7 @@
     "max_grad_norm": 0.3,
     "warmup_ratio": 0.03,
     "max_steps": -1,
-    "optim": "paged_adamw_32bit",
+    "optim": "paged_lion_32bit",
     "fine_tuned_model": "response_generator"
   }
 }
