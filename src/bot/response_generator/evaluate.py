@@ -6,8 +6,13 @@ import wandb
 from datasets import load_from_disk
 from peft import PeftModel
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
-from transformers import (AutoModelForSequenceClassification, AutoTokenizer, BitsAndBytesConfig, GenerationConfig,
-                          HfArgumentParser, TextClassificationPipeline, TextStreamer)
+from transformers import (
+    BitsAndBytesConfig,
+    GenerationConfig,
+    HfArgumentParser,
+    TextStreamer,
+    pipeline
+)
 from transformers.hf_argparser import HfArg
 from unsloth import FastLanguageModel
 
@@ -117,37 +122,22 @@ result = dataset.map(lambda sample: {
 result = result.remove_columns("prompt")
 
 # Sentiment Analysis
-sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(
-    "michellejieli/emotion_text_classifier",
-    quantization_config=BitsAndBytesConfig(
-        load_in_4bit=True,
-        bnb_4bit_compute_dtype=torch.float16
-    ),
-    device_map="auto",
-    low_cpu_mem_usage=True
-)
-
-sentiment_analysis_model = PeftModel.from_pretrained(
-    sentiment_analysis_model,
-    "Shotaro30678/sentiment-analysis-ncu-chat-bot"
-)
-
-sentiment_analysis_tokenizer = AutoTokenizer.from_pretrained(
-    "michellejieli/emotion_text_classifier",
-    trust_remote_code=True
-)
-
-analyser = TextClassificationPipeline(
-    model=sentiment_analysis_model,
-    tokenizer=sentiment_analysis_tokenizer,
+analyser = pipeline(
+    model="Shotaro30678/sentiment-analysis-ncu-chat-bot",
     framework="pt",
     task="sentiment-analysis",
     num_workers=16,
-    torch_dtype="auto"
+    device_map="auto",
+    torch_dtype="auto",
+    model_kwargs={
+        "quantization_config": BitsAndBytesConfig(
+            load_in_4bit=True,
+            bnb_4bit_compute_dtype=torch.float16
+        ),
+        "low_cpu_mem_usage": True
+    },
+    trust_remote_code=True
 )
-
-# to prevent "The model 'OptimizedModule' is not supported for sentiment-analysis." problem
-sentiment_analysis_model = torch.compile(sentiment_analysis_model)
 
 result = result.add_column("test_response_sentiment", analyser(result["test_response"]))
 
