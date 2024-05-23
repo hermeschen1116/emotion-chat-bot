@@ -122,6 +122,8 @@ result = dataset.map(lambda sample: {
 result = result.remove_columns("prompt")
 
 # Sentiment Analysis
+emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
+
 analyser = pipeline(
     model="Shotaro30678/sentiment-analysis-ncu-chat-bot",
     framework="pt",
@@ -134,6 +136,8 @@ analyser = pipeline(
             load_in_4bit=True,
             bnb_4bit_compute_dtype=torch.float16
         ),
+        "id2label": {k: v for k, v in enumerate(emotion_labels)},
+        "label2id": {v: k for k, v in enumerate(emotion_labels)},
         "low_cpu_mem_usage": True
     },
     trust_remote_code=True
@@ -142,7 +146,6 @@ analyser = pipeline(
 result = result.add_column("test_response_sentiment", analyser(result["test_response"]))
 
 # Metrics
-emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
 emotion_id: dict = {label: index for index, label in enumerate(emotion_labels)}
 
 sentiment_true: torch.tensor = torch.tensor([emotion_id[sample] for sample in result["emotion_bot"]])
