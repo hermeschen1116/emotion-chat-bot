@@ -118,7 +118,7 @@ result = result.remove_columns("prompt")
 
 # Sentiment Analysis
 sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(
-    "Shotaro30678/sentiment-analysis-ncu-chat-bot",
+    "michellejieli/emotion_text_classifier",
     quantization_config=BitsAndBytesConfig(
         load_in_4bit=True,
         bnb_4bit_compute_dtype=torch.float16
@@ -127,8 +127,13 @@ sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(
     low_cpu_mem_usage=True
 )
 
+sentiment_analysis_model = PeftModel.from_pretrained(
+    sentiment_analysis_model,
+    "Shotaro30678/sentiment-analysis-ncu-chat-bot"
+)
+
 sentiment_analysis_tokenizer = AutoTokenizer.from_pretrained(
-    "Shotaro30678/sentiment-analysis-ncu-chat-bot",
+    "michellejieli/emotion_text_classifier",
     trust_remote_code=True
 )
 
