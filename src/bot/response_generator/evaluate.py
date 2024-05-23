@@ -118,7 +118,7 @@ result = result.remove_columns("prompt")
 
 # Sentiment Analysis
 sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(
-    wandb.config["sentiment_analysis_model"],
+    "Shotaro30678/sentiment-analysis-ncu-chat-bot",
     quantization_config=BitsAndBytesConfig(
         load_in_4bit=True,
         bnb_4bit_compute_dtype=torch.float16
@@ -128,7 +128,7 @@ sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(
 )
 
 sentiment_analysis_tokenizer = AutoTokenizer.from_pretrained(
-    wandb.config["sentiment_analysis_tokenizer"],
+    "Shotaro30678/sentiment-analysis-ncu-chat-bot",
     trust_remote_code=True
 )
 
