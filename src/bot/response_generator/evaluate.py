@@ -125,7 +125,7 @@ result = result.remove_columns("prompt")
 emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
 
 analyser = pipeline(
-    model="Shotaro30678/sentiment-analysis-ncu-chat-bot",
+    model="Shotaro30678/emotion_text_classifier_on_dd_v1",
     framework="pt",
     task="sentiment-analysis",
     num_workers=16,
