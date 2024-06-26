@@ -112,7 +112,6 @@ trainer_arguments = TrainingArguments(
     report_to=["wandb"],
     push_to_hub=True,
     hub_strategy="end",
-    hub_private_repo=True,
     gradient_checkpointing=True,
     gradient_checkpointing_kwargs={
         "use_reentrant": True
