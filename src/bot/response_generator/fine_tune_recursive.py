@@ -119,8 +119,7 @@ trainer_arguments = TrainingArguments(
     torch_compile=False,
     include_tokens_per_second=True,
     include_num_input_tokens_seen=True,
-    neftune_noise_alpha=wandb.config["neftune_noise_alpha"],
-    tokenizer=tokenizer
+    neftune_noise_alpha=wandb.config["neftune_noise_alpha"]
 )
 
 # Setup Tuner
