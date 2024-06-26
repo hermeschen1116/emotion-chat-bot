@@ -4,7 +4,7 @@ from dataclasses import dataclass
 
 import torch
 import wandb
-from datasets import load_from_disk, concatenate_datasets
+from datasets import load_dataset, load_from_disk, concatenate_datasets
 from peft import PeftModel
 from transformers import HfArgumentParser, TrainingArguments
 from transformers.hf_argparser import HfArg
@@ -45,8 +45,7 @@ wandb.config["response_template"] = chat_template["response"]
 wandb.config["special_tokens"] = chat_template["special_tokens"]
 
 # Load Dataset
-dataset_path = run.use_artifact(wandb.config["dataset"]).download()
-dataset = load_from_disk(dataset_path)
+dataset = load_dataset("hermeschen1116/daily_dialog_for_RG", num_proc=16, trust_remote_code=True)
 dataset = concatenate_datasets([dataset["train"], dataset["validation"]])
 # dataset = dataset.train_test_split(train_size=0.001)["train"]
 
@@ -120,7 +119,8 @@ trainer_arguments = TrainingArguments(
     torch_compile=False,
     include_tokens_per_second=True,
     include_num_input_tokens_seen=True,
-    neftune_noise_alpha=wandb.config["neftune_noise_alpha"]
+    neftune_noise_alpha=wandb.config["neftune_noise_alpha"],
+    run_name="emotion_chat_bot_response_generator"
 )
 
 # Setup Tuner
