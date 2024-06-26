@@ -67,6 +67,8 @@ dataset = dataset.map(lambda samples: {
         for sample in zip(samples["emotion"], samples["dialog"])]
 }, remove_columns=["emotion", "dialog"], batched=True, num_proc=16)
 
+dataset.push_to_hub("daily_dialog_for_RG", private=True)
+
 dataset_artifact = wandb.Artifact(
     args.dataset_name,
     type="dataset",
