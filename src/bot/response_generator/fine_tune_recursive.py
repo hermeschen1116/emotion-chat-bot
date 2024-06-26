@@ -110,12 +110,17 @@ trainer_arguments = TrainingArguments(
     optim=wandb.config["optim"],
     group_by_length=True,
     report_to=["wandb"],
+    push_to_hub=True,
+    hub_strategy="end",
+    hub_private_repo=True,
     gradient_checkpointing=True,
     gradient_checkpointing_kwargs={
         "use_reentrant": True
     },
     auto_find_batch_size=True,
     torch_compile=False,
+    include_tokens_per_second=True,
+    include_num_input_tokens_seen=True,
     neftune_noise_alpha=wandb.config["neftune_noise_alpha"]
 )
 
