@@ -110,7 +110,7 @@ trainer_arguments = TrainingArguments(
     group_by_length=True,
     report_to=["wandb"],
     push_to_hub=True,
-    hub_strategy="end",
+    hub_model_id="response_generator_for_emotion_chat_bot",
     gradient_checkpointing=True,
     gradient_checkpointing_kwargs={
         "use_reentrant": True
@@ -119,8 +119,7 @@ trainer_arguments = TrainingArguments(
     torch_compile=False,
     include_tokens_per_second=True,
     include_num_input_tokens_seen=True,
-    neftune_noise_alpha=wandb.config["neftune_noise_alpha"],
-    run_name="emotion_chat_bot_response_generator"
+    neftune_noise_alpha=wandb.config["neftune_noise_alpha"]
 )
 
 # Setup Tuner
