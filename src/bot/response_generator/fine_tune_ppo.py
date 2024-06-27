@@ -149,12 +149,12 @@ optimizer = Lion(filter(lambda p: p.requires_grad, base_model.parameters()), lr=
 lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
 
 generation_config = GenerationConfig(
-	min_length=-1,
-	top_k=0.0,
-	top_p=1.0,
+	min_length=wandb.config["min_length"],
+	top_k=wandb.config["top_k"],
+	top_p=wandb.config["top_p"],
 	do_sample=True,
-	max_new_tokens=50,
-	repetition_penalty=1.5,
+	max_new_tokens=wandb.config["max_new_tokens"],
+	repetition_penalty=wandb.config["repetition_penalty"],
 	pad_token_id=tokenizer.pad_token_id,
 	eos_token_id=tokenizer.eos_token_id
 )
