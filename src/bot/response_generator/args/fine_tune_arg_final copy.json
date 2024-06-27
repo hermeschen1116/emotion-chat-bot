@@ -1,6 +1,6 @@
 {
   "chat_template_file": "./chat_template/Llama2_OUT_INST_UNI.json",
-  "name": "llama2-7b-out_inst_uni-rslora-r16-lion_optim_test",
+  "name": "llama2-7b-final",
   "job_type": "fine_tune",
   "project": "emotion-chat-bot-ncu",
   "group": "Response Generator",
@@ -8,7 +8,7 @@
   "config": {
     "dataset": "daily_dialog_for_RG:latest",
     "tokenizer": "meta-llama/Llama-2-7b-hf",
-    "base_model": "meta-llama/Llama-2-7b-hf",
+    "base_model": "response_generator:v39",
     "system_prompt": "",
     "init_lora_weights": true,
     "lora_rank": 16,
@@ -20,7 +20,7 @@
     "max_grad_norm": 0.3,
     "warmup_ratio": 0.03,
     "max_steps": -1,
-    "optim": "paged_lion_32bit",
+    "optim": "paged_adamw_32bit",
     "fine_tuned_model": "response_generator"
   }
 }

@@ -1,14 +1,14 @@
 import tempfile
 from argparse import ArgumentParser
-from dataclasses import dataclass
+from dataclasses import Field, dataclass
 
 import torch
 import wandb
-from datasets import load_from_disk, concatenate_datasets
-from peft import PeftModel
+from datasets import concatenate_datasets, load_dataset
+from peft.peft_model import PeftModel
 from transformers import HfArgumentParser, TrainingArguments
 from transformers.hf_argparser import HfArg
-from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
+from trl import DataCollatorForCompletionOnlyLM, SFTTrainer
 from unsloth import FastLanguageModel
 
 from libs import CommonScriptArguments, CommonWanDBArguments
@@ -16,7 +16,7 @@ from libs import CommonScriptArguments, CommonWanDBArguments
 
 @dataclass
 class ScriptArguments(CommonScriptArguments):
-    chat_template_file: str = HfArg(aliases="--chat-template-file", default="")
+    chat_template_file: Field[str] = HfArg(aliases="--chat-template-file", default="")
 
 
 config_getter = ArgumentParser()
@@ -45,8 +45,7 @@ wandb.config["response_template"] = chat_template["response"]
 wandb.config["special_tokens"] = chat_template["special_tokens"]
 
 # Load Dataset
-dataset_path = run.use_artifact(wandb.config["dataset"]).download()
-dataset = load_from_disk(dataset_path)
+dataset = load_dataset("hermeschen1116/daily_dialog_for_RG", num_proc=16, trust_remote_code=True)
 dataset = concatenate_datasets([dataset["train"], dataset["validation"]])
 # dataset = dataset.train_test_split(train_size=0.001)["train"]
 
@@ -110,12 +109,16 @@ trainer_arguments = TrainingArguments(
     optim=wandb.config["optim"],
     group_by_length=True,
     report_to=["wandb"],
+    push_to_hub=True,
+    hub_model_id="response_generator_for_emotion_chat_bot",
     gradient_checkpointing=True,
     gradient_checkpointing_kwargs={
         "use_reentrant": True
     },
     auto_find_batch_size=True,
     torch_compile=False,
+    include_tokens_per_second=True,
+    include_num_input_tokens_seen=True,
     neftune_noise_alpha=wandb.config["neftune_noise_alpha"]
 )
 

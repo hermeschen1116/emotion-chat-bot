@@ -2,11 +2,12 @@ import tempfile
 from argparse import ArgumentParser
 from dataclasses import dataclass
 
+from pyarrow import Field
 import torch
 import wandb
-from datasets import concatenate_datasets, load_from_disk
+from datasets import concatenate_datasets, load_dataset
 from lion_pytorch import Lion
-from peft import PeftModel
+from peft.peft_model import PeftModel
 from tqdm.auto import tqdm
 from transformers import (
 	AutoModelForSequenceClassification,
@@ -25,7 +26,7 @@ from libs import CommonScriptArguments, CommonWanDBArguments
 
 @dataclass
 class ScriptArguments(CommonScriptArguments):
-	chat_template_file: str = HfArg(aliases="--chat-template-file", default="")
+	chat_template_file: Field[str] = HfArg(aliases="--chat-template-file", default="")
 
 
 config_getter = ArgumentParser()
@@ -54,8 +55,7 @@ wandb.config["response_template"] = chat_template["response"]
 wandb.config["special_tokens"] = chat_template["special_tokens"]
 
 # Load Dataset
-dataset_path = run.use_artifact(wandb.config["dataset"]).download()
-dataset = load_from_disk(dataset_path)
+dataset = load_dataset("hermeschen1116/daily_dialog_for_RG", num_proc=16, trust_remote_code=True)
 dataset = concatenate_datasets([dataset["train"], dataset["validation"]])
 # dataset = dataset.train_test_split(train_size=0.001)["train"]
 
@@ -149,12 +149,12 @@ optimizer = Lion(filter(lambda p: p.requires_grad, base_model.parameters()), lr=
 lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
 
 generation_config = GenerationConfig(
-	min_length=-1,
-	top_k=0.0,
-	top_p=1.0,
+	min_length=wandb.config["min_length"],
+	top_k=wandb.config["top_k"],
+	top_p=wandb.config["top_p"],
 	do_sample=True,
-	max_new_tokens=50,
-	repetition_penalty=1.5,
+	max_new_tokens=wandb.config["max_new_tokens"],
+	repetition_penalty=wandb.config["repetition_penalty"],
 	pad_token_id=tokenizer.pad_token_id,
 	eos_token_id=tokenizer.eos_token_id
 )

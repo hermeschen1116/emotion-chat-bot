@@ -1,10 +1,10 @@
 from argparse import ArgumentParser
-from dataclasses import dataclass
+from dataclasses import Field, dataclass
 
 import torch
 import wandb
-from datasets import load_from_disk
-from peft import PeftModel
+from datasets import load_dataset, load_from_disk
+from peft.peft_model import PeftModel
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from transformers import (
     BitsAndBytesConfig,
@@ -21,7 +21,7 @@ from libs import CommonScriptArguments, CommonWanDBArguments, ResponseGeneratorP
 
 @dataclass
 class ScriptArguments(CommonScriptArguments):
-    chat_template_file: str = HfArg(aliases="--chat-template-file", default="")
+    chat_template_file: Field[str] = HfArg(aliases="--chat-template-file", default="")
 
 
 config_getter = ArgumentParser()
@@ -49,8 +49,7 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 
 
 # Load and Process Dataset
-dataset_path = run.use_artifact(wandb.config["dataset"]).download()
-dataset = load_from_disk(dataset_path)["test"]
+dataset = load_dataset("hermeschen1116/daily_dialog_for_RG", num_proc=16, trust_remote_code=True)["test"]
 # dataset = dataset.train_test_split(test_size=0.001)["test"]
 
 dataset = dataset.map(lambda samples: {
