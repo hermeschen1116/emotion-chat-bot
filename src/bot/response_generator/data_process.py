@@ -3,6 +3,7 @@ from argparse import ArgumentParser
 from dataclasses import dataclass
 from typing import Optional
 
+from pyarrow import Field
 import wandb
 from datasets import load_dataset
 from transformers import HfArgumentParser
@@ -13,8 +14,8 @@ from libs import CommonScriptArguments, CommonWanDBArguments
 
 @dataclass
 class ScriptArguments(CommonScriptArguments):
-    dataset_name: Optional[str] = HfArg(aliases="--dataset-name", default="daily_dialog_for_RG")
-    dataset_description: Optional[str] = HfArg(aliases="--dataset-description", default="")
+    dataset_name: Field[Optional[str]] = HfArg(aliases="--dataset-name", default="daily_dialog_for_RG")
+    dataset_description: Field[Optional[str]] = HfArg(aliases="--dataset-description", default="")
 
 
 config_getter = ArgumentParser()

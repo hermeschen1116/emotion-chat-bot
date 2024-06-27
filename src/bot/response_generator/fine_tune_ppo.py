@@ -2,11 +2,12 @@ import tempfile
 from argparse import ArgumentParser
 from dataclasses import dataclass
 
+from pyarrow import Field
 import torch
 import wandb
-from datasets import concatenate_datasets, load_from_disk
+from datasets import concatenate_datasets, load_dataset
 from lion_pytorch import Lion
-from peft import PeftModel
+from peft.peft_model import PeftModel
 from tqdm.auto import tqdm
 from transformers import (
 	AutoModelForSequenceClassification,
@@ -25,7 +26,7 @@ from libs import CommonScriptArguments, CommonWanDBArguments
 
 @dataclass
 class ScriptArguments(CommonScriptArguments):
-	chat_template_file: str = HfArg(aliases="--chat-template-file", default="")
+	chat_template_file: Field[str] = HfArg(aliases="--chat-template-file", default="")
 
 
 config_getter = ArgumentParser()
@@ -54,8 +55,7 @@ wandb.config["response_template"] = chat_template["response"]
 wandb.config["special_tokens"] = chat_template["special_tokens"]
 
 # Load Dataset
-dataset_path = run.use_artifact(wandb.config["dataset"]).download()
-dataset = load_from_disk(dataset_path)
+dataset = load_dataset("hermeschen1116/daily_dialog_for_RG", num_proc=16, trust_remote_code=True)
 dataset = concatenate_datasets([dataset["train"], dataset["validation"]])
 # dataset = dataset.train_test_split(train_size=0.001)["train"]
 

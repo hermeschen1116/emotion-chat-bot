@@ -1,11 +1,11 @@
 import tempfile
 from argparse import ArgumentParser
-from dataclasses import dataclass
+from dataclasses import Field, dataclass
 
 import torch
 import wandb
 from datasets import concatenate_datasets, load_dataset
-from peft import PeftModel
+from peft.peft_model import PeftModel
 from transformers import HfArgumentParser, TrainingArguments
 from transformers.hf_argparser import HfArg
 from trl import DataCollatorForCompletionOnlyLM, SFTTrainer
@@ -16,7 +16,7 @@ from libs import CommonScriptArguments, CommonWanDBArguments
 
 @dataclass
 class ScriptArguments(CommonScriptArguments):
-    chat_template_file: str = HfArg(aliases="--chat-template-file", default="")
+    chat_template_file: Field[str] = HfArg(aliases="--chat-template-file", default="")
 
 
 config_getter = ArgumentParser()
