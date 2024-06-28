@@ -190,15 +190,16 @@ for epoch in tqdm(range(wandb.config["num_epochs"]), "epoch: "):
 		stats = tuner.step(query_tensors, response_tensors, rewards)
 		tuner.log_stats(stats, batch, rewards)
 
-model_artifact = wandb.Artifact(
-	wandb.config["fine_tuned_model"],
-	type="model"
-)
+# model_artifact = wandb.Artifact(
+# 	wandb.config["fine_tuned_model"],
+# 	type="model"
+# )
 
 tuner.model = torch.compile(tuner.model)
-with tempfile.TemporaryDirectory() as temp_dir:
-	tuner.model.save_pretrained(temp_dir, save_embedding_layers=True)
-	model_artifact.add_dir(temp_dir)
-	run.log_artifact(model_artifact)
+tuner.model.push_to_hub(repo_id="response_generator_for_emotion_chat_bot", commit="", create_pr=True)
+# with tempfile.TemporaryDirectory() as temp_dir:
+# 	tuner.model.save_pretrained(temp_dir, save_embedding_layers=True)
+# 	model_artifact.add_dir(temp_dir)
+# 	run.log_artifact(model_artifact)
 
 wandb.finish()
