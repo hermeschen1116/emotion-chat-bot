@@ -8,13 +8,13 @@ from lion_pytorch import Lion
 from peft.peft_model import PeftModel
 from tqdm.auto import tqdm
 from transformers import (
-    BitsAndBytesConfig,
-    GenerationConfig,
-    HfArgumentParser,
-    pipeline
+	BitsAndBytesConfig,
+	GenerationConfig,
+	HfArgumentParser,
+	pipeline
 )
 from transformers.hf_argparser import HfArg
-from trl import AutoModelForCausalLMWithValueHead, DataCollatorForCompletionOnlyLM, PPOConfig, PPOTrainer
+from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer
 from unsloth import FastLanguageModel
 
 from libs import CommonScriptArguments, CommonWanDBArguments
@@ -22,7 +22,7 @@ from libs import CommonScriptArguments, CommonWanDBArguments
 
 @dataclass
 class ScriptArguments(CommonScriptArguments):
-    chat_template_file: Field[str] = HfArg(aliases="--chat-template-file", default="")
+	chat_template_file: Field[str] = HfArg(aliases="--chat-template-file", default="")
 
 
 config_getter = ArgumentParser()
@@ -36,14 +36,13 @@ chat_template: dict = eval(open(args.chat_template_file, "r", encoding="utf-8", 
 
 # Initialize Wandb
 run = wandb.init(
-    name=wandb_args.name,
-    job_type=wandb_args.job_type,
-    config=wandb_args.config,
-    project=wandb_args.project,
-    group=wandb_args.group,
-    notes=wandb_args.notes,
-    mode=wandb_args.mode,
-    resume=wandb_args.resume
+	job_type=wandb_args.job_type,
+	config=wandb_args.config,
+	project=wandb_args.project,
+	group=wandb_args.group,
+	notes=wandb_args.notes,
+	mode=wandb_args.mode,
+	resume=wandb_args.resume
 )
 wandb.config["chat_template"] = chat_template["template"]
 wandb.config["instruction_template"] = chat_template["instruction"]
@@ -55,23 +54,37 @@ dataset = load_dataset("hermeschen1116/daily_dialog_for_RG", num_proc=16, trust_
 dataset = concatenate_datasets([dataset["train"], dataset["validation"]])
 # dataset = dataset.train_test_split(train_size=0.001)["train"]
 
+dataset = dataset.map(lambda sample: {
+	"prompt": sample[i: i + 2] for i in range(0, len(sample) - 2, 2)
+}, input_columns="prompt", batched=False, num_proc=16)
+
 system_prompt: list = [{"role": "system", "content": {"emotion": "", "dialog": wandb.config["system_prompt"]}}]
 
 dataset = dataset.map(lambda samples: {
-    "prompt": [system_prompt + sample for sample in samples]
+	"prompt": [system_prompt + sample for sample in samples]
 }, input_columns="prompt", batched=True, num_proc=16)
+
+emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
+
+dataset = dataset.map(lambda samples: {
+	"query": [
+		sample[:-1] + [{"role": "assistant", "content": {"emotion": sample[-1]["content"]["emotion"], "dialog": ""}}]
+		for sample in samples
+	],
+	"label": [emotion_labels.index(sample[-1]["content"]["emotion"]) for sample in samples]
+}, input_columns="prompt", remove_columns="prompt", batched=True, num_proc=16)
 
 # Load Tokenizer
 base_model, tokenizer = FastLanguageModel.from_pretrained(
-    wandb.config["tokenizer"],
-    attn_implementation="flash_attention_2",
-    pretraining_tp=1,
-    load_in_4bit=True,
-    use_cache=False,
-    device_map="auto",
-    use_gradient_checkpointing=True,
-    low_cpu_mem_usage=True,
-    trust_remote_code=True,
+	wandb.config["base_model"],
+	attn_implementation="flash_attention_2",
+	pretraining_tp=1,
+	load_in_4bit=True,
+	use_cache=False,
+	device_map="auto",
+	use_gradient_checkpointing=True,
+	low_cpu_mem_usage=True,
+	trust_remote_code=True,
 )
 tokenizer.padding_side = "left"
 tokenizer.clean_up_tokenization_spaces = True
@@ -79,35 +92,45 @@ tokenizer.chat_template = wandb.config["chat_template"]
 tokenizer.add_special_tokens(wandb.config["special_tokens"])
 base_model.resize_token_embeddings(len(tokenizer))
 
-base_model = PeftModel.from_pretrained(base_model, run.use_model(wandb.config["base_model"]))
+base_model = PeftModel.from_pretrained(base_model, wandb.config["adapter"])
 base_model.print_trainable_parameters()
-FastLanguageModel.for_training(base_model)
+FastLanguageModel.for_inference(base_model)
 
 base_model = AutoModelForCausalLMWithValueHead.from_pretrained(
-    base_model,
-    device_map="auto"
+	base_model,
+	device_map="auto"
 )
 
-# Sentiment Analysis
-emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
+dataset = dataset.map(lambda sample: {
+	"input_ids": tokenizer.apply_chat_template(
+		sample,
+		tokenize=True,
+		padding="max_length",
+		# padding_side="left",
+		max_length=1024,
+		add_generation_prompt=True,
+		return_tensors="pt"
+	)[0]
+}, input_columns="query", batched=False, num_proc=16)
 
+# Sentiment Analysis
 analyser = pipeline(
-    model=wandb.config["sentiment_analysis_model"],
-    framework="pt",
-    task="sentiment-analysis",
-    num_workers=16,
-    device_map="auto",
-    torch_dtype="auto",
-    model_kwargs={
-        "quantization_config": BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_compute_dtype=torch.float16
-        ),
-        "id2label": {k: v for k, v in enumerate(emotion_labels)},
-        "label2id": {v: k for k, v in enumerate(emotion_labels)},
-        "low_cpu_mem_usage": True
-    },
-    trust_remote_code=True
+	model=wandb.config["sentiment_analysis_model"],
+	framework="pt",
+	task="sentiment-analysis",
+	num_workers=16,
+	device_map="auto",
+	torch_dtype="auto",
+	model_kwargs={
+		"quantization_config": BitsAndBytesConfig(
+			load_in_4bit=True,
+			bnb_4bit_compute_dtype=torch.float16
+		),
+		"id2label": {k: v for k, v in enumerate(emotion_labels)},
+		"label2id": {v: k for k, v in enumerate(emotion_labels)},
+		"low_cpu_mem_usage": True
+	},
+	trust_remote_code=True
 )
 
 sentiment_analysis_model = torch.compile(analyser.model)
@@ -115,74 +138,68 @@ sentiment_analysis_model = torch.compile(analyser.model)
 
 # [TODO] a reward function contain length and emotion
 def reward(batch):
-    return 1
+	return 1
 
 
 ppo_config = PPOConfig(
-    gradient_accumulation_steps=1,
-    learning_rate=wandb.config["learning_rate"],
-    max_grad_norm=wandb.config["max_grad_norm"],
-    log_with="wandb",
-    optimize_device_cache=True,
-    early_stopping=True,
-    is_peft_model=True,
-    use_score_scaling=True,
-    use_score_norm=True,
-    score_clip=wandb.config["score_clip"],
-    remove_unused_columns=False
+	gradient_accumulation_steps=1,
+	learning_rate=wandb.config["learning_rate"],
+	max_grad_norm=wandb.config["max_grad_norm"],
+	log_with="wandb",
+	optimize_device_cache=True,
+	early_stopping=True,
+	is_peft_model=True,
+	use_score_scaling=True,
+	use_score_norm=True,
+	score_clip=wandb.config["score_clip"],
+	remove_unused_columns=True
 )
 
-special_tokens_map: dict = dict(zip(tokenizer.all_special_tokens, [[ids] for ids in tokenizer.all_special_ids]))
-data_collator = DataCollatorForCompletionOnlyLM(
-    special_tokens_map[wandb.config["response_template"]],
-    instruction_template=special_tokens_map[wandb.config["instruction_template"]],
-    tokenizer=tokenizer,
-)
 optimizer = Lion(filter(lambda p: p.requires_grad, base_model.parameters()), lr=ppo_config.learning_rate)
 lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
 
 generation_config = GenerationConfig(
-    min_length=wandb.config["min_length"],
-    top_k=wandb.config["top_k"],
-    top_p=wandb.config["top_p"],
-    do_sample=True,
-    max_new_tokens=wandb.config["max_new_tokens"],
-    repetition_penalty=wandb.config["repetition_penalty"],
-    pad_token_id=tokenizer.pad_token_id,
-    eos_token_id=tokenizer.eos_token_id
+	min_length=wandb.config["min_length"],
+	top_k=wandb.config["top_k"],
+	top_p=wandb.config["top_p"],
+	do_sample=True,
+	max_new_tokens=wandb.config["max_new_tokens"],
+	repetition_penalty=wandb.config["repetition_penalty"],
+	pad_token_id=tokenizer.pad_token_id,
+	eos_token_id=tokenizer.eos_token_id
 )
 
-print(len(dataset))
 # Setup Tuner
 tuner = PPOTrainer(
-    config=ppo_config,
-    model=base_model,
-    data_collator=data_collator,
-    tokenizer=tokenizer,
-    dataset=dataset,
-    optimizer=optimizer,
-    lr_scheduler=lr_scheduler
+	config=ppo_config,
+	model=base_model,
+	tokenizer=tokenizer,
+	dataset=dataset,
+	optimizer=optimizer,
+	lr_scheduler=lr_scheduler
 )
 
-for epoch in tqdm(range(wandb.config["num_epochs"]), "epoch: "):
-    for batch in tqdm(tuner.dataloader):
-        query_tensors = batch["input_ids"]
+for epoch in tqdm(range(wandb.config["num_epochs"]), "epoch: ", colour="blue"):
+	for batch in tqdm(tuner.dataloader, colour="yellow"):
+		query_tensors = batch["input_ids"]
 
-        # Get response from SFTModel
-        response_tensors = tuner.generate(
-            query_tensors,
-            return_prompt=False,
-            generation_config=generation_config
-        )
-        batch["response"] = [tokenizer.decode(r.squeeze()) for r in response_tensors]
+		# Get response from SFTModel
+		response_tensors = tuner.generate(
+			query_tensors,
+			return_prompt=False,
+			**generation_config.to_dict()
+		)
+		batch["response"] = [
+			tokenizer.decode(r.squeeze()) for r in response_tensors
+		]
 
-        # Compute reward score
-        pipe_outputs = reward(batch)
-        rewards = [torch.tensor(output[1]["score"]) for output in pipe_outputs]
+		# Compute reward score
+		pipe_outputs = reward(batch)
+		rewards = [torch.tensor(output[1]["score"]) for output in pipe_outputs]
 
-        # Run PPO step
-        stats = tuner.step(query_tensors, response_tensors, rewards)
-        tuner.log_stats(stats, batch, rewards)
+		# Run PPO step
+		stats = tuner.step(query_tensors, response_tensors, rewards)
+		tuner.log_stats(stats, batch, rewards)
 
 # model_artifact = wandb.Artifact(
 # 	wandb.config["fine_tuned_model"],

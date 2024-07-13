@@ -1,15 +1,13 @@
 {
 	"chat_template_file": "./chat_template/Llama2_OUT_INST_UNI.json",
-	"name": "llama2-7b-final",
 	"job_type": "fine_tune",
 	"project": "emotion-chat-bot-ncu",
 	"group": "Response Generator",
 	"notes": "fine tune model on different hyperparameters",
 	"config": {
 		"dataset": "daily_dialog_for_RG:latest",
-		"tokenizer": "meta-llama/Llama-2-7b-hf",
-		"base_model": "response_generator:v39",
-		"adapter": "",
+		"base_model": "meta-llama/Llama-2-7b-hf",
+		"adapter": "hermeschen1116/response_generator_for_emotion_chat_bot",
 		"sentiment_analysis_model": "Shotaro30678/emotion_text_classifier_on_dd_v1",
 		"system_prompt": "",
 		"num_epochs": 5,

@@ -29,7 +29,7 @@ xformers = "^0.0.26.post1"
 
 [tool.poetry.group.cuda.dependencies]
 bitsandbytes = "^0.43.1"
-flash-attn = "^2.5.8"
+flash-attn = "^2.6.1"
 
 [tool.poetry.group.dev.dependencies]
 jupyter = "^1.0.0"
