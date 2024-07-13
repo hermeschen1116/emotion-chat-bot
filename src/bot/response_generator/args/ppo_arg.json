@@ -12,6 +12,7 @@
 		"system_prompt": "",
 		"num_epochs": 5,
 		"learning_rate": 2e-4,
+		"lr_gamma": 0.9,
 		"max_grad_norm": 0.3,
 		"score_clip": 0,
 		"min_length": -1,

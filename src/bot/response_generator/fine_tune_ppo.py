@@ -16,6 +16,7 @@ from transformers import (
 from transformers.hf_argparser import HfArg
 from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer
 from unsloth import FastLanguageModel
+from wandb.integration.kfp.kfp_patch import wandb_log
 
 from libs import CommonScriptArguments, CommonWanDBArguments
 
@@ -152,11 +153,10 @@ ppo_config = PPOConfig(
 	use_score_scaling=True,
 	use_score_norm=True,
 	score_clip=wandb.config["score_clip"],
-	remove_unused_columns=True
 )
 
 optimizer = Lion(filter(lambda p: p.requires_grad, base_model.parameters()), lr=ppo_config.learning_rate)
-lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.9)
+lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=wandb.config["lr_gamma"])
 
 generation_config = GenerationConfig(
 	min_length=wandb.config["min_length"],
@@ -166,7 +166,8 @@ generation_config = GenerationConfig(
 	max_new_tokens=wandb.config["max_new_tokens"],
 	repetition_penalty=wandb.config["repetition_penalty"],
 	pad_token_id=tokenizer.pad_token_id,
-	eos_token_id=tokenizer.eos_token_id
+	eos_token_id=tokenizer.eos_token_id,
+	low_memory=True
 )
 
 # Setup Tuner
