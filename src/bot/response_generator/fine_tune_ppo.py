@@ -94,7 +94,7 @@ base_model.resize_token_embeddings(len(tokenizer))
 
 base_model = PeftModel.from_pretrained(base_model, wandb.config["adapter"])
 base_model.print_trainable_parameters()
-FastLanguageModel.for_training(base_model)
+FastLanguageModel.for_inference(base_model)
 
 base_model = AutoModelForCausalLMWithValueHead.from_pretrained(
 	base_model,
@@ -106,6 +106,7 @@ dataset = dataset.map(lambda sample: {
 		sample,
 		tokenize=True,
 		padding="max_length",
+		# padding_side="left",
 		max_length=1024,
 		add_generation_prompt=True,
 		return_tensors="pt"
