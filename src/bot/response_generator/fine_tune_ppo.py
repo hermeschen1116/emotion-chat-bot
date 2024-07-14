@@ -6,19 +6,18 @@ import wandb
 from datasets import concatenate_datasets, load_dataset
 from lion_pytorch import Lion
 from peft.peft_model import PeftModel
-from tqdm.auto import tqdm
+from tqdm.auto import tqdm, trange
 from transformers import (
 	BitsAndBytesConfig,
 	GenerationConfig,
 	HfArgumentParser,
-	pipeline
+	pipeline, TextStreamer
 )
 from transformers.hf_argparser import HfArg
 from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer
 from unsloth import FastLanguageModel
-from wandb.integration.kfp.kfp_patch import wandb_log
 
-from libs import CommonScriptArguments, CommonWanDBArguments
+from libs import CommonScriptArguments, CommonWanDBArguments, ResponseGeneratorPipeline
 
 
 @dataclass
@@ -53,11 +52,16 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 # Load Dataset
 dataset = load_dataset("hermeschen1116/daily_dialog_for_RG", num_proc=16, trust_remote_code=True)
 dataset = concatenate_datasets([dataset["train"], dataset["validation"]])
-# dataset = dataset.train_test_split(train_size=0.001)["train"]
+# dataset = dataset.train_test_split(train_size=0.001)["train"]   # use very small dataset to debuG
+
+history_length: int = 2 * wandb.config["num_turns_history"]
+dataset = dataset.filter(lambda sample: len(sample) >= (2 + history_length), input_columns="prompt", num_proc=16)
+print(f"dataset size after filter: {len(dataset)}")
 
 dataset = dataset.map(lambda sample: {
-	"prompt": sample[i: i + 2] for i in range(0, len(sample) - 2, 2)
-}, input_columns="prompt", batched=False, num_proc=16)
+	"prompt": sample[i: i + 2 + history_length]
+	for i in range(0, len(sample) - 2, 2) if (i + 2 + history_length) <= len(sample)
+}, input_columns="prompt", num_proc=16)
 
 system_prompt: list = [{"role": "system", "content": {"emotion": "", "dialog": wandb.config["system_prompt"]}}]
 
@@ -93,12 +97,12 @@ tokenizer.chat_template = wandb.config["chat_template"]
 tokenizer.add_special_tokens(wandb.config["special_tokens"])
 base_model.resize_token_embeddings(len(tokenizer))
 
-base_model = PeftModel.from_pretrained(base_model, wandb.config["adapter"])
-base_model.print_trainable_parameters()
-FastLanguageModel.for_inference(base_model)
+base_model_with_adapter = PeftModel.from_pretrained(base_model, wandb.config["adapter"])
+base_model_with_adapter.print_trainable_parameters()
+FastLanguageModel.for_inference(base_model_with_adapter)
 
-base_model = AutoModelForCausalLMWithValueHead.from_pretrained(
-	base_model,
+base_model_with_adapter = AutoModelForCausalLMWithValueHead.from_pretrained(
+	base_model_with_adapter,
 	device_map="auto"
 )
 
@@ -107,12 +111,11 @@ dataset = dataset.map(lambda sample: {
 		sample,
 		tokenize=True,
 		padding="max_length",
-		# padding_side="left",
-		max_length=1024,
+		max_length=wandb.config["max_input_tokens"],
 		add_generation_prompt=True,
 		return_tensors="pt"
 	)[0]
-}, input_columns="query", batched=False, num_proc=16)
+}, input_columns="query", num_proc=16)
 
 # Sentiment Analysis
 analyser = pipeline(
@@ -138,8 +141,9 @@ sentiment_analysis_model = torch.compile(analyser.model)
 
 
 # [TODO] a reward function contain length and emotion
-def reward(batch):
-	return 1
+def reward(batch) -> float:
+	print("Hello Huston, here is reward function")
+	return 1.0
 
 
 ppo_config = PPOConfig(
@@ -158,12 +162,18 @@ ppo_config = PPOConfig(
 optimizer = Lion(filter(lambda p: p.requires_grad, base_model.parameters()), lr=ppo_config.learning_rate)
 lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=wandb.config["lr_gamma"])
 
+streamer = TextStreamer(
+	tokenizer,
+	skip_special_tokens=True, # show <pad> or not
+	clean_up_tokenization_spaces=True
+)
+
 generation_config = GenerationConfig(
-	min_length=wandb.config["min_length"],
+	max_length=(wandb.config["max_input_tokens"] + wandb.config["max_new_tokens"]),
+	min_length=-1,
 	top_k=wandb.config["top_k"],
 	top_p=wandb.config["top_p"],
 	do_sample=True,
-	max_new_tokens=wandb.config["max_new_tokens"],
 	repetition_penalty=wandb.config["repetition_penalty"],
 	pad_token_id=tokenizer.pad_token_id,
 	eos_token_id=tokenizer.eos_token_id,
@@ -173,14 +183,14 @@ generation_config = GenerationConfig(
 # Setup Tuner
 tuner = PPOTrainer(
 	config=ppo_config,
-	model=base_model,
+	model=base_model_with_adapter,
 	tokenizer=tokenizer,
 	dataset=dataset,
 	optimizer=optimizer,
 	lr_scheduler=lr_scheduler
 )
 
-for epoch in tqdm(range(wandb.config["num_epochs"]), "epoch: ", colour="blue"):
+for epoch in trange(wandb.config["num_epochs"], colour="blue"):
 	for batch in tqdm(tuner.dataloader, colour="yellow"):
 		query_tensors = batch["input_ids"]
 
@@ -188,11 +198,11 @@ for epoch in tqdm(range(wandb.config["num_epochs"]), "epoch: ", colour="blue"):
 		response_tensors = tuner.generate(
 			query_tensors,
 			return_prompt=False,
+			batch_size=1,   # must set to 1 if using streamer
+			streamer=streamer,  # use streamer to show the generation process
 			**generation_config.to_dict()
 		)
-		batch["response"] = [
-			tokenizer.decode(r.squeeze()) for r in response_tensors
-		]
+		batch["response"] = [tokenizer.decode(r.squeeze()) for r in response_tensors]
 
 		# Compute reward score
 		pipe_outputs = reward(batch)

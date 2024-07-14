@@ -1,9 +1,9 @@
-# from .Pipeline import ResponseGeneratorPipeline
+from .Pipeline import ResponseGeneratorPipeline
 from .CommonConfig import CommonScriptArguments, CommonWanDBArguments
 from .CommonUtils import get_torch_device, value_candidate_check
 
 __all__ = [
-	# "ResponseGeneratorPipeline",
+	"ResponseGeneratorPipeline",
 	"CommonUtils",
 	"CommonConfig",
 	"CommonScriptArguments",
