@@ -16,7 +16,7 @@ from transformers import (
 from transformers.hf_argparser import HfArg
 from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer
 from unsloth import FastLanguageModel
-from wandb.integration.kfp.kfp_patch import wandb_log
+# from wandb.integration.kfp.kfp_patch import wandb_log
 
 from libs import CommonScriptArguments, CommonWanDBArguments
 
@@ -53,7 +53,7 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 # Load Dataset
 dataset = load_dataset("hermeschen1116/daily_dialog_for_RG", num_proc=16, trust_remote_code=True)
 dataset = concatenate_datasets([dataset["train"], dataset["validation"]])
-# dataset = dataset.train_test_split(train_size=0.001)["train"]
+dataset = dataset.train_test_split(train_size=0.05)["train"]
 
 dataset = dataset.map(lambda sample: {
 	"prompt": sample[i: i + 2] for i in range(0, len(sample) - 2, 2)
@@ -193,7 +193,7 @@ for epoch in tqdm(range(wandb.config["num_epochs"]), "epoch: ", colour="blue"):
 		batch["response"] = [
 			tokenizer.decode(r.squeeze()) for r in response_tensors
 		]
-
+		print(batch)
 		# Compute reward score
 		pipe_outputs = reward(batch)
 		rewards = [torch.tensor(output[1]["score"]) for output in pipe_outputs]
