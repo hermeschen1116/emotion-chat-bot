@@ -1,27 +1,37 @@
-from typing import Any, Dict
+from transformers import TextGenerationPipeline
+from transformers.pipelines.text_generation import ReturnType, Chat
 
-from transformers import Conversation, ConversationalPipeline
 
+class ResponseGeneratorPipeline(TextGenerationPipeline):
+	def postprocess(self, model_outputs, return_type=ReturnType.FULL_TEXT, clean_up_tokenization_spaces=True):
+		generated_sequence = model_outputs["generated_sequence"][0]
+		input_ids = model_outputs["input_ids"]
+		prompt_text = model_outputs["prompt_text"]
+		generated_sequence = generated_sequence.numpy().tolist()
+		records = []
+		for sequence in generated_sequence:
+			if return_type == ReturnType.TENSORS:
+				record = {"generated_token_ids": sequence}
+			elif return_type in {ReturnType.NEW_TEXT, ReturnType.FULL_TEXT}:
+				# Decode text
+				text = self.tokenizer.decode(sequence, skip_special_tokens=True,
+					clean_up_tokenization_spaces=clean_up_tokenization_spaces, )
 
-class ResponseGeneratorPipeline(ConversationalPipeline):
-	def preprocess(self, conversation: Conversation, min_length_for_response=32) -> Dict[str, Any]:
-		input_ids = self.tokenizer.apply_chat_template(
-			conversation,
-			tokenize=True,
-			padding=True,
-			add_generation_prompt=True,
-			return_tensors="pt"
-		)
+				# Remove PADDING prompt of the sequence if XLNet or Transfo-XL model is used
+				if input_ids is None:
+					prompt_length = 0
+				else:
+					prompt_length = len(self.tokenizer.decode(input_ids[0], skip_special_tokens=True,
+						clean_up_tokenization_spaces=clean_up_tokenization_spaces, ))
 
-		return {"input_ids": input_ids, "conversation": conversation}
-
-	def postprocess(self, model_outputs, clean_up_tokenization_spaces=True):
-		output_ids = model_outputs["output_ids"]
-		answer = self.tokenizer.decode(
-			output_ids[0],
-			skip_special_tokens=True,
-			clean_up_tokenization_spaces=clean_up_tokenization_spaces
-		)
-		conversation = model_outputs["conversation"]
-		conversation[-1]["content"]["dialog"] = answer.replace(self.tokenizer.eos_token, "").strip()
-		return conversation
+				all_text = text[prompt_length:]
+				if return_type == ReturnType.FULL_TEXT:
+					if isinstance(prompt_text, str):
+						all_text = prompt_text + all_text
+					elif isinstance(prompt_text, Chat):
+						# Explicit list parsing is necessary for parsing chat datasets
+						prompt_text.messages[-1]["content"]["dialog"] = all_text
+						all_text = list(prompt_text.messages)
+				record = {"generated_text": all_text}
+			records.append(record)
+		return records
