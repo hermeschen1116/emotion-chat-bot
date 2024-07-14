@@ -11,7 +11,7 @@ from transformers import (
     GenerationConfig,
     HfArgumentParser,
     TextStreamer,
-    pipeline
+    pipeline, TextGenerationPipeline
 )
 from transformers.hf_argparser import HfArg
 from unsloth import FastLanguageModel
@@ -66,7 +66,11 @@ dataset = dataset.map(lambda samples: {
 system_prompt: list = [{"role": "system", "content": {"emotion": "", "dialog": wandb.config["system_prompt"]}}]
 
 dataset = dataset.map(lambda samples: {
-    "prompt": [system_prompt + sample for sample in samples]
+    "prompt": [
+        system_prompt + sample[:-1] +
+        [{"role": "assistant", "content": {"emotion": sample[-1]["content"]["emotion"], "dialog": ""}}]
+        for sample in samples
+    ]
 }, input_columns="prompt", batched=True, num_proc=16)
 
 # Load Tokenizer
@@ -98,7 +102,10 @@ bot = ResponseGeneratorPipeline(
     framework="pt",
     task="conversation-generation",
     num_workers=16,
-    torch_dtype="auto"
+    torch_dtype="auto",
+    add_special_tokens=True,
+    truncation=False,
+    padding=True
 )
 
 streamer = TextStreamer(
@@ -116,7 +123,8 @@ generation_config = GenerationConfig(
 )
 
 result = dataset.map(lambda sample: {
-    "test_response": bot(sample, streamer=streamer, generation_config=generation_config)[-1]["content"]["dialog"]
+    "test_response":
+        bot(sample, streamer=streamer, generation_config=generation_config)[0]["generated_text"][-1]["content"]["dialog"]
 }, input_columns="prompt")
 result = result.remove_columns("prompt")
 
