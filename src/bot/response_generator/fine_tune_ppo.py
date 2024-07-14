@@ -141,7 +141,6 @@ sentiment_analysis_model = torch.compile(analyser.model)
 def reward(batch):
 	return 1
 
-
 ppo_config = PPOConfig(
 	gradient_accumulation_steps=1,
 	learning_rate=wandb.config["learning_rate"],
@@ -163,7 +162,8 @@ generation_config = GenerationConfig(
 	top_k=wandb.config["top_k"],
 	top_p=wandb.config["top_p"],
 	do_sample=True,
-	max_new_tokens=wandb.config["max_new_tokens"],
+	# max_new_tokens=wandb.config["max_new_tokens"],
+    max_length=wandb.config["max_length"],
 	repetition_penalty=wandb.config["repetition_penalty"],
 	pad_token_id=tokenizer.pad_token_id,
 	eos_token_id=tokenizer.eos_token_id,
@@ -183,7 +183,7 @@ tuner = PPOTrainer(
 for epoch in tqdm(range(wandb.config["num_epochs"]), "epoch: ", colour="blue"):
 	for batch in tqdm(tuner.dataloader, colour="yellow"):
 		query_tensors = batch["input_ids"]
-
+		# print(batch)
 		# Get response from SFTModel
 		response_tensors = tuner.generate(
 			query_tensors,
