@@ -21,7 +21,6 @@
 		"max_input_tokens": 2048,
 		"max_new_tokens": 50,
 		"repetition_penalty": 1.5,
-		"optim": "paged_lion_32bit",
 		"fine_tuned_model": "response_generator"
 	}
 }

@@ -3,8 +3,8 @@ from dataclasses import dataclass, Field
 
 import torch
 import wandb
+from bitsandbytes.optim import PagedLion32bit
 from datasets import concatenate_datasets, load_dataset
-from lion_pytorch import Lion
 from peft.peft_model import PeftModel
 from tqdm.auto import tqdm, trange
 from transformers import (
@@ -160,7 +160,7 @@ ppo_config = PPOConfig(
 	score_clip=wandb.config["score_clip"],
 )
 
-optimizer = Lion(filter(lambda p: p.requires_grad, base_model.parameters()), lr=ppo_config.learning_rate)
+optimizer = PagedLion32bit(filter(lambda p: p.requires_grad, base_model.parameters()), lr=ppo_config.learning_rate)
 lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=wandb.config["lr_gamma"])
 
 streamer = TextStreamer(
@@ -204,10 +204,11 @@ for epoch in trange(wandb.config["num_epochs"], colour="blue"):
 			**generation_config.to_dict()
 		)
 		batch["response"] = [tokenizer.decode(r.squeeze()) for r in response_tensors]
+		response_tensors = [torch.LongTensor(t) for t in response_tensors]
 
 		# Compute reward score
 		reward_scores = reward(batch)
-		rewards = [torch.tensor(scores, dtype=torch.float) for scores in reward_scores]
+		rewards = [torch.FloatTensor(scores) for scores in reward_scores]
 
 		# Run PPO step
 		stats = tuner.step(query_tensors, response_tensors, rewards)
