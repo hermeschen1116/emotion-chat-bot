@@ -190,7 +190,7 @@ tuner = PPOTrainer(
 	lr_scheduler=lr_scheduler
 )
 
-for epoch in trange(wandb.config["num_epochs"], colour="blue"):
+for epoch in trange(wandb.config["num_epoches"], colour="blue"):
 	for batch in tqdm(tuner.dataloader, colour="yellow"):
 		query_tensors = batch["input_ids"]
 		# print(batch)
