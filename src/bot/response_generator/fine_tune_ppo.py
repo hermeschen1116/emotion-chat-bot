@@ -141,10 +141,40 @@ sentiment_analysis_model = torch.compile(analyser.model)
 
 
 # [TODO] a reward function contain length and emotion
-def reward(batch: dict) -> list:
-	print("Hello Huston, here is reward function")
+target_length = wandb.config["target_length"]
+# the length of output that we prefer
 
-	return [1.0] * len(batch["label"])
+def emotion_score(response: str, correct_emotion: str) -> float:
+    # correct: save the score from analyser 
+    # wrong: [TO-DO] (save 1 - score from analyser )
+    emotion_output = analyser(response)[0]
+    if emotion_output["label"] == correct_emotion:
+        emotion_score = emotion_output["score"]
+    else:
+        emotion_score = 1 - emotion_output["score"]
+        # emotion_score = 0
+    return emotion_score
+
+def length_score(response: str) -> float:
+    # use reciprocal of length difference to calculate
+    # the larger the difference the smaller the score is
+    length_diff = abs(len(response) - target_length)
+    length_score = 1 / (length_diff + 1)
+    return length_score
+
+def reward(batch: dict) -> list:
+    print("Hello Huston, here is a reward function")
+    correct_emotion = batch['query'][2]['content']['emotion']
+    
+    rewards = []
+    for response in batch["response"]:
+        emotion_score = emotion_score(response, correct_emotion)
+        length_score = length_score(response)
+        # use the product of two score as reward
+        reward = emotion_score * length_score
+        rewards.append(reward)
+    
+    return rewards
 
 ppo_config = PPOConfig(
 	gradient_accumulation_steps=1,
@@ -198,8 +228,8 @@ for epoch in trange(wandb.config["num_epoches"], colour="blue"):
 		response_tensors = tuner.generate(
 			query_tensors,
 			return_prompt=False,
-			# batch_size=1,   # must set to 1 if using streamer
-			# streamer=streamer,  # use streamer to show the generation process
+			batch_size=1,   # must set to 1 if using streamer
+			streamer=streamer,  # use streamer to show the generation process
 			**generation_config.to_dict()
 		)
 		batch["response"] = [tokenizer.decode(r.squeeze()) for r in response_tensors]
