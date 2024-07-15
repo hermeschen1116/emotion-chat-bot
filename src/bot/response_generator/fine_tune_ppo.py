@@ -3,8 +3,8 @@ from dataclasses import dataclass, Field
 
 import torch
 import wandb
+from bitsandbytes.optim import PagedLion32bit
 from datasets import concatenate_datasets, load_dataset
-from lion_pytorch import Lion
 from peft.peft_model import PeftModel
 from tqdm.auto import tqdm, trange
 from transformers import (
@@ -17,7 +17,7 @@ from transformers.hf_argparser import HfArg
 from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer
 from unsloth import FastLanguageModel
 
-from libs import CommonScriptArguments, CommonWanDBArguments, ResponseGeneratorPipeline
+from libs import CommonScriptArguments, CommonWanDBArguments
 
 
 @dataclass
@@ -52,7 +52,7 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 # Load Dataset
 dataset = load_dataset("hermeschen1116/daily_dialog_for_RG", num_proc=16, trust_remote_code=True)
 dataset = concatenate_datasets([dataset["train"], dataset["validation"]])
-dataset = dataset.train_test_split(train_size=0.05)["train"]   # use very small dataset to debuG
+# dataset = dataset.train_test_split(train_size=0.05)["train"]   # use very small dataset to debuG
 
 history_length: int = 2 * wandb.config["num_turns_history"]
 dataset = dataset.filter(lambda sample: len(sample) >= (2 + history_length), input_columns="prompt", num_proc=16)
@@ -141,9 +141,10 @@ sentiment_analysis_model = torch.compile(analyser.model)
 
 
 # [TODO] a reward function contain length and emotion
-def reward(batch) -> float:
+def reward(batch: dict) -> list:
 	print("Hello Huston, here is reward function")
-	return 1.0
+
+	return [1.0] * len(batch["label"])
 
 ppo_config = PPOConfig(
 	gradient_accumulation_steps=1,
@@ -158,7 +159,7 @@ ppo_config = PPOConfig(
 	score_clip=wandb.config["score_clip"],
 )
 
-optimizer = Lion(filter(lambda p: p.requires_grad, base_model.parameters()), lr=ppo_config.learning_rate)
+optimizer = PagedLion32bit(filter(lambda p: p.requires_grad, base_model.parameters()), lr=ppo_config.learning_rate)
 lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=wandb.config["lr_gamma"])
 
 streamer = TextStreamer(
@@ -197,15 +198,16 @@ for epoch in trange(wandb.config["num_epochs"], colour="blue"):
 		response_tensors = tuner.generate(
 			query_tensors,
 			return_prompt=False,
-			batch_size=1,   # must set to 1 if using streamer
-			streamer=streamer,  # use streamer to show the generation process
+			# batch_size=1,   # must set to 1 if using streamer
+			# streamer=streamer,  # use streamer to show the generation process
 			**generation_config.to_dict()
 		)
 		batch["response"] = [tokenizer.decode(r.squeeze()) for r in response_tensors]
+		response_tensors = [torch.LongTensor(t) for t in response_tensors]
 
 		# Compute reward score
-		pipe_outputs = reward(batch)
-		rewards = [torch.tensor(output[1]["score"]) for output in pipe_outputs]
+		reward_scores = reward(batch)
+		rewards = [torch.FloatTensor(scores) for scores in reward_scores]
 
 		# Run PPO step
 		stats = tuner.step(query_tensors, response_tensors, rewards)
