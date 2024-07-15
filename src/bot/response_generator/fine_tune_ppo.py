@@ -203,11 +203,11 @@ for epoch in trange(wandb.config["num_epochs"], colour="blue"):
 			**generation_config.to_dict()
 		)
 		batch["response"] = [tokenizer.decode(r.squeeze()) for r in response_tensors]
-		response_tensors = [torch.LongTensor(t) for t in response_tensors]
+		response_tensors = [torch.LongTensor(t, device="cpu") for t in response_tensors]
 
 		# Compute reward score
 		reward_scores = reward(batch)
-		rewards = [torch.FloatTensor(scores) for scores in reward_scores]
+		rewards = [torch.FloatTensor(scores, device="cpu") for scores in reward_scores]
 
 		# Run PPO step
 		stats = tuner.step(query_tensors, response_tensors, rewards)
