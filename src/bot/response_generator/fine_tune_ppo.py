@@ -149,30 +149,30 @@ def calculate_emotion_score(response: str, correct_emotion: str) -> float:
     # wrong: [TO-DO] (save 1 - score from analyser )
     emotion_output = analyser(response)[0]
     if emotion_output["label"] == correct_emotion:
-        emotion_score = emotion_output["score"]
+        emotion_score = emotion_output["score"] * 10
     else:
         emotion_score = 1 - emotion_output["score"]
-        # emotion_score = 0
     return emotion_score
 
 def calculate_length_score(response: str) -> float:
     # use reciprocal of length difference to calculate
     # the larger the difference the smaller the score is
     length_diff = abs(len(response) - target_length)
+    print(length_diff)
     length_score = 1 / (length_diff + 1)
     return length_score
 
 def reward(batch: dict) -> list:
     print("Hello Huston, here is a reward function")
     correct_emotion = batch['query'][2]['content']['emotion']
-    
+    print(correct_emotion)
     rewards = []
     for response in batch["response"]:
         emotion_score = calculate_emotion_score(response, correct_emotion)
         length_score = calculate_length_score(response)
         # use the product of two score as reward
-        reward = emotion_score * length_score
-        rewards.append(reward)
+        reward_product = emotion_score * length_score
+        rewards.append(reward_product)
     
     return rewards
 
