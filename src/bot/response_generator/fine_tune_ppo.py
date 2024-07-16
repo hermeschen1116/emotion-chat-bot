@@ -52,7 +52,7 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 # Load Dataset
 dataset = load_dataset("hermeschen1116/daily_dialog_for_RG", num_proc=16, trust_remote_code=True)
 dataset = concatenate_datasets([dataset["train"], dataset["validation"]])
-# dataset = dataset.train_test_split(train_size=0.05)["train"]   # use very small dataset to debuG
+dataset = dataset.train_test_split(train_size=0.05)["train"]   # use very small dataset to debuG
 
 history_length: int = 2 * wandb.config["num_turns_history"]
 dataset = dataset.filter(lambda sample: len(sample) >= (2 + history_length), input_columns="prompt", num_proc=16)
@@ -233,11 +233,12 @@ for epoch in trange(wandb.config["num_epoches"], colour="blue"):
 			**generation_config.to_dict()
 		)
 		batch["response"] = [tokenizer.decode(r.squeeze()) for r in response_tensors]
-		response_tensors = [torch.LongTensor(t, device="cpu") for t in response_tensors]
+		response_tensors = [torch.tensor(t, dtype=torch.long, device="cpu") for t in response_tensors]
+
 
 		# Compute reward score
 		reward_scores = reward(batch)
-		rewards = [torch.FloatTensor(scores, device="cpu") for scores in reward_scores]
+		rewards = [torch.tensor(scores, dtype=torch.long, device="cpu") for scores in reward_scores]
 
 		# Run PPO step
 		stats = tuner.step(query_tensors, response_tensors, rewards)
