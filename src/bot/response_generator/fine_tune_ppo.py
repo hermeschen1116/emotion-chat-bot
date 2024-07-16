@@ -18,6 +18,7 @@ from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer
 from unsloth import FastLanguageModel
 
 from libs import CommonScriptArguments, CommonWanDBArguments
+from src.bot.response_generator.fine_tune_recursive import data_collator
 
 
 @dataclass
@@ -50,9 +51,14 @@ wandb.config["response_template"] = chat_template["response"]
 wandb.config["special_tokens"] = chat_template["special_tokens"]
 
 # Load Dataset
-dataset = load_dataset("hermeschen1116/daily_dialog_for_RG", num_proc=16, trust_remote_code=True)
-dataset = concatenate_datasets([dataset["train"], dataset["validation"]])
-# dataset = dataset.train_test_split(train_size=0.05)["train"]   # use very small dataset to debuG
+dataset = load_dataset(
+	"hermeschen1116/daily_dialog_for_RG",
+	split="train+validation",
+	keep_in_memory=True,
+	num_proc=16,
+	trust_remote_code=True
+)
+# dataset = dataset.take(128)   # use very small dataset to debuG
 
 history_length: int = 2 * wandb.config["num_turns_history"]
 dataset = dataset.filter(lambda sample: len(sample) >= (2 + history_length), input_columns="prompt", num_proc=16)

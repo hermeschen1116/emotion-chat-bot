@@ -45,8 +45,12 @@ wandb.config["response_template"] = chat_template["response"]
 wandb.config["special_tokens"] = chat_template["special_tokens"]
 
 # Load Dataset
-dataset = load_dataset("hermeschen1116/daily_dialog_for_RG", num_proc=16, trust_remote_code=True)
-dataset = concatenate_datasets([dataset["train"], dataset["validation"]])
+dataset = load_dataset(
+    "hermeschen1116/daily_dialog_for_RG",
+    split="train+validation",
+    num_proc=16,
+    trust_remote_code=True
+)
 # dataset = dataset.train_test_split(train_size=0.001)["train"]
 
 system_prompt: list = [{"role": "system", "content": {"emotion": "", "dialog": wandb.config["system_prompt"]}}]
