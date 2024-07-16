@@ -57,7 +57,7 @@ dataset = load_dataset(
 	num_proc=16,
 	trust_remote_code=True
 )
-dataset = dataset.take(2048)   # use very small dataset to debuG
+# dataset = dataset.take(2048)   # use very small dataset to debug
 
 history_length: int = 2 * wandb.config["num_turns_history"]
 dataset = dataset.filter(lambda sample: len(sample) >= (2 + history_length), input_columns="prompt", num_proc=16)
