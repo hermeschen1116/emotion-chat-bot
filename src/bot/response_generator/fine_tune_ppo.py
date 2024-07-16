@@ -207,7 +207,7 @@ for epoch in trange(wandb.config["num_epochs"], colour="blue"):
 		response_tensors = [torch.LongTensor(t.to("cpu")) for t in response_tensors]
 
 		reward_scores = reward(batch)
-		rewards = [torch.FloatTensor(scores.to("cpu")) for scores in reward_scores]
+		rewards = [torch.FloatTensor(torch.tensor(scores, device="cpu")) for scores in reward_scores]
 
 		stats = tuner.step(query_tensors, response_tensors, rewards)
 		tuner.log_stats(stats, batch, rewards)
