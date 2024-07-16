@@ -57,7 +57,7 @@ dataset = load_dataset(
 	num_proc=16,
 	trust_remote_code=True
 )
-# dataset = dataset.take(128)   # use very small dataset to debuG
+dataset = dataset.take(2048)   # use very small dataset to debuG
 
 history_length: int = 2 * wandb.config["num_turns_history"]
 dataset = dataset.filter(lambda sample: len(sample) >= (2 + history_length), input_columns="prompt", num_proc=16)
@@ -163,7 +163,6 @@ ppo_config = PPOConfig(
 	use_score_scaling=True,
 	use_score_norm=True,
 	score_clip=wandb.config["score_clip"],
-	mini_batch_size=4
 )
 
 optimizer = PagedLion32bit(filter(lambda p: p.requires_grad, base_model.parameters()), lr=ppo_config.learning_rate)
@@ -181,8 +180,10 @@ generation_config = GenerationConfig(
 	top_k=wandb.config["top_k"],
 	top_p=wandb.config["top_p"],
 	do_sample=True,
+	use_cache=True,
 	repetition_penalty=wandb.config["repetition_penalty"],
 	pad_token_id=tokenizer.pad_token_id,
+	bos_token_id=tokenizer.bos_token_id,
 	eos_token_id=tokenizer.eos_token_id,
 	low_memory=True
 )
