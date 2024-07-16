@@ -158,6 +158,7 @@ ppo_config = PPOConfig(
 	use_score_scaling=True,
 	use_score_norm=True,
 	score_clip=wandb.config["score_clip"],
+	mini_batch_size=4
 )
 
 optimizer = PagedLion32bit(filter(lambda p: p.requires_grad, base_model.parameters()), lr=ppo_config.learning_rate)
@@ -195,7 +196,6 @@ for epoch in trange(wandb.config["num_epochs"], colour="blue"):
 	for batch in tqdm(tuner.dataloader, colour="yellow"):
 		query_tensors = batch["input_ids"]
 
-		# Get response from SFTModel
 		response_tensors = tuner.generate(
 			query_tensors,
 			return_prompt=False,
@@ -204,26 +204,15 @@ for epoch in trange(wandb.config["num_epochs"], colour="blue"):
 			**generation_config.to_dict()
 		)
 		batch["response"] = [tokenizer.decode(r.squeeze()) for r in response_tensors]
-		response_tensors = [torch.LongTensor(t, device="cpu") for t in response_tensors]
+		response_tensors = [torch.LongTensor(t.to("cpu")) for t in response_tensors]
 
-		# Compute reward score
 		reward_scores = reward(batch)
-		rewards = [torch.FloatTensor(scores, device="cpu") for scores in reward_scores]
+		rewards = [torch.FloatTensor(scores.to("cpu")) for scores in reward_scores]
 
-		# Run PPO step
 		stats = tuner.step(query_tensors, response_tensors, rewards)
 		tuner.log_stats(stats, batch, rewards)
 
-# model_artifact = wandb.Artifact(
-# 	wandb.config["fine_tuned_model"],
-# 	type="model"
-# )
-
 tuner.model = torch.compile(tuner.model)
 tuner.model.push_to_hub(repo_id="response_generator_for_emotion_chat_bot", commit="", create_pr=True)
-# with tempfile.TemporaryDirectory() as temp_dir:
-# 	tuner.model.save_pretrained(temp_dir, save_embedding_layers=True)
-# 	model_artifact.add_dir(temp_dir)
-# 	run.log_artifact(model_artifact)
 
 wandb.finish()
