@@ -144,7 +144,7 @@ sentiment_analysis_model = torch.compile(analyser.model)
 target_length = wandb.config["target_length"]
 # the length of output that we prefer
 
-def emotion_score(response: str, correct_emotion: str) -> float:
+def calculate_emotion_score(response: str, correct_emotion: str) -> float:
     # correct: save the score from analyser 
     # wrong: [TO-DO] (save 1 - score from analyser )
     emotion_output = analyser(response)[0]
@@ -155,7 +155,7 @@ def emotion_score(response: str, correct_emotion: str) -> float:
         # emotion_score = 0
     return emotion_score
 
-def length_score(response: str) -> float:
+def calculate_length_score(response: str) -> float:
     # use reciprocal of length difference to calculate
     # the larger the difference the smaller the score is
     length_diff = abs(len(response) - target_length)
@@ -168,8 +168,8 @@ def reward(batch: dict) -> list:
     
     rewards = []
     for response in batch["response"]:
-        emotion_score = emotion_score(response, correct_emotion)
-        length_score = length_score(response)
+        emotion_score = calculate_emotion_score(response, correct_emotion)
+        length_score = calculate_length_score(response)
         # use the product of two score as reward
         reward = emotion_score * length_score
         rewards.append(reward)
