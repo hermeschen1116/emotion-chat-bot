@@ -172,19 +172,11 @@ def calculate_length_score(response: str) -> float:
 
 def reward(batch: dict) -> list:
     print("Hello Huston, here is a reward function")
-    # correct_emotion = batch['label']
-    # print(batch)
-    # correct_emotion = emotion_labels[batch['label']]
-    # print(correct_emotion)
     rewards = []
     res_len = []
     for response, raw_correct_emotion in zip(batch["response"], batch["label"]):
-        # print(response, "here")
         correct_emotion = emotion_labels[raw_correct_emotion]
         res_len.append(len(response))
-        # print(response['test_response'])
-        # print(response['test_response_sentiment'])
-        # print(emotion_labels[response['label']], "\n")
         
         emotion_score = calculate_emotion_score(response, correct_emotion)
         length_score = calculate_length_score(response)
@@ -192,7 +184,7 @@ def reward(batch: dict) -> list:
         reward_product = emotion_score * length_score
         rewards.append(reward_product)
     print("\ntarget length: ", target_length)
-    print("test_response length")
+    print("response length:")
     import statistics
     print("max:", max(res_len),"\nmin:", min(res_len),"\navg:", statistics.mean(res_len))
     
@@ -249,6 +241,7 @@ for epoch in trange(wandb.config["num_epoches"], colour="blue"):
 		query_tensors = batch["input_ids"] # somehow has 2048 ids
 		response_tensors = tuner.generate(
 			query_tensors,
+			length_sampler=5,
 			return_prompt=False,
 			batch_size=1,   # must set to 1 if using streamer
 			streamer=streamer,  # use streamer to show the generation process
