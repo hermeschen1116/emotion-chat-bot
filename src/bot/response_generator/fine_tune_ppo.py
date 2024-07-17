@@ -236,12 +236,24 @@ tuner = PPOTrainer(
 	lr_scheduler=lr_scheduler
 )
 
+import random
+class LengthSampler:
+    def __init__(self, min_length: int, max_length: int):
+        self.min_length = min_length
+        self.max_length = max_length
+
+    def __call__(self) -> int:
+        return random.randint(self.min_length, self.max_length)
+
+
+length_sampler = LengthSampler(min_length=10, max_length=70)
+
 for epoch in trange(wandb.config["num_epoches"], colour="blue"):
 	for batch in tqdm(tuner.dataloader, colour="yellow"):
 		query_tensors = batch["input_ids"] # somehow has 2048 ids
 		response_tensors = tuner.generate(
 			query_tensors,
-			length_sampler=5,
+			length_sampler=length_sampler,
 			return_prompt=False,
 			batch_size=1,   # must set to 1 if using streamer
 			streamer=streamer,  # use streamer to show the generation process
