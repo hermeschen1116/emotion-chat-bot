@@ -106,7 +106,7 @@ base_model_with_adapter = PeftModel.from_pretrained(base_model, wandb.config["ad
 base_model_with_adapter.print_trainable_parameters()
 FastLanguageModel.for_inference(base_model_with_adapter)
 
-base_model_with_adapter = AutoModelForCausalLMWithValueHead.from_pretrained(
+ppo_model = AutoModelForCausalLMWithValueHead.from_pretrained(
 	base_model_with_adapter,
 	device_map="auto"
 )
@@ -191,7 +191,7 @@ generation_config = GenerationConfig(
 # Setup Tuner
 tuner = PPOTrainer(
 	config=ppo_config,
-	model=base_model_with_adapter,
+	model=ppo_model,
 	tokenizer=tokenizer,
 	dataset=dataset,
 	optimizer=optimizer,
