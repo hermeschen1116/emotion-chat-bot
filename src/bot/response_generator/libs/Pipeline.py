@@ -3,7 +3,7 @@ from transformers.pipelines.text_generation import ReturnType, Chat
 
 
 class ResponseGeneratorPipeline(TextGenerationPipeline):
-	def postprocess(self, model_outputs, return_type=ReturnType.FULL_TEXT, clean_up_tokenization_spaces=True):
+	def postprocess(self, model_outputs, return_type=ReturnType.TENSORS, clean_up_tokenization_spaces=True):
 		generated_sequence = model_outputs["generated_sequence"][0]
 		input_ids = model_outputs["input_ids"]
 		prompt_text = model_outputs["prompt_text"]
