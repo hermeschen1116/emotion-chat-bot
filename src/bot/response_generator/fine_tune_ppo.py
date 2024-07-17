@@ -120,6 +120,9 @@ dataset = dataset.map(lambda sample: {
 # Sentiment Analysis
 analyser = pipeline(
 	model=wandb.config["sentiment_analysis_model"],
+ 	tokenizer=wandb.config["sentiment_analysis_model"],
+	max_length=512,
+	truncation=True,
 	framework="pt",
 	task="sentiment-analysis",
 	num_workers=16,
