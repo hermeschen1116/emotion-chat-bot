@@ -49,7 +49,7 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 
 
 # Load and Process Dataset
-dataset = load_dataset("hermeschen1116/daily_dialog_for_RG", num_proc=16, trust_remote_code=True)["test"]
+dataset = load_dataset("hermeschen1116/daily_dialog_for_RG", split="test", num_proc=16, trust_remote_code=True)
 # dataset = dataset.train_test_split(test_size=0.001)["test"]
 
 dataset = dataset.map(lambda samples: {
