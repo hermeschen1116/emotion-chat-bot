@@ -177,7 +177,7 @@ streamer = TextStreamer(
 )
 
 generation_config = GenerationConfig(
-	max_length=(wandb.config["max_input_tokens"] + wandb.config["max_new_tokens"]),
+	max_length=None,
 	min_length=-1,
 	top_k=wandb.config["top_k"],
 	top_p=wandb.config["top_p"],
