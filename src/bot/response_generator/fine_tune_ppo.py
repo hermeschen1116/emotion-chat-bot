@@ -2,11 +2,12 @@ from argparse import ArgumentParser
 from dataclasses import dataclass, Field
 
 import torch
+from trl.core import LengthSampler
 import wandb
 from bitsandbytes.optim import PagedLion32bit
 from datasets import load_dataset
 from peft.peft_model import PeftModel
-from tqdm.auto import tqdm, trange
+from tqdm.auto import tqdm
 from transformers import (
 	BitsAndBytesConfig,
 	GenerationConfig,
@@ -167,6 +168,7 @@ ppo_config = PPOConfig(
 
 optimizer = PagedLion32bit(filter(lambda p: p.requires_grad, base_model.parameters()), lr=ppo_config.learning_rate)
 lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=wandb.config["lr_gamma"])
+length_sampler = LengthSampler(wandb.config["min_new_tokens"], wandb.config["max_new_tokens"])
 
 streamer = TextStreamer(
 	tokenizer,
@@ -199,7 +201,7 @@ tuner = PPOTrainer(
 )
 
 for epoch in range(wandb.config["num_epochs"]):
-	for batch in tqdm(tuner.dataloader, desc=f"epoch:{epoch}, ", colour="yellow"):
+	for batch in tqdm(tuner.dataloader, desc=f"epoch{epoch}", colour="yellow"):
 		query_tensors = batch["input_ids"]
 
 		response_tensors = tuner.generate(
@@ -207,6 +209,7 @@ for epoch in range(wandb.config["num_epochs"]):
 			return_prompt=False,
 			# batch_size=1,   # must set to 1 if using streamer
 			# streamer=streamer,  # use streamer to show the generation process
+			length_sampler=length_sampler,
 			**generation_config.to_dict()
 		)
 		batch["response"] = [tokenizer.decode(r.squeeze()) for r in response_tensors]

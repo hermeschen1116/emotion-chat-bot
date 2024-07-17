@@ -19,7 +19,8 @@
 		"top_k": 0.0,
 		"top_p": 1.0,
 		"max_input_tokens": 2048,
-		"max_new_tokens": 50,
+		"min_new_tokens": 5,
+		"max_new_tokens": 20,
 		"repetition_penalty": 1.5,
 		"fine_tuned_model": "response_generator"
 	}
