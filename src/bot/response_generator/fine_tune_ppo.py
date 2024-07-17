@@ -156,6 +156,7 @@ def calculate_emotion_score(response: str, correct_emotion: str) -> float:
     # correct: save the score from analyser 
     # wrong: [TO-DO] (save 1 - score from analyser )
     emotion_output = analyser(response)[0]
+    print(emotion_output)
     if emotion_output["label"] == correct_emotion:
         emotion_score = emotion_output["score"] * 10
     else:
@@ -166,21 +167,34 @@ def calculate_length_score(response: str) -> float:
     # use reciprocal of length difference to calculate
     # the larger the difference the smaller the score is
     length_diff = abs(len(response) - target_length)
-    print(length_diff)
     length_score = 1 / (length_diff + 1)
     return length_score
 
 def reward(batch: dict) -> list:
     print("Hello Huston, here is a reward function")
-    correct_emotion = batch['query'][2]['content']['emotion']
-    print(correct_emotion)
+    # correct_emotion = batch['label']
+    # print(batch)
+    # correct_emotion = emotion_labels[batch['label']]
+    # print(correct_emotion)
     rewards = []
-    for response in batch["response"]:
+    res_len = []
+    for response, raw_correct_emotion in zip(batch["response"], batch["label"]):
+        # print(response, "here")
+        correct_emotion = emotion_labels[raw_correct_emotion]
+        res_len.append(len(response))
+        # print(response['test_response'])
+        # print(response['test_response_sentiment'])
+        # print(emotion_labels[response['label']], "\n")
+        
         emotion_score = calculate_emotion_score(response, correct_emotion)
         length_score = calculate_length_score(response)
         # use the product of two score as reward
         reward_product = emotion_score * length_score
         rewards.append(reward_product)
+    print("\ntarget length: ", target_length)
+    print("test_response length")
+    import statistics
+    print("max:", max(res_len),"\nmin:", min(res_len),"\navg:", statistics.mean(res_len))
     
     return rewards
 
@@ -232,7 +246,7 @@ tuner = PPOTrainer(
 
 for epoch in trange(wandb.config["num_epoches"], colour="blue"):
 	for batch in tqdm(tuner.dataloader, colour="yellow"):
-		query_tensors = batch["input_ids"]
+		query_tensors = batch["input_ids"] # somehow has 2048 ids
 		response_tensors = tuner.generate(
 			query_tensors,
 			return_prompt=False,
