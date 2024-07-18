@@ -2,7 +2,7 @@
 	"chat_template_file": "./chat_template/Llama2_OUT_INST_UNI.json",
 	"job_type": "fine_tune",
 	"project": "emotion-chat-bot-ncu",
-	"group": "Candidates Generator",
+	"group": "Response Generator",
 	"notes": "fine tune model on Candidates Generator task",
 	"config": {
 		"dataset": "hermeschen1116/daily_dialog_for_RG",
