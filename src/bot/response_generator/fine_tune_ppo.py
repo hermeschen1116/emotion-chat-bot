@@ -140,7 +140,7 @@ sentiment_analysis_model = torch.compile(analyser.model)
 
 
 def emotion_reward(response: str, emotion: str) -> float:
-	emotion_score = analyser(response)
+	emotion_score = analyser(response)[0]
 
 	if emotion_score["label"] == emotion:
 		return emotion_score["score"] * 10
