@@ -18,11 +18,12 @@
 		"score_clip": 0,
 		"top_k": 0.0,
 		"top_p": 1.0,
-		"target_length":69,
 		"max_input_tokens": 2048,
 		"min_new_tokens": 5,
 		"max_new_tokens": 20,
 		"repetition_penalty": 1.5,
+		"reward_weights": [0.8, 0.2],
+		"reward_bias": 0.001,
 		"fine_tuned_model": "response_generator"
 	}
 }
