@@ -112,6 +112,7 @@ ppo_model = AutoModelForCausalLMWithValueHead.from_pretrained(
 	device_map="auto"
 )
 
+dataset = dataset.with_format("torch")
 dataset = dataset.map(lambda sample: {
 	"input_ids": tokenizer.apply_chat_template(
 		sample,
@@ -120,7 +121,7 @@ dataset = dataset.map(lambda sample: {
 		max_length=wandb.config["max_input_tokens"],
 		add_generation_prompt=True,
 		return_tensors="pt"
-	)[0]
+	)
 }, input_columns="query", num_proc=16)
 
 # Sentiment Analysis
@@ -241,7 +242,12 @@ tuner = PPOTrainer(
 
 for epoch in range(wandb.config["num_epoches"]):
 	for batch in tqdm(tuner.dataloader, desc=f"epoch{epoch}", colour="yellow"):
+<<<<<<< HEAD
 		query_tensors = batch["input_ids"]
+=======
+		query_tensors = [input_ids.squeeze(0) for input_ids in batch["input_ids"]]
+
+>>>>>>> main
 		response_tensors = tuner.generate(
 			query_tensors,
 			return_prompt=False,
