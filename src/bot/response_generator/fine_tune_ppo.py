@@ -203,7 +203,7 @@ tuner = PPOTrainer(
 
 for epoch in range(wandb.config["num_epochs"]):
 	for batch in tqdm(tuner.dataloader, desc=f"epoch{epoch}", colour="yellow"):
-		query_tensors = batch["input_ids"].squeeze(1)
+		query_tensors = [input_ids.squeeze(0) for input_ids in batch["input_ids"]]
 
 		response_tensors = tuner.generate(
 			query_tensors,
