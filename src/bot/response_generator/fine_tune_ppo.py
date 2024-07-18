@@ -151,14 +151,14 @@ sentiment_analysis_model = torch.compile(analyser.model)
 
 
 # [TODO] a reward function contain length and emotion
-target_length = 69
+target_length = wandb.config["target_length"]
 # the length of output that we prefer
 
 def calculate_emotion_score(response: str, correct_emotion: str) -> float:
     # correct: save the score from analyser 
     # wrong: [TO-DO] (save 1 - score from analyser )
     emotion_output = analyser(response)[0]
-    print(emotion_output)
+    # print(emotion_output)
     if emotion_output["label"] == correct_emotion:
         emotion_score = emotion_output["score"] * 10
     else:
@@ -169,7 +169,7 @@ def calculate_length_score(response_length: int) -> float:
     # use reciprocal of length difference to calculate
     # the larger the difference the smaller the score is
     length_diff = abs(response_length - target_length)
-    print("len and len diff",response_length, length_diff)
+    # print("len and len diff",response_length, length_diff)
     length_score = 1 / (length_diff + 1)
     return length_score
 
@@ -186,11 +186,12 @@ def reward(batch: dict) -> list:
         # use the product of two score as reward
         reward_product = emotion_score * length_score
         rewards.append(reward_product)
-    print("\ntarget length: ", target_length)
+    import statistics    
+		# 输出格式化
     print("response length:")
-    import statistics
-    print("max:", max(res_len),"\nmin:", min(res_len),"\navg:", statistics.mean(res_len))
-    
+    print(f"  max: {max(res_len)}")
+    print(f"  min: {min(res_len)}")
+    print(f"  avg: {statistics.mean(res_len)}")
     return rewards
 
 ppo_config = PPOConfig(
@@ -242,12 +243,8 @@ tuner = PPOTrainer(
 
 for epoch in range(wandb.config["num_epoches"]):
 	for batch in tqdm(tuner.dataloader, desc=f"epoch{epoch}", colour="yellow"):
-<<<<<<< HEAD
-		query_tensors = batch["input_ids"]
-=======
 		query_tensors = [input_ids.squeeze(0) for input_ids in batch["input_ids"]]
 
->>>>>>> main
 		response_tensors = tuner.generate(
 			query_tensors,
 			return_prompt=False,
