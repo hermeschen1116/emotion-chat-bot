@@ -191,7 +191,7 @@ ppo_config = PPOConfig(
 	use_score_scaling=True,
 	use_score_norm=True,
 	score_clip=wandb.config["score_clip"],
-	# gradient_checkpointing=True
+	gradient_checkpointing=True
 )
 
 optimizer = PagedLion32bit(filter(lambda p: p.requires_grad, base_model.parameters()), lr=ppo_config.learning_rate)
@@ -235,8 +235,8 @@ for epoch in range(wandb.config["num_epoches"]):
 		response_tensors = tuner.generate(
 			query_tensors,
 			return_prompt=False,
-			# batch_size=1,   # must set to 1 if using streamer
-			# streamer=streamer,  # use streamer to show the generation process
+			batch_size=1,   # must set to 1 if using streamer
+			streamer=streamer,  # use streamer to show the generation process
 			length_sampler=length_sampler,
 			**generation_config.to_dict()
 		)
