@@ -58,7 +58,7 @@ dataset = load_dataset(
 	num_proc=16,
 	trust_remote_code=True
 )
-# dataset = dataset.take(2048)   # use very small dataset to debug
+dataset = dataset.take(1024)   # use very small dataset to debug
 
 history_length: int = 2 * wandb.config["num_turns_history"]
 dataset = dataset.filter(lambda sample: len(sample) >= (2 + history_length), input_columns="prompt", num_proc=16)
@@ -150,7 +150,7 @@ sentiment_analysis_model = torch.compile(analyser.model)
 
 
 # [TODO] a reward function contain length and emotion
-target_length = wandb.config["target_length"]
+target_length = 69
 # the length of output that we prefer
 
 def calculate_emotion_score(response: str, correct_emotion: str) -> float:
@@ -164,10 +164,11 @@ def calculate_emotion_score(response: str, correct_emotion: str) -> float:
         emotion_score = 1 - emotion_output["score"]
     return emotion_score
 
-def calculate_length_score(response: str) -> float:
+def calculate_length_score(response_length: int) -> float:
     # use reciprocal of length difference to calculate
     # the larger the difference the smaller the score is
-    length_diff = abs(len(response) - target_length)
+    length_diff = abs(response_length - target_length)
+    print("len and len diff",response_length, length_diff)
     length_score = 1 / (length_diff + 1)
     return length_score
 
@@ -175,12 +176,12 @@ def reward(batch: dict) -> list:
     print("Hello Huston, here is a reward function")
     rewards = []
     res_len = []
-    for response, raw_correct_emotion in zip(batch["response"], batch["label"]):
+    for response, response_length, raw_correct_emotion in zip(batch["response"], batch["response_length"], batch["label"]):
         correct_emotion = emotion_labels[raw_correct_emotion]
         res_len.append(len(response))
         
         emotion_score = calculate_emotion_score(response, correct_emotion)
-        length_score = calculate_length_score(response)
+        length_score = calculate_length_score(response_length)
         # use the product of two score as reward
         reward_product = emotion_score * length_score
         rewards.append(reward_product)
@@ -238,34 +239,20 @@ tuner = PPOTrainer(
 	lr_scheduler=lr_scheduler
 )
 
-# import random
-# class LengthSampler:
-#     def __init__(self, min_length: int, max_length: int):
-#         self.min_length = min_length
-#         self.max_length = max_length
-#     def __call__(self) -> int:
-#         return random.randint(self.min_length, self.max_length)
-
-
-# length_sampler = LengthSampler(min_length=10, max_length=70)
-
-for epoch in range(wandb.config["num_epochs"]):
+for epoch in range(wandb.config["num_epoches"]):
 	for batch in tqdm(tuner.dataloader, desc=f"epoch{epoch}", colour="yellow"):
 		query_tensors = batch["input_ids"]
-  
-		# print(len(query_tensors))
 		response_tensors = tuner.generate(
 			query_tensors,
-			length_sampler=length_sampler,
 			return_prompt=False,
-			# batch_size=1,   # must set to 1 if using streamer
-			# streamer=streamer,  # use streamer to show the generation process
+			batch_size=1,   # must set to 1 if using streamer
+			streamer=streamer,  # use streamer to show the generation process
 			length_sampler=length_sampler,
 			**generation_config.to_dict()
 		)
 		batch["response"] = [tokenizer.decode(r.squeeze()) for r in response_tensors]
 		# [TODO] batch["response_length"] 
-  		# batch["response_length"] = [r.size()[0] for r in response_tensors] 
+		batch["response_length"] = [r.size()[0] for r in response_tensors] 
 		response_tensors = [torch.LongTensor(t.to("cpu")) for t in response_tensors]
 
 		reward_scores = reward(batch)
