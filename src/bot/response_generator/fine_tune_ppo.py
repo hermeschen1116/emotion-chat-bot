@@ -114,11 +114,10 @@ dataset = dataset.map(lambda sample: {
 }, input_columns="query", num_proc=16)
 
 # Sentiment Analysis
-analyser = pipeline(
+sentiment_analyser = pipeline(
 	model=wandb.config["sentiment_analysis_model"],
 	tokenizer=wandb.config["sentiment_analysis_model"],
 	max_length=512,
-	truncation=True,
 	framework="pt",
 	task="sentiment-analysis",
 	num_workers=16,
@@ -136,16 +135,50 @@ analyser = pipeline(
 	trust_remote_code=True
 )
 
-sentiment_analysis_model = torch.compile(analyser.model)
+sentiment_analyser.model = torch.compile(sentiment_analyser.model)
+
+# Detect gibberish
+gibberish_analyser = pipeline(
+	model=wandb.config["gibberish_detector_model"],
+	tokenizer=wandb.config["gibberish_detector_model"],
+	max_length=512,
+	framework="pt",
+	task="text-classification",
+	num_workers=16,
+	device_map="cuda",
+	torch_dtype="auto",
+	model_kwargs={
+		"quantization_config": BitsAndBytesConfig(
+			load_in_4bit=True,
+			bnb_4bit_compute_dtype=torch.float16
+		),
+		"low_cpu_mem_usage": True
+	},
+	trust_remote_code=True
+)
+
+gibberish_analyser.model = torch.compile(gibberish_analyser.model)
 
 
 def emotion_reward(response: str, emotion: str) -> float:
-	emotion_score = analyser(response)[0]
+	score = sentiment_analyser(response)[0]
 
-	if emotion_score["label"] == emotion:
-		return emotion_score["score"] * 10
+	if score["label"] == emotion:
+		return score["score"] * 10
 	else:
-		return emotion_score["score"] - 1
+		return score["score"] - 1
+
+
+def non_gibberish_reward(response: str) -> float:
+	score = gibberish_analyser(response)[0]
+
+	match score["label"]:
+		case "clean":
+			return score["score"] * 10
+		case "mild gibberish":
+			return score["score"] * 0.9
+		case _:
+			return score["score"] - 1
 
 
 # [TODO] 用級距的方式來給予分數
@@ -165,11 +198,12 @@ def reward(batch: dict) -> list:
 	emotion_scores = [emotion_reward(response, emotion)
 	                  for response, emotion in zip(batch["response"], batch["label"])]
 	length_scores = [length_reward(response_length) for response_length in batch["response_length"]]
+	gibberish_scores = [non_gibberish_reward(response) for response in batch["response"]]
 
 	reward_weight = tensor(wandb.config["reward_weights"], dtype=torch.float)
 	reward_bias = tensor(wandb.config["reward_bias"], dtype=torch.float)
 	return [reward_weight.dot(tensor(reward_score, dtype=torch.float)) + reward_bias
-	        for reward_score in zip(emotion_scores, length_scores)]
+	        for reward_score in zip(emotion_scores, length_scores, gibberish_scores)]
 
 
 ppo_config = PPOConfig(
