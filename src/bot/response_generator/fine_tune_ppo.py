@@ -2,11 +2,12 @@ from argparse import ArgumentParser
 from dataclasses import dataclass, Field
 
 import torch
+from trl.core import LengthSampler
 import wandb
 from bitsandbytes.optim import PagedLion32bit
 from datasets import load_dataset
 from peft.peft_model import PeftModel
-from tqdm.auto import tqdm, trange
+from tqdm.auto import tqdm
 from transformers import (
 	BitsAndBytesConfig,
 	GenerationConfig,
@@ -106,7 +107,7 @@ base_model_with_adapter = PeftModel.from_pretrained(base_model, wandb.config["ad
 base_model_with_adapter.print_trainable_parameters()
 FastLanguageModel.for_inference(base_model_with_adapter)
 
-base_model_with_adapter = AutoModelForCausalLMWithValueHead.from_pretrained(
+ppo_model = AutoModelForCausalLMWithValueHead.from_pretrained(
 	base_model_with_adapter,
 	device_map="auto"
 )
@@ -205,6 +206,7 @@ ppo_config = PPOConfig(
 
 optimizer = PagedLion32bit(filter(lambda p: p.requires_grad, base_model.parameters()), lr=ppo_config.learning_rate)
 lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=wandb.config["lr_gamma"])
+length_sampler = LengthSampler(wandb.config["min_new_tokens"], wandb.config["max_new_tokens"])
 
 streamer = TextStreamer(
 	tokenizer,
@@ -213,7 +215,7 @@ streamer = TextStreamer(
 )
 
 generation_config = GenerationConfig(
-	max_length=(wandb.config["max_input_tokens"] + wandb.config["max_new_tokens"]),
+	max_length=None,
 	min_length=-1,
 	top_k=wandb.config["top_k"],
 	top_p=wandb.config["top_p"],
@@ -229,35 +231,36 @@ generation_config = GenerationConfig(
 # Setup Tuner
 tuner = PPOTrainer(
 	config=ppo_config,
-	model=base_model_with_adapter,
+	model=ppo_model,
 	tokenizer=tokenizer,
 	dataset=dataset,
 	optimizer=optimizer,
 	lr_scheduler=lr_scheduler
 )
 
-import random
-class LengthSampler:
-    def __init__(self, min_length: int, max_length: int):
-        self.min_length = min_length
-        self.max_length = max_length
+# import random
+# class LengthSampler:
+#     def __init__(self, min_length: int, max_length: int):
+#         self.min_length = min_length
+#         self.max_length = max_length
+#     def __call__(self) -> int:
+#         return random.randint(self.min_length, self.max_length)
 
-    def __call__(self) -> int:
-        return random.randint(self.min_length, self.max_length)
 
+# length_sampler = LengthSampler(min_length=10, max_length=70)
 
-length_sampler = LengthSampler(min_length=10, max_length=70)
-
-for epoch in trange(wandb.config["num_epoches"], colour="blue"):
-	for batch in tqdm(tuner.dataloader, colour="yellow"):
-		query_tensors = batch["input_ids"] # somehow has 2048 ids
-		print(len(query_tensors))
+for epoch in range(wandb.config["num_epochs"]):
+	for batch in tqdm(tuner.dataloader, desc=f"epoch{epoch}", colour="yellow"):
+		query_tensors = batch["input_ids"]
+  
+		# print(len(query_tensors))
 		response_tensors = tuner.generate(
 			query_tensors,
 			length_sampler=length_sampler,
 			return_prompt=False,
-			batch_size=1,   # must set to 1 if using streamer
-			streamer=streamer,  # use streamer to show the generation process
+			# batch_size=1,   # must set to 1 if using streamer
+			# streamer=streamer,  # use streamer to show the generation process
+			length_sampler=length_sampler,
 			**generation_config.to_dict()
 		)
 		batch["response"] = [tokenizer.decode(r.squeeze()) for r in response_tensors]
