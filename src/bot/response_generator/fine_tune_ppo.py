@@ -121,13 +121,13 @@ sentiment_analyser = pipeline(
 	framework="pt",
 	task="sentiment-analysis",
 	num_workers=16,
-	device_map="auto",
+	device_map="cpu",
 	torch_dtype="auto",
 	model_kwargs={
-		"quantization_config": BitsAndBytesConfig(
-			load_in_4bit=True,
-			bnb_4bit_compute_dtype=torch.float16
-		),
+		# "quantization_config": BitsAndBytesConfig(
+		# 	load_in_4bit=True,
+		# 	bnb_4bit_compute_dtype=torch.float16
+		# ),
 		"id2label": {k: v for k, v in enumerate(emotion_labels)},
 		"label2id": {v: k for k, v in enumerate(emotion_labels)},
 		"low_cpu_mem_usage": True
@@ -143,13 +143,13 @@ gibberish_analyser = pipeline(
 	framework="pt",
 	task="text-classification",
 	num_workers=16,
-	device_map="cuda",
+	device_map="cpu",
 	torch_dtype="auto",
 	model_kwargs={
-		"quantization_config": BitsAndBytesConfig(
-			load_in_4bit=True,
-			bnb_4bit_compute_dtype=torch.float16
-		),
+		# "quantization_config": BitsAndBytesConfig(
+		# 	load_in_4bit=True,
+		# 	bnb_4bit_compute_dtype=torch.float16
+		# ),
 		"low_cpu_mem_usage": True
 	},
 	trust_remote_code=True
@@ -213,7 +213,7 @@ ppo_config = PPOConfig(
 	use_score_scaling=True,
 	use_score_norm=True,
 	score_clip=wandb.config["score_clip"],
-	gradient_checkpointing=True
+	gradient_checkpointing=True,
 )
 
 optimizer = PagedLion32bit(filter(lambda p: p.requires_grad, base_model.parameters()), lr=ppo_config.learning_rate)
