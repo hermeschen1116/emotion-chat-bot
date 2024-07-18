@@ -54,7 +54,7 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 dataset = load_dataset(
 	"hermeschen1116/daily_dialog_for_RG",
 	split="train+validation",
-	keep_in_memory=True,
+	# keep_in_memory=True,
 	num_proc=16,
 	trust_remote_code=True
 )
