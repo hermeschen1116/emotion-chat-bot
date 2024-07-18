@@ -1,11 +1,11 @@
 {
-	"chat_template_file": "/home/user/github/chat-bot/src/bot/candidate_generation/chat_template/Llama2_OUT_INST_UNI.json",
+	"chat_template_file": "./chat_template/Llama2_OUT_INST_UNI.json",
 	"job_type": "fine_tune",
 	"project": "emotion-chat-bot-ncu",
-	"group": "Candidates Generator",
+	"group": "Response Generator",
 	"notes": "fine tune model on Candidates Generator task",
 	"config": {
-		"dataset": "daily_dialog_for_RG:latest",
+		"dataset": "hermeschen1116/daily_dialog_for_RG",
 		"base_model": "meta-llama/Llama-2-7b-hf",
 		"adapter": "hermeschen1116/response_generator_for_emotion_chat_bot",
 		"sentiment_analysis_model": "Shotaro30678/emotion_text_classifier_on_dd_v1",
@@ -18,11 +18,12 @@
 		"score_clip": 0,
 		"top_k": 0.0,
 		"top_p": 1.0,
-		"target_length":69,
 		"max_input_tokens": 2048,
 		"min_new_tokens": 5,
 		"max_new_tokens": 20,
 		"repetition_penalty": 1.5,
+		"reward_weights": [0.8, 0.2],
+		"reward_bias": 0.001,
 		"fine_tuned_model": "response_generator"
 	}
 }
