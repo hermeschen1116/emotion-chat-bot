@@ -112,6 +112,7 @@ ppo_model = AutoModelForCausalLMWithValueHead.from_pretrained(
 	device_map="auto"
 )
 
+dataset = dataset.with_format("torch")
 dataset = dataset.map(lambda sample: {
 	"input_ids": tokenizer.apply_chat_template(
 		sample,
@@ -120,7 +121,7 @@ dataset = dataset.map(lambda sample: {
 		max_length=wandb.config["max_input_tokens"],
 		add_generation_prompt=True,
 		return_tensors="pt"
-	)[0]
+	)
 }, input_columns="query", num_proc=16)
 
 # Sentiment Analysis
