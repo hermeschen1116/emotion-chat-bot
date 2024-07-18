@@ -235,8 +235,8 @@ for epoch in range(wandb.config["num_epoches"]):
 		response_tensors = tuner.generate(
 			query_tensors,
 			return_prompt=False,
-			batch_size=1,   # must set to 1 if using streamer
-			streamer=streamer,  # use streamer to show the generation process
+			# batch_size=1,   # must set to 1 if using streamer
+			# streamer=streamer,  # use streamer to show the generation process
 			length_sampler=length_sampler,
 			**generation_config.to_dict()
 		)
