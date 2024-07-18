@@ -251,6 +251,7 @@ length_sampler = LengthSampler(min_length=10, max_length=70)
 for epoch in trange(wandb.config["num_epoches"], colour="blue"):
 	for batch in tqdm(tuner.dataloader, colour="yellow"):
 		query_tensors = batch["input_ids"] # somehow has 2048 ids
+		print(len(query_tensors))
 		response_tensors = tuner.generate(
 			query_tensors,
 			length_sampler=length_sampler,
@@ -260,6 +261,8 @@ for epoch in trange(wandb.config["num_epoches"], colour="blue"):
 			**generation_config.to_dict()
 		)
 		batch["response"] = [tokenizer.decode(r.squeeze()) for r in response_tensors]
+		# [TODO] batch["response_length"] 
+  		# batch["response_length"] = [r.size()[0] for r in response_tensors] 
 		response_tensors = [torch.LongTensor(t.to("cpu")) for t in response_tensors]
 
 		reward_scores = reward(batch)
