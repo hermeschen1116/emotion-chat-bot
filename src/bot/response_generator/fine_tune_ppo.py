@@ -54,11 +54,11 @@ dataset = load_dataset(
 	num_proc=16,
 	trust_remote_code=True
 )
-# dataset = dataset.take(2048)   # use very small dataset to debug
 
 history_length: int = 2 * wandb.config["num_turns_history"]
 dataset = dataset.filter(lambda sample: len(sample) >= (2 + history_length), input_columns="prompt", num_proc=16)
 print(f"Dataset size after filter: {len(dataset)}")
+# dataset = dataset.take(128)   # use very small dataset to debug
 
 dataset = dataset.map(lambda sample: {
 	"prompt": sample[i: i + 2 + history_length] for i in range(0, len(sample) - 2, 2)
@@ -153,23 +153,23 @@ def length_reward(response_length: int) -> float:
 	difference_ratio_min = (response_length - wandb.config["min_new_tokens"]) / wandb.config["min_new_tokens"]
 	difference_ratio_max = (response_length - wandb.config["max_new_tokens"]) / wandb.config["max_new_tokens"]
 
-	if difference_ratio_min < 1:
+	if abs(difference_ratio_min) < 1:
 		return difference_ratio_min * 0.0001
-	elif difference_ratio_min > 1 > difference_ratio_max:
-		return (difference_ratio_min + difference_ratio_max) * 10
-	elif difference_ratio_max > 1:
+	elif abs(difference_ratio_min) > 1 > abs(difference_ratio_max):
+		return abs(difference_ratio_min + difference_ratio_max) * 10
+	else:
 		return difference_ratio_max * 0.9
 
 
 def reward(batch: dict) -> list:
-	emotion_reward_scores = [emotion_reward(response, emotion) for response, emotion in
-	                         zip(batch["response"], batch["label"])]
-	length_reward_scores = [length_reward(response_length) for response_length in batch["response_length"]]
+	emotion_scores = [emotion_reward(response, emotion)
+	                  for response, emotion in zip(batch["response"], batch["label"])]
+	length_scores = [length_reward(response_length) for response_length in batch["response_length"]]
 
-	reward_weights = tensor(wandb.config["reward_weights"])
-	reward_bias = tensor(wandb.config["reward_bias"])
-	return [tensor(reward) * reward_weights + reward_bias for reward in
-	        zip(emotion_reward_scores, length_reward_scores)]
+	reward_weight = tensor(wandb.config["reward_weights"], dtype=torch.float)
+	reward_bias = tensor(wandb.config["reward_bias"], dtype=torch.float)
+	return [reward_weight.dot(tensor(reward_score, dtype=torch.float)) + reward_bias
+	        for reward_score in zip(emotion_scores, length_scores)]
 
 
 ppo_config = PPOConfig(
