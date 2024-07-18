@@ -205,6 +205,7 @@ ppo_config = PPOConfig(
 	use_score_scaling=True,
 	use_score_norm=True,
 	score_clip=wandb.config["score_clip"],
+	gradient_checkpointing=True
 )
 
 optimizer = PagedLion32bit(filter(lambda p: p.requires_grad, base_model.parameters()), lr=ppo_config.learning_rate)
