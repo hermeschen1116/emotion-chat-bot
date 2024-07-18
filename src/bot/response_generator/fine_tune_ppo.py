@@ -54,7 +54,7 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 dataset = load_dataset(
 	"hermeschen1116/daily_dialog_for_RG",
 	split="train+validation",
-	# keep_in_memory=True,
+	keep_in_memory=True,
 	num_proc=16,
 	trust_remote_code=True
 )
@@ -183,7 +183,7 @@ generation_config = GenerationConfig(
 	top_k=wandb.config["top_k"],
 	top_p=wandb.config["top_p"],
 	do_sample=True,
-	# use_cache=True,
+	use_cache=True,
 	repetition_penalty=wandb.config["repetition_penalty"],
 	pad_token_id=tokenizer.pad_token_id,
 	bos_token_id=tokenizer.bos_token_id,
