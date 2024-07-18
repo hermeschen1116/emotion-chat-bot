@@ -58,7 +58,7 @@ dataset = load_dataset(
 history_length: int = 2 * wandb.config["num_turns_history"]
 dataset = dataset.filter(lambda sample: len(sample) >= (2 + history_length), input_columns="prompt", num_proc=16)
 print(f"Dataset size after filter: {len(dataset)}")
-# dataset = dataset.take(128)   # use very small dataset to debug
+dataset = dataset.take(128)   # use very small dataset to debug
 
 dataset = dataset.map(lambda sample: {
 	"prompt": sample[i: i + 2 + history_length] for i in range(0, len(sample) - 2, 2)
@@ -135,8 +135,6 @@ sentiment_analyser = pipeline(
 	trust_remote_code=True
 )
 
-sentiment_analyser.model = torch.compile(sentiment_analyser.model)
-
 # Detect gibberish
 gibberish_analyser = pipeline(
 	model=wandb.config["gibberish_detector_model"],
@@ -156,8 +154,6 @@ gibberish_analyser = pipeline(
 	},
 	trust_remote_code=True
 )
-
-gibberish_analyser.model = torch.compile(gibberish_analyser.model)
 
 
 def emotion_reward(response: str, emotion: str) -> float:
