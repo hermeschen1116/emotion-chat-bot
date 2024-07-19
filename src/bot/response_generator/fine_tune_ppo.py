@@ -8,7 +8,7 @@ from datasets import load_dataset
 from peft.peft_model import PeftModel
 from torch import tensor
 from tqdm.auto import tqdm
-from transformers import (BitsAndBytesConfig, GenerationConfig, HfArgumentParser, pipeline, TextStreamer)
+from transformers import (GenerationConfig, HfArgumentParser, pipeline, TextStreamer)
 from transformers.hf_argparser import HfArg
 from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer
 from trl.core import LengthSampler
@@ -216,7 +216,7 @@ ppo_config = PPOConfig(
 	gradient_checkpointing=True,
 )
 
-optimizer = PagedLion32bit(filter(lambda p: p.requires_grad, base_model.parameters()), lr=ppo_config.learning_rate)
+optimizer = PagedLion32bit(filter(lambda p: p.requires_grad, ppo_model.parameters()), lr=ppo_config.learning_rate)
 lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=wandb.config["lr_gamma"])
 length_sampler = LengthSampler(wandb.config["min_new_tokens"], wandb.config["max_new_tokens"])
 
