@@ -59,7 +59,7 @@ dataset = load_dataset(
 history_length: int = 2 * wandb.config["num_turns_history"]
 dataset = dataset.filter(lambda sample: len(sample) >= (2 + history_length), input_columns="prompt", num_proc=16)
 print(f"Dataset size after filter: {len(dataset)}")
-dataset = dataset.take(50)   # use very small dataset to debug
+dataset = dataset.take(5)   # use very small dataset to debug
 
 dataset = dataset.map(lambda sample: {
 	"prompt": sample[i: i + 2 + history_length] for i in range(0, len(sample) - 2, 2)
@@ -207,11 +207,11 @@ optimizer = PagedLion32bit(filter(lambda p: p.requires_grad, ppo_model.parameter
 # lr_scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=wandb.config["lr_gamma"])
 length_sampler = LengthSampler(wandb.config["min_new_tokens"], wandb.config["max_new_tokens"])
 
-# streamer = TextStreamer(
-# 	tokenizer,
-# 	skip_special_tokens=True,  # show <pad> or not
-# 	clean_up_tokenization_spaces=True
-# )
+streamer = TextStreamer(
+	tokenizer,
+	skip_special_tokens=True,  # show <pad> or not
+	clean_up_tokenization_spaces=True
+)
 
 generation_config = GenerationConfig(
 	max_length=None,
@@ -227,23 +227,75 @@ generation_config = GenerationConfig(
 	low_memory=True
 )
 
-def queries_to_scores(response):
-    return [sentiment_analyser(response)[0]["score"]]
+N_BEST_OF = 4
+device = 0 if torch.cuda.is_available() else "cpu"
+
+# :: [Resp]
+response_tensors_ref, response_tensors = [], []
+response_tensors_ans = []
+# :: [[Resp]]
+response_tensors_best_of = []
+
+gen_kwargs = {"min_length": -1, "top_k": 0.0, "top_p": 1.0, "do_sample": True, "pad_token_id": tokenizer.eos_token_id}
 
 query_tensors = [input_ids.squeeze(0) for input_ids in dataset["input_ids"]]
-best_of_n = BestOfNSampler(
-    ppo_model,
-    tokenizer,
-    queries_to_scores,
-    length_sampler=length_sampler,
-    # n_candidates=2,
-    generation_config=generation_config
-    )
 
-best_of_n_output = best_of_n.generate(
-    query_tensors,
-    device="cuda"
-    )
+for i in range(len(dataset)):
+    gen_len = length_sampler()
+    query = query_tensors[i]
+    input = tokenizer.decode(query)
+    
+    output = ppo_model.generate(
+        query.unsqueeze(dim=0).to(device),
+        max_new_tokens=gen_len,
+        generation_config=generation_config,
+		streamer=streamer,  # use streamer to show the generation process
+        ).squeeze()
+    response_tensors_ref.append(tokenizer.decode(output)[len(input):])
+    
 
-# [TODO] clean up out put
-print(best_of_n_output)
+    # output = model.generate(query.unsqueeze(dim=0).to(device), max_new_tokens=gen_len, **gen_kwargs).squeeze()
+    # response_tensors.append(tokenizer.decode(output))
+
+    # generating copies of the same query for the Best-of-n sampling
+    queries = query.repeat((N_BEST_OF, 1))
+    output = ppo_model.generate(
+        queries.to(device),
+        max_new_tokens=gen_len,
+        generation_config=generation_config,
+        # batch_size=1,
+		# streamer=streamer,  # use streamer to show the generation process
+        ).squeeze()
+    response_tensors_best_of.append([text[len(input):] for text in tokenizer.batch_decode(output, skip_special_tokens=False)]
+)
+    
+scores_best_of = []
+label_best_of = []
+for i, response in enumerate(response_tensors_best_of):
+    # print(response)
+    # print(sentiment_analyser(response))
+    for output in sentiment_analyser(response):
+        print(output)
+    print()
+    # base_score = scores_ref[i]
+    scores_best_of.append(torch.tensor([output["score"] for output in sentiment_analyser(response)]))
+    # label_best_of.append(torch.tensor([output["label"] for output in sentiment_analyser(response)]))
+  
+scores_ref = [output["score"] for output in sentiment_analyser(response_tensors_ref)]
+emotion_ref = [output["label"] for output in sentiment_analyser(response_tensors_ref)]  
+# print(dataset['label'])
+# label = [emotion_labels[emo] for emo in dataset['label']]
+
+output_data = dict()
+output_data["query"] = dataset["query"]
+import pandas as pd
+output_data["label"] = dataset['label']
+output_data["response (ref)"] = response_tensors_ref
+output_data["emotion (ref)"] = emotion_ref
+output_data["scores (ref)"] = scores_ref
+output_data["response (best_of)"] = [
+    response_tensors_best_of[i][a.argmax().item()] for i, a in enumerate(scores_best_of)
+]
+output_data["scores (best_of)"] = [a.max().item() for a in scores_best_of]
+df_results = pd.DataFrame(output_data)
+print(df_results)
