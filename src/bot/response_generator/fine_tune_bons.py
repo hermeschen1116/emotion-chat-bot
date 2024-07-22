@@ -222,7 +222,7 @@ def best_of_reward(batch: dict) -> list:
 	# result of best_of non_gibberish reward
 	for responses in batch["response_best_of"]:
 		gibberish_scores = [non_gibberish_reward(response) for response in responses]
-		best_of_gibberish_scores.append(length_scores)
+		best_of_gibberish_scores.append(gibberish_scores)
 	# print(best_of_gibberish_scores)
 
 	reward_weight = tensor([0.4, 0.25, 0.35], dtype=torch.float)
