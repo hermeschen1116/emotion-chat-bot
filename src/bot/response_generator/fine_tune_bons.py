@@ -187,7 +187,6 @@ def length_reward(response_length: int) -> float:
 	else:
 		return difference_ratio_max * 0.9
 
-
 def reward(batch: dict) -> list:
 	emotion_scores = [emotion_reward(response, emotion)
 	                  for response, emotion in zip(batch["response_ref"], batch["label"])]
@@ -196,8 +195,43 @@ def reward(batch: dict) -> list:
 
 	reward_weight = tensor([0.4, 0.25, 0.35], dtype=torch.float)
 	reward_bias = tensor(0.001, dtype=torch.float)
+ 
 	return [reward_weight.dot(tensor(reward_score, dtype=torch.float)) + reward_bias
 	        for reward_score in zip(emotion_scores, length_scores, gibberish_scores)]
+ 
+def best_of_reward(batch: dict) -> list:
+	best_of_emotion_scores = []
+	best_of_length_scores = []
+	best_of_gibberish_scores = []
+	results = []
+	print(batch["response_best_of"])
+	
+	# result of best_of emotion reward
+	for responses, emotion in zip(batch["response_best_of"], batch["label"]):
+		emotion_scores = [emotion_reward(response, emotion)
+	                  for response, emotion in zip(responses, emotion)]
+		best_of_emotion_scores.append(emotion_scores)
+	# print(best_of_emotion_scores)
+ 
+	# result of best_of length reward
+	for response_lengths in batch["response_best_of_len"].transpose(0, 1): # somehow I need to do this
+		length_scores = [length_reward(response_length) for response_length in response_lengths]
+		best_of_length_scores.append(length_scores)
+	# print(best_of_length_scores)
+ 
+	# result of best_of non_gibberish reward
+	for responses in batch["response_best_of"]:
+		gibberish_scores = [non_gibberish_reward(response) for response in responses]
+		best_of_gibberish_scores.append(length_scores)
+	# print(best_of_gibberish_scores)
+
+	reward_weight = tensor([0.4, 0.25, 0.35], dtype=torch.float)
+	reward_bias = tensor(0.001, dtype=torch.float)
+	for reward_scores in zip(best_of_emotion_scores, best_of_length_scores, best_of_gibberish_scores):
+		reward_score = [list(tup) for tup in zip(*reward_scores)]
+		result = [reward_weight.dot(tensor(reward_s, dtype=torch.float)) + reward_bias for reward_s in reward_score]
+		results.append(result)
+	return results
 
 # [TODO] somehow if I comment this it stops working
 optimizer = PagedLion32bit(filter(lambda p: p.requires_grad, ppo_model.parameters()), lr=wandb.config["max_new_tokens"])
@@ -278,6 +312,15 @@ test_data = test_data.add_column("response_best_of_len",response_tensors_best_of
   
 rewards: list = [reward(batch) for batch in DataLoader(test_data, batch_size=10)]
 scores_ref = rewards[0]
+
+# [TODO] scores_best_of shape is broken right now.
+# should be 5*4 (5 batch size and 4 candidates) but 4*5
+rewards: list = [best_of_reward(batch) for batch in DataLoader(test_data, batch_size=10)]
+scores_best_of = []
+
+for reward in rewards[0]:
+    print(reward)
+    scores_best_of.append(torch.tensor(reward))
 
 output_data = dict()
 import pandas as pd
