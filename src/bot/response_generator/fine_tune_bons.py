@@ -15,7 +15,7 @@ import pandas as pd
 from trl.core import LengthSampler
 from unsloth import FastLanguageModel
 
-from libs import CommonScriptArguments, CommonWanDBArguments
+from libs import CommonScriptArguments, CommonWanDBArguments, ResponseGeneratorPipeline
 
 @dataclass
 class ScriptArguments(CommonScriptArguments):
@@ -101,7 +101,17 @@ base_model_with_adapter = PeftModel.from_pretrained(base_model, wandb.config["ad
 base_model_with_adapter.print_trainable_parameters()
 FastLanguageModel.for_inference(base_model_with_adapter)
 
-ppo_model = AutoModelForCausalLMWithValueHead.from_pretrained(base_model_with_adapter, device_map="auto")
+bot = ResponseGeneratorPipeline(
+    base_model_with_adapter,
+    tokenizer,
+    framework="pt",
+    task="conversation-generation",
+    num_workers=16,
+    torch_dtype="auto",
+    add_special_tokens=True,
+    truncation=False,
+    padding=True
+)
 
 dataset = dataset.with_format("torch")
 dataset = dataset.map(lambda sample: {
@@ -225,28 +235,19 @@ def best_of_reward(batch: dict) -> list:
 		results.append(result)
 	return results
 
-# [TODO] somehow if I comment this it stops working
-optimizer = PagedLion32bit(filter(lambda p: p.requires_grad, ppo_model.parameters()), lr=wandb.config["max_new_tokens"])
-length_sampler = LengthSampler(wandb.config["min_new_tokens"], wandb.config["max_new_tokens"])
-
 streamer = TextStreamer(
-	tokenizer,
-	skip_special_tokens=True,  # show <pad> or not
-	clean_up_tokenization_spaces=True
+    tokenizer,
+    skip_special_tokens=True,
+    clean_up_tokenization_spaces=True
 )
 
 generation_config = GenerationConfig(
-	max_length=None,
-	min_length=-1,
-	top_k=wandb.config["top_k"],
-	top_p=wandb.config["top_p"],
-	do_sample=True,
-	use_cache=True,
-	repetition_penalty=wandb.config["repetition_penalty"],
-	pad_token_id=tokenizer.pad_token_id,
-	bos_token_id=tokenizer.bos_token_id,
-	eos_token_id=tokenizer.eos_token_id,
-	low_memory=True
+    max_new_tokens=wandb.config["max_new_tokens"],
+    min_new_tokens=wandb.config["min_new_tokens"],
+    repetition_penalty=wandb.config["repetition_penalty"],
+    top_k=30, #not working 
+    top_p=0.9, #not working 
+    temperature=1.5, #not working 
 )
 
 N_BEST_OF = 5
@@ -263,34 +264,35 @@ input_ref = []
 query_tensors = [input_ids.squeeze(0) for input_ids in dataset["input_ids"]]
 
 for i in range(len(dataset)):
-    gen_len = length_sampler()
     query = query_tensors[i]
     input = tokenizer.decode(query, skip_special_tokens=True)
     input_len = len(input)
     input_ref.append(input)
     
-    output = ppo_model.generate(
-        query.unsqueeze(dim=0).to(device),
-        max_new_tokens=gen_len,
+    output = bot(
+        input,
+        max_new_tokens=wandb.config["max_new_tokens"],
+        min_new_tokens=wandb.config["min_new_tokens"],
         generation_config=generation_config,
 		streamer=streamer,  # use streamer to show the generation process
-        ).squeeze()
-    response = tokenizer.decode(output, skip_special_tokens=True)[input_len:]
+    )
+    response = output[0]['generated_text'][input_len:]
     response_tensors_ref.append(response)
     response_tensors_ref_len.append(len(response))
 
     # generating copies of the same query for the Best-of-n sampling
-    queries = query.repeat((N_BEST_OF, 1))
-    output = ppo_model.generate(
-        queries.to(device),
-        max_new_tokens=gen_len,
+    inputs = [input for _ in range(N_BEST_OF)]
+    print(inputs,type(inputs))
+    output = bot(
+        inputs,
+        max_new_tokens=wandb.config["max_new_tokens"],
+        min_new_tokens=wandb.config["min_new_tokens"],
         generation_config=generation_config,
-        # batch_size=1,
-		# streamer=streamer,  # use streamer to show the generation process
-        ).squeeze()
-    responses = [text[input_len:] for text in tokenizer.batch_decode(output, skip_special_tokens=True)]
+		streamer=streamer,  # use streamer to show the generation process
+    )
+    responses = [text[0]['generated_text'][input_len:] for text in output]
     response_tensors_best_of.append(responses)
-    response_tensors_best_of_len.append([len(response) for response in responses])    
+    response_tensors_best_of_len.append([len(response) for response in responses])
 
 test_data = (dataset.map(lambda sample: {
     "query": sample["query"],
@@ -315,4 +317,5 @@ output_data["response (best_of)"] = [
     response_tensors_best_of[i][a.argmax().item()] for i, a in enumerate(scores_best_of)
 ]
 output_data["scores (best_of)"] = [a.max().item() for a in scores_best_of]
-print(pd.DataFrame(output_data))
+df = pd.DataFrame(output_data)
+df.to_csv('best_of_v1.csv', index=False)  
