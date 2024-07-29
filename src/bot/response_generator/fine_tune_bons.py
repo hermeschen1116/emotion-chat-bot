@@ -241,14 +241,16 @@ streamer = TextStreamer(
     clean_up_tokenization_spaces=True
 )
 
-generation_config = GenerationConfig(
-    max_new_tokens=wandb.config["max_new_tokens"],
-    min_new_tokens=wandb.config["min_new_tokens"],
-    repetition_penalty=wandb.config["repetition_penalty"],
-    top_k=30, #not working 
-    top_p=0.9, #not working 
-    temperature=1.5, #not working 
-)
+gen_kwargs = {
+    "max_new_tokens":wandb.config["max_new_tokens"],
+    "min_new_tokens":wandb.config["min_new_tokens"],
+    "repetition_penalty":wandb.config["repetition_penalty"],
+    "top_k":2,
+    "top_p":1.0, 
+    "temperature":30.0,
+    "pad_token_id":tokenizer.pad_token_id,
+	"eos_token_id":tokenizer.eos_token_id
+}
 
 N_BEST_OF = 5
 device = 0 if torch.cuda.is_available() else "cpu"
@@ -271,10 +273,8 @@ for i in range(len(dataset)):
     
     output = bot(
         input,
-        max_new_tokens=wandb.config["max_new_tokens"],
-        min_new_tokens=wandb.config["min_new_tokens"],
-        generation_config=generation_config,
-		streamer=streamer,  # use streamer to show the generation process
+        **gen_kwargs,
+        streamer=streamer
     )
     response = output[0]['generated_text'][input_len:]
     response_tensors_ref.append(response)
@@ -285,10 +285,8 @@ for i in range(len(dataset)):
     print(inputs,type(inputs))
     output = bot(
         inputs,
-        max_new_tokens=wandb.config["max_new_tokens"],
-        min_new_tokens=wandb.config["min_new_tokens"],
-        generation_config=generation_config,
-		streamer=streamer,  # use streamer to show the generation process
+        **gen_kwargs,
+        streamer=streamer
     )
     responses = [text[0]['generated_text'][input_len:] for text in output]
     response_tensors_best_of.append(responses)
