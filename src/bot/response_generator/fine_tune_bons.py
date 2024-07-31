@@ -58,7 +58,7 @@ dataset = load_dataset(
 history_length: int = 2 * wandb.config["num_turns_history"]
 dataset = dataset.filter(lambda sample: len(sample) >= (2 + history_length), input_columns="prompt", num_proc=16)
 print(f"Dataset size after filter: {len(dataset)}")
-dataset = dataset.take(69)   # use very small dataset to debug
+dataset = dataset.take(1024)   # use very small dataset to debug
 
 dataset = dataset.map(lambda sample: {
 	"prompt": sample[i: i + 2 + history_length] for i in range(0, len(sample) - 2, 2)
@@ -189,18 +189,6 @@ def length_reward(response_length: int) -> float:
 		return abs(difference_ratio_min + difference_ratio_max) * 10
 	else:
 		return difference_ratio_max * 0.9
-
-def reward(batch: dict) -> list:
-	emotion_scores = [emotion_reward(response, emotion)
-	                  for response, emotion in zip(batch["response_ref"], batch["label"])]
-	length_scores = [length_reward(response_length) for response_length in batch["response_ref_len"]]
-	gibberish_scores = [non_gibberish_reward(response) for response in batch["response_ref"]]
-
-	reward_weight = tensor([0.4, 0.25, 0.35], dtype=torch.float)
-	reward_bias = tensor(0.001, dtype=torch.float)
- 
-	return [reward_weight.dot(tensor(reward_score, dtype=torch.float)) + reward_bias
-	        for reward_score in zip(emotion_scores, length_scores, gibberish_scores)]
  
 def best_of_reward(batch: dict) -> list:
 	best_of_emotion_scores = []
@@ -296,24 +284,24 @@ test_data = (dataset.map(lambda sample: {
     "query": sample["query"],
     "label": sample["label"],
     "input_ids": sample["input_ids"],
-})
+})           
 .add_column("input", input_ref)
 .add_column("response_ref", response_tensors_ref)
 .add_column("response_ref_len", response_tensors_ref_len)
 .add_column("response_best_of", response_tensors_best_of)
 .add_column("response_best_of_len", response_tensors_best_of_len))
 
-scores_ref = torch.tensor(reward(test_data))
 scores_best_of = [torch.tensor(reward) for reward in best_of_reward(test_data)]
 
-output_data = dict()
-output_data["query"] = test_data['input']
-output_data["label"] = dataset['label']
-output_data["response (ref)"] = response_tensors_ref
-output_data["scores (ref)"] = scores_ref
-output_data["response (best_of)"] = [
-    response_tensors_best_of[i][a.argmax().item()] for i, a in enumerate(scores_best_of)
-]
-output_data["scores (best_of)"] = [a.max().item() for a in scores_best_of]
-df = pd.DataFrame(output_data)
-df.to_csv('best_of_v1.csv', index=False)  
+response_best_of = [response_tensors_best_of[i][a.argmax().item()] for i, a in enumerate(scores_best_of)]
+response_best_of_reject = [response_tensors_best_of[i][a.argmin().item()] for i, a in enumerate(scores_best_of)]
+
+output_dataset = (dataset.map(lambda samples: {
+    "prompt": samples,
+}, input_columns="query", remove_columns=["input_ids", "label", "query"], batched=True, num_proc=16)
+.add_column("chosen", response_best_of)
+.add_column("chosen_score", (scores.max().item() for scores in scores_best_of))
+.add_column("rejected", response_best_of_reject)
+.add_column("rejected_score", (scores.min().item() for scores in scores_best_of)))
+
+output_dataset.push_to_hub("Shotaro30678/rlhf-RG-trl-style")
