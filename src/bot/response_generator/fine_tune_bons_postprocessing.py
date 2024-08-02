@@ -48,37 +48,21 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 
 # Load Dataset
 dataset = load_dataset(
-	"hermeschen1116/daily_dialog_for_RG",
-	split="train+validation",
+	"Shotaro30678/rlhf-RG-trl-style-raw-1024",
+	split="train",
 	keep_in_memory=True,
 	num_proc=16,
 	trust_remote_code=True
 )
 
-history_length: int = 2 * wandb.config["num_turns_history"]
-dataset = dataset.filter(lambda sample: len(sample) >= (2 + history_length), input_columns="prompt", num_proc=16)
-print(f"Dataset size after filter: {len(dataset)}")
-dataset = dataset.take(1024)   # use very small dataset to debug
+def mark_difference(example):
+    return 1 if (example["chosen_score"] - example["rejected_score"]) < 10 else 0
 
-dataset = dataset.map(lambda sample: {
-	"prompt": sample[i: i + 2 + history_length] for i in range(0, len(sample) - 2, 2)
-			  if (i + 2 + history_length) <= len(sample)
-}, input_columns="prompt", num_proc=16)
-
-system_prompt: list = [{"role": "system", "content": {"emotion": "", "dialog": wandb.config["system_prompt"]}}]
-
-dataset = dataset.map(lambda samples: {
-	"prompt": [system_prompt + sample for sample in samples]
-}, input_columns="prompt", batched=True, num_proc=16)
-
-emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
-
-dataset = dataset.map(lambda samples: {
-	"query": [sample[:-1] +
-			  [{"role": "assistant", "content": {"emotion": sample[-1]["content"]["emotion"], "dialog": ""}}]
-	          for sample in samples],
-	"label": [sample[-1]["content"]["emotion"] for sample in samples]
-}, input_columns="prompt", remove_columns="prompt", batched=True, num_proc=16)
+dataset = (
+    dataset
+    .add_column("flag", [mark_difference(example) for example in dataset])
+    # flag=1 means score too close
+)
 
 # Load Tokenizer
 base_model, tokenizer = FastLanguageModel.from_pretrained(
@@ -122,6 +106,7 @@ dataset = dataset.map(lambda sample: {
 	                                           add_generation_prompt=True,
 	                                           return_tensors="pt")
 }, input_columns="query", num_proc=16)
+emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
 
 # Sentiment Analysis
 sentiment_analyser = pipeline(
@@ -189,6 +174,17 @@ def length_reward(response_length: int) -> float:
 		return abs(difference_ratio_min + difference_ratio_max) * 10
 	else:
 		return difference_ratio_max * 0.9
+
+def reward(batch: dict) -> list:
+	emotion_scores = [emotion_reward(response, emotion)
+	                  for response, emotion in zip(batch["response"], batch["label"])]
+	length_scores = [length_reward(response_length) for response_length in batch["response_length"]]
+	gibberish_scores = [non_gibberish_reward(response) for response in batch["response"]]
+
+	reward_weight = tensor(wandb.config["reward_weights"], dtype=torch.float)
+	reward_bias = tensor(wandb.config["reward_bias"], dtype=torch.float)
+	return [reward_weight.dot(tensor(reward_score, dtype=torch.float)) + reward_bias
+	        for reward_score in zip(emotion_scores, length_scores, gibberish_scores)]
  
 def best_of_reward(batch: dict) -> list:
 	best_of_emotion_scores = []
@@ -251,54 +247,58 @@ response_tensors_best_of = []
 response_tensors_best_of_len = []
 input_ref = []
 
-query_tensors = [input_ids.squeeze(0) for input_ids in dataset["input_ids"]]
+for i in tqdm(range(len(dataset))):
+    if dataset[i]['flag'] == 1:
+        input_text = dataset[i]['prompt']
+        input_len = len(input_text)
+        input_ref.append(input_text)
 
-for i in range(len(dataset)):
-    query = query_tensors[i]
-    input = tokenizer.decode(query, skip_special_tokens=True)
-    input_len = len(input)
-    input_ref.append(input)
-    
-    output = bot(
-        input,
-        **gen_kwargs,
-        streamer=streamer
-    )
-    response = output[0]['generated_text'][input_len:]
-    response_tensors_ref.append(response)
-    response_tensors_ref_len.append(len(response))
+        inputs = [input_text for _ in range(N_BEST_OF)]
+        
+        while True:
+            output = bot(inputs, **gen_kwargs)
+            responses = [text[0]['generated_text'][input_len:] for text in output]
+            tmp = {
+                'response': responses,
+                'response_length': [len(response) for response in responses],
+                'label': dataset[i]['label'],
+            }
+            score_tmp = [reward.item() for reward in reward(tmp)]  # Use item() to get Python scalar
+            score_range = max(score_tmp) - min(score_tmp)
+            if score_range < 3:
+                continue
+            
+            print(f"\nRange of scores: {score_range:.3f}")
+            print("Label: ",tmp['label'])
+            # [TODO] Print out last dialog to see relevance if needed
+            # Needs re-generate a raw dataset 
+            # print(dataset[i]['query'][5]['content']['dialog'])
+            print()
+            for j in range(N_BEST_OF):
+                print(f"Score {j}: {score_tmp[j]:.3f}, Response: {tmp['response'][j]}")                
+            
+            user_input = input("[y] accept: ").strip().lower()
+            if user_input == "y":
+                break
+            
+        response_tensors_best_of.append(responses)
+        response_tensors_best_of_len.append([len(response) for response in responses])
+    else:
+        continue
 
-    # generating copies of the same query for the Best-of-n sampling
-    inputs = [input for _ in range(N_BEST_OF)]
-    print(inputs,type(inputs))
-    output = bot(
-        inputs,
-        **gen_kwargs,
-        streamer=streamer
-    )
-    responses = [text[0]['generated_text'][input_len:] for text in output]
-    response_tensors_best_of.append(responses)
-    response_tensors_best_of_len.append([len(response) for response in responses])
+new_data = dataset.remove_columns(['query', 'prompt', 'chosen', 'chosen_score', 'rejected', 'rejected_score', 'flag'])
 
-test_data = (dataset.map(lambda sample: {
-    "query": sample["query"],
-    "label": sample["label"],
-    "input_ids": sample["input_ids"],
-})           
-.add_column("input", input_ref)
-.add_column("response_ref", response_tensors_ref)
-.add_column("response_ref_len", response_tensors_ref_len)
+temp_data = (new_data
 .add_column("response_best_of", response_tensors_best_of)
 .add_column("response_best_of_len", response_tensors_best_of_len))
 
-scores_best_of = [torch.tensor(reward) for reward in best_of_reward(test_data)]
+scores_best_of = [torch.tensor(reward) for reward in best_of_reward(temp_data)]
 
 response_best_of = [response_tensors_best_of[i][a.argmax().item()] for i, a in enumerate(scores_best_of)]
 response_best_of_reject = [response_tensors_best_of[i][a.argmin().item()] for i, a in enumerate(scores_best_of)]
 
-output_dataset = dataset.remove_columns(["input_ids"])
 output_dataset = (
-    output_dataset
+    new_data
     .add_column("prompt", input_ref)
     .add_column("chosen", response_best_of)
     .add_column("chosen_score", [scores.max().item() for scores in scores_best_of])
@@ -306,4 +306,4 @@ output_dataset = (
     .add_column("rejected_score", [scores.min().item() for scores in scores_best_of])
 )
 
-output_dataset.push_to_hub("Shotaro30678/rlhf-RG-trl-style-raw-1024")
+output_dataset.push_to_hub("Shotaro30678/rlhf-RG-trl-style-raw-test")
