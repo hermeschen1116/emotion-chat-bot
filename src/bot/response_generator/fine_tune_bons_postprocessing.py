@@ -48,17 +48,19 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 
 # Load Dataset
 dataset = load_dataset(
-	"Shotaro30678/rlhf-RG-trl-style-raw-test",
+	wandb.config["dataset"],
 	split="train",
 	keep_in_memory=True,
 	num_proc=16,
 	trust_remote_code=True
 )
-dataset = dataset.take(5)  
+dataset = dataset.take(20)  
 
-# If score diff < 3 than flag 
+target_score_range = wandb.config["target_score_range"]
+
+# If score diff < 5 than flag 
 def mark_difference(example):
-    return 1 if (example["chosen_score"] - example["rejected_score"]) < 5 else 0
+    return 1 if (example["chosen_score"] - example["rejected_score"]) < target_score_range else 0
 
 dataset = (
     dataset
@@ -92,7 +94,7 @@ bot = ResponseGeneratorPipeline(
     tokenizer,
     framework="pt",
     task="conversation-generation",
-    num_workers=16,
+    num_workers=1, # cause some issue here
     torch_dtype="auto",
     add_special_tokens=True,
     truncation=False,
@@ -227,7 +229,6 @@ gen_kwargs = {
 }
 
 N_BEST_OF = 5
-device = 0 if torch.cuda.is_available() else "cpu"
 
 # :: [Resp]
 response_tensors_ref, response_tensors = [], []
@@ -263,10 +264,16 @@ for i, data in enumerate(dataset):
             score_tmp = [reward.item() for reward in reward(tmp)]  # Use item() to get Python scalar
             tmp["score"] = score_tmp
             score_range = max(score_tmp) - min(score_tmp)
-            if score_range < 3:
+            
+            # regenerate if score range too small
+            if score_range < target_score_range:
                 continue
             
-            print("Label: ", tmp['label'], "\n")
+            print(f"\nLabel: {tmp['label']}\n")
+            # [TODO] Print out last dialog to see relevance if needed
+            # Needs re-generate a raw dataset 
+            print(f"assistant: {dataset[i]['query'][4]['content']['dialog']}")
+            print(f"user: {dataset[i]['query'][5]['content']['dialog']}\n")
             
             # Print all results
             for j in range(N_BEST_OF):
@@ -274,13 +281,15 @@ for i, data in enumerate(dataset):
                            
             print(f"\nRange of scores: {score_range:.3f}")
             print(f"\nchosen : {tmp['response'][score_tmp.index(max(score_tmp))]}")
-            print(f"rejected : {tmp['response'][score_tmp.index(min(score_tmp))]}")
-            user_input = input("[y] accept: ").strip().lower()
+            print(f"rejected : {tmp['response'][score_tmp.index(min(score_tmp))]}\n")
+            user_input = input("[y] accept, [else] decline: ").strip().lower()
             if user_input == "y":
                 updated_data['prompt'].append(data['prompt'])
                 updated_data['chosen'].append(tmp['response'][score_tmp.index(max(score_tmp))])
                 updated_data['rejected'].append(tmp['response'][score_tmp.index(min(score_tmp))])
                 break
+            else :
+                continue
     else:
         print(f"\nskip: {i}/{len(dataset)}")
         updated_data['prompt'].append(data['prompt'])
