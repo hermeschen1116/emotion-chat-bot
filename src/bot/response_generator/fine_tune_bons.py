@@ -270,7 +270,6 @@ for i in range(len(dataset)):
 
     # generating copies of the same query for the Best-of-n sampling
     inputs = [input for _ in range(N_BEST_OF)]
-    print(inputs,type(inputs))
     output = bot(
         inputs,
         **gen_kwargs,
@@ -306,4 +305,4 @@ output_dataset = (
     .add_column("rejected_score", [scores.min().item() for scores in scores_best_of])
 )
 
-output_dataset.push_to_hub("Shotaro30678/rlhf-RG-trl-style-raw-1024")
+output_dataset.push_to_hub("Shotaro30678/rlhf-RG-trl-style-raw-1024-query")
