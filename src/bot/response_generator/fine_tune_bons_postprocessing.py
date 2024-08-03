@@ -55,8 +55,9 @@ dataset = load_dataset(
 	trust_remote_code=True
 )
 
+# If score diff < 3 than flag 
 def mark_difference(example):
-    return 1 if (example["chosen_score"] - example["rejected_score"]) < 10 else 0
+    return 1 if (example["chosen_score"] - example["rejected_score"]) < 3 else 0
 
 dataset = (
     dataset
@@ -97,15 +98,15 @@ bot = ResponseGeneratorPipeline(
     padding=True
 )
 
-dataset = dataset.with_format("torch")
-dataset = dataset.map(lambda sample: {
-	"input_ids": tokenizer.apply_chat_template(sample,
-	                                           tokenize=True,
-	                                           padding="max_length",
-	                                           max_length=wandb.config["max_input_tokens"],
-	                                           add_generation_prompt=True,
-	                                           return_tensors="pt")
-}, input_columns="query", num_proc=16)
+# dataset = dataset.with_format("torch")
+# dataset = dataset.map(lambda sample: {
+# 	"input_ids": tokenizer.apply_chat_template(sample,
+# 	                                           tokenize=True,
+# 	                                           padding="max_length",
+# 	                                           max_length=wandb.config["max_input_tokens"],
+# 	                                           add_generation_prompt=True,
+# 	                                           return_tensors="pt")
+# }, input_columns="query", num_proc=16)
 emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
 
 # Sentiment Analysis
@@ -247,8 +248,22 @@ response_tensors_best_of = []
 response_tensors_best_of_len = []
 input_ref = []
 
+from tqdm import tqdm
+from datasets import Dataset
+
+updated_data = {
+    'label': [],
+    'prompt': [],
+    'chosen': [],
+    'chosen_score': [],
+    'rejected': [],
+    'rejected_score': [],
+    'flag': []
+}
+
 for i in tqdm(range(len(dataset))):
     if dataset[i]['flag'] == 1:
+        print(f"\nredo: {i}/{len(dataset)}")
         input_text = dataset[i]['prompt']
         input_len = len(input_text)
         input_ref.append(input_text)
@@ -264,46 +279,58 @@ for i in tqdm(range(len(dataset))):
                 'label': dataset[i]['label'],
             }
             score_tmp = [reward.item() for reward in reward(tmp)]  # Use item() to get Python scalar
+            tmp["score"] = score_tmp
             score_range = max(score_tmp) - min(score_tmp)
             if score_range < 3:
                 continue
             
-            print(f"\nRange of scores: {score_range:.3f}")
-            print("Label: ",tmp['label'])
+            print("Label: ", tmp['label'], "\n")
             # [TODO] Print out last dialog to see relevance if needed
             # Needs re-generate a raw dataset 
             # print(dataset[i]['query'][5]['content']['dialog'])
-            print()
-            for j in range(N_BEST_OF):
-                print(f"Score {j}: {score_tmp[j]:.3f}, Response: {tmp['response'][j]}")                
             
+            # Print all results
+            for j in range(N_BEST_OF):
+                print(f"Score {j}: {score_tmp[j]:.3f}, Response: {tmp['response'][j]}")
+                           
+            print(f"\nRange of scores: {score_range:.3f}")
+            print(f"\nchosen : {tmp['response'][score_tmp.index(max(score_tmp))]}")
+            print(f"rejected : {tmp['response'][score_tmp.index(min(score_tmp))]}")
             user_input = input("[y] accept: ").strip().lower()
             if user_input == "y":
+                updated_data['prompt'].append(dataset[i]['prompt'])
+                updated_data['chosen'].append(tmp['response'][score_tmp.index(max(score_tmp))])
+                updated_data['rejected'].append(tmp['response'][score_tmp.index(min(score_tmp))])
                 break
-            
-        response_tensors_best_of.append(responses)
-        response_tensors_best_of_len.append([len(response) for response in responses])
     else:
-        continue
+        print(f"\nskip: {i}/{len(dataset)}")
+        updated_data['prompt'].append(dataset[i]['prompt'])
+        updated_data['chosen'].append(dataset[i]['chosen'])
+        updated_data['rejected'].append(dataset[i]['rejected'])
+        
+# Convert updated_data back to dataset format
+updated_dataset = Dataset.from_dict(updated_data)
+updated_dataset.push_to_hub("Shotaro30678/rlhf-RG-trl-style-picked")
 
-new_data = dataset.remove_columns(['query', 'prompt', 'chosen', 'chosen_score', 'rejected', 'rejected_score', 'flag'])
 
-temp_data = (new_data
-.add_column("response_best_of", response_tensors_best_of)
-.add_column("response_best_of_len", response_tensors_best_of_len))
+# new_data = dataset.remove_columns(['query', 'prompt', 'chosen', 'chosen_score', 'rejected', 'rejected_score', 'flag'])
 
-scores_best_of = [torch.tensor(reward) for reward in best_of_reward(temp_data)]
+# temp_data = (new_data
+# .add_column("response_best_of", response_tensors_best_of)
+# .add_column("response_best_of_len", response_tensors_best_of_len))
 
-response_best_of = [response_tensors_best_of[i][a.argmax().item()] for i, a in enumerate(scores_best_of)]
-response_best_of_reject = [response_tensors_best_of[i][a.argmin().item()] for i, a in enumerate(scores_best_of)]
+# scores_best_of = [torch.tensor(reward) for reward in best_of_reward(temp_data)]
 
-output_dataset = (
-    new_data
-    .add_column("prompt", input_ref)
-    .add_column("chosen", response_best_of)
-    .add_column("chosen_score", [scores.max().item() for scores in scores_best_of])
-    .add_column("rejected", response_best_of_reject)
-    .add_column("rejected_score", [scores.min().item() for scores in scores_best_of])
-)
+# response_best_of = [response_tensors_best_of[i][a.argmax().item()] for i, a in enumerate(scores_best_of)]
+# response_best_of_reject = [response_tensors_best_of[i][a.argmin().item()] for i, a in enumerate(scores_best_of)]
 
-output_dataset.push_to_hub("Shotaro30678/rlhf-RG-trl-style-raw-test")
+# output_dataset = (
+#     new_data
+#     .add_column("prompt", input_ref)
+#     .add_column("chosen", response_best_of)
+#     .add_column("chosen_score", [scores.max().item() for scores in scores_best_of])
+#     .add_column("rejected", response_best_of_reject)
+#     .add_column("rejected_score", [scores.min().item() for scores in scores_best_of])
+# )
+
+# output_dataset.push_to_hub("Shotaro30678/rlhf-RG-trl-style-picked")
