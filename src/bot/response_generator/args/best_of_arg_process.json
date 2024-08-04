@@ -20,6 +20,6 @@
 		"repetition_penalty": 1.5,
 		"reward_weights": [0.4, 0.25, 0.35],
 		"reward_bias": 0.001,
-		"target_score_range":3
+		"target_score_range":5
 	}
 }

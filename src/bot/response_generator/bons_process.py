@@ -55,7 +55,7 @@ dataset = load_dataset(
 	num_proc=16,
 	trust_remote_code=True
 )
-dataset = dataset.take(20)  
+dataset = dataset.take(1024)  
 
 target_score_range = wandb.config["target_score_range"]
 
