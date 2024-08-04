@@ -1,18 +1,19 @@
 from argparse import ArgumentParser
 from dataclasses import dataclass, Field
+import os
+
+import pickle
+import numpy as np
 
 import torch
 import wandb
-from bitsandbytes.optim import PagedLion32bit
 from datasets import load_dataset, Dataset
 from peft.peft_model import PeftModel
 from torch import tensor
 from tqdm.auto import tqdm
-from transformers import (GenerationConfig, HfArgumentParser, pipeline, TextStreamer)
+from transformers import (HfArgumentParser, pipeline, TextStreamer)
 from transformers.hf_argparser import HfArg
-from trl import AutoModelForCausalLMWithValueHead
 import pandas as pd
-from trl.core import LengthSampler
 from unsloth import FastLanguageModel
 
 from libs import CommonScriptArguments, CommonWanDBArguments, ResponseGeneratorPipeline
@@ -238,13 +239,71 @@ response_tensors_best_of = []
 response_tensors_best_of_len = []
 input_ref = []
 
-updated_data = {
-    'prompt': [],
-    'chosen': [],
-    'rejected': []
-}
 
-for i, data in enumerate(dataset):
+
+def calculate_score_diff(chosen_score, rejected_score):
+    return chosen_score - rejected_score
+
+def should_stop_regeneration(scores):
+    median_score = np.median(scores)
+    mean_score = np.mean(scores)
+    print(f"current Median: {median_score:.3f}, Current Mean: {mean_score:.3f}\nDiff: {median_score-mean_score:.3f}")
+    return abs(median_score - mean_score) < 0.5
+
+# Function to save and load checkpoints
+def save_checkpoint(data, scores, index, filename="checkpoint.pkl"):
+    with open(filename, 'wb') as f:
+        pickle.dump((data, scores, index), f)
+    print(f"Checkpoint saved to {filename}")
+
+def load_checkpoint(filename="checkpoint.pkl"):
+    if os.path.exists(filename):
+        with open(filename, 'rb') as f:
+            data, scores, index = pickle.load(f)
+        print(f"Checkpoint loaded from {filename}")
+        return data, scores, index
+    else:
+        print(f"No checkpoint found in {filename}")
+        return None, None, None
+
+checkpoint_filename = "checkpoint.pkl"
+
+# Try to load from checkpoint
+updated_data, updated_scores, start_index = load_checkpoint(checkpoint_filename)
+if updated_data is None or updated_scores is None or start_index is None:
+    print("No checkpoint found, starting from scratch")
+    # If no checkpoint, initialize from scratch
+    updated_data = {
+        'prompt': [data['prompt'] for data in dataset],
+        'chosen': [data['chosen'] for data in dataset],
+        'rejected': [data['rejected'] for data in dataset],
+        'chosen_score': [data['chosen_score'] for data in dataset],
+        'rejected_score': [data['rejected_score'] for data in dataset]
+    }
+    updated_scores = [calculate_score_diff(data['chosen_score'], data['rejected_score']) for data in dataset]
+    start_index = 0
+
+# Get original median and mean
+original_scores = [calculate_score_diff(data['chosen_score'], data['rejected_score']) for data in dataset]
+original_median = np.median(original_scores)
+original_mean = np.mean(original_scores)
+
+print(f"Original Median: {original_median:.3f}, Original Mean: {original_mean:.3f}")
+
+# Initialize updated scores (diff)
+if start_index == 0:
+    updated_scores = original_scores.copy()
+
+for i in range(start_index, len(dataset)):
+    data = dataset[i]
+    median_score = np.median(updated_scores)
+    mean_score = np.mean(updated_scores)
+    save_checkpoint(updated_data, updated_scores, i, checkpoint_filename)
+        
+    # If the difference between median and mean is less than 0.5, stop generating
+    if abs(median_score - mean_score) < 0.5:
+        break
+    
     if data['flag'] == 1:
         print(f"\nredo: {i}/{len(dataset)}")
         input_text = data['prompt']
@@ -265,36 +324,51 @@ for i, data in enumerate(dataset):
             tmp["score"] = score_tmp
             score_range = max(score_tmp) - min(score_tmp)
             
-            # regenerate if score range too small
+            # If the generated output score range is less than expected, regenerate
             if score_range < target_score_range:
                 continue
             
+            # Update score(diff)
+            updated_scores[i] = calculate_score_diff(max(score_tmp), min(score_tmp))
+            
+            # Print out some info for reference
             print(f"\nLabel: {tmp['label']}\n")
-            # [TODO] Print out last dialog to see relevance if needed
-            # Needs re-generate a raw dataset 
             print(f"assistant: {dataset[i]['query'][4]['content']['dialog']}")
             print(f"user: {dataset[i]['query'][5]['content']['dialog']}\n")
-            
-            # Print all results
+                
+            # Print output
             for j in range(N_BEST_OF):
                 print(f"Score {j}: {score_tmp[j]:.3f}, Response: {tmp['response'][j]}")
-                           
+                               
             print(f"\nRange of scores: {score_range:.3f}")
             print(f"\nchosen : {tmp['response'][score_tmp.index(max(score_tmp))]}")
             print(f"rejected : {tmp['response'][score_tmp.index(min(score_tmp))]}\n")
+            median_score = np.median(updated_scores)
+            mean_score = np.mean(updated_scores)
+            print(f"Current Median: {median_score:.3f}, Current Mean: {mean_score:.3f}\nDiff: {abs(median_score - mean_score):.3f}")
+
             user_input = input("[y] accept, [else] decline: ").strip().lower()
+            
+            # If accepted, update updated_data
             if user_input == "y":
-                updated_data['prompt'].append(data['prompt'])
-                updated_data['chosen'].append(tmp['response'][score_tmp.index(max(score_tmp))])
-                updated_data['rejected'].append(tmp['response'][score_tmp.index(min(score_tmp))])
+                updated_data['prompt'][i] = data['prompt']
+                updated_data['chosen'][i] = tmp['response'][score_tmp.index(max(score_tmp))]
+                updated_data['rejected'][i] = tmp['response'][score_tmp.index(min(score_tmp))]
+                updated_data['chosen_score'][i] = max(score_tmp)
+                updated_data['rejected_score'][i] = min(score_tmp)
                 break
-            else :
+            else:
                 continue
     else:
         print(f"\nskip: {i}/{len(dataset)}")
-        updated_data['prompt'].append(data['prompt'])
-        updated_data['chosen'].append(data['chosen'])
-        updated_data['rejected'].append(data['rejected'])
+updated_dataset = Dataset.from_dict(updated_data)
+
+# Show median and mean
+final_scores = [calculate_score_diff(chosen, rejected) for chosen, rejected in zip(updated_data['chosen_score'], updated_data['rejected_score'])]
+final_median = np.median(final_scores)
+final_mean = np.mean(final_scores)
+print(f"\nOriginal Median: {original_median:.3f}, Original Mean: {original_mean:.3f}")
+print(f"Final Median: {final_median:.3f}, Final Mean: {final_mean:.3f}")
 
 # Convert updated_data back to dataset format
 updated_dataset = Dataset.from_dict(updated_data)
