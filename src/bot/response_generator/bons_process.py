@@ -58,7 +58,6 @@ dataset = load_dataset(
 dataset = dataset.take(1024)  
 
 target_score_range = wandb.config["target_score_range"]
-
 # If score diff < 5 than flag 
 def mark_difference(example):
     return 1 if (example["chosen_score"] - example["rejected_score"]) < target_score_range else 0
@@ -299,7 +298,8 @@ for i in range(start_index, len(dataset)):
     median_score = np.median(updated_scores)
     mean_score = np.mean(updated_scores)
     save_checkpoint(updated_data, updated_scores, i, checkpoint_filename)
-        
+    target_score_range = wandb.config["target_score_range"]
+    
     # If the difference between median and mean is less than 0.5, stop generating
     if abs(median_score - mean_score) < 0.5:
         break
@@ -312,7 +312,11 @@ for i in range(start_index, len(dataset)):
 
         inputs = [input_text for _ in range(N_BEST_OF)]
         
+        fail_counter = 0
+        
         while True:
+            
+            
             output = bot(inputs, **gen_kwargs)
             responses = [text[0]['generated_text'][input_len:] for text in output]
             tmp = {
@@ -326,8 +330,16 @@ for i in range(start_index, len(dataset)):
             
             # If the generated output score range is less than expected, regenerate
             if score_range < target_score_range:
-                continue
-            
+                fail_counter += 1
+                print(f"fail: {fail_counter}/{10}")
+                if fail_counter <= 10:
+                    continue
+                elif 10 < fail_counter <= 20:
+                    target_score_range = 4
+                    continue
+                elif 20 < fail_counter:
+                    target_score_range = 3
+                    continue
             # Update score(diff)
             updated_scores[i] = calculate_score_diff(max(score_tmp), min(score_tmp))
             
@@ -348,7 +360,7 @@ for i in range(start_index, len(dataset)):
             print(f"Current Median: {median_score:.3f}, Current Mean: {mean_score:.3f}\nDiff: {abs(median_score - mean_score):.3f}")
 
             user_input = input("[y] accept, [else] decline: ").strip().lower()
-            
+            fail_counter = 0
             # If accepted, update updated_data
             if user_input == "y":
                 updated_data['prompt'][i] = data['prompt']
