@@ -94,7 +94,7 @@ bot = ResponseGeneratorPipeline(
     tokenizer,
     framework="pt",
     task="conversation-generation",
-    num_workers=1, # cause some issue here
+    num_workers=5, # cause some issue here
     torch_dtype="auto",
     add_special_tokens=True,
     truncation=False,
@@ -327,9 +327,10 @@ for i in range(start_index, len(dataset)):
             score_tmp = [reward.item() for reward in reward(tmp)]  # Use item() to get Python scalar
             tmp["score"] = score_tmp
             score_range = max(score_tmp) - min(score_tmp)
+            original_score_range = data['chosen_score'] - data['rejected_score']
             
             # If the generated output score range is less than expected, regenerate
-            if score_range < target_score_range:
+            if score_range < target_score_range or score_range < original_score_range:
                 fail_counter += 1
                 print(f"fail: {fail_counter}/{10}")
                 if fail_counter <= 10:
@@ -337,9 +338,11 @@ for i in range(start_index, len(dataset)):
                 elif 10 < fail_counter <= 20:
                     target_score_range = 4
                     continue
-                elif 20 < fail_counter:
+                elif 20 < fail_counter <= 40:
                     target_score_range = 3
                     continue
+                else :
+                    break
             # Update score(diff)
             updated_scores[i] = calculate_score_diff(max(score_tmp), min(score_tmp))
             
@@ -384,4 +387,4 @@ print(f"Final Median: {final_median:.3f}, Final Mean: {final_mean:.3f}")
 
 # Convert updated_data back to dataset format
 updated_dataset = Dataset.from_dict(updated_data)
-updated_dataset.push_to_hub("Shotaro30678/rlhf-RG-trl-style-picked")
+updated_dataset.push_to_hub("Shotaro30678/rlhf-RG-trl-style-refined")
