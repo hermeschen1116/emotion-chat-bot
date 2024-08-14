@@ -1,19 +1,12 @@
 from argparse import ArgumentParser
 from dataclasses import dataclass, Field
 
-import torch
 import wandb
-from bitsandbytes.optim import PagedLion32bit
 from datasets import load_dataset
 from peft.peft_model import PeftModel
-from torch import tensor
-from tqdm.auto import tqdm
-from transformers import (BitsAndBytesConfig, GenerationConfig, HfArgumentParser, pipeline, TextStreamer,AutoModelForSequenceClassification)
+from transformers import HfArgumentParser
 from transformers.hf_argparser import HfArg
-from trl import AutoModelForCausalLMWithValueHead
-from unsloth import 
 from trl import DPOConfig, DPOTrainer
-from trl.core import LengthSampler
 from unsloth import FastLanguageModel, PatchDPOTrainer
 
 from libs import CommonScriptArguments, CommonWanDBArguments
@@ -106,4 +99,4 @@ dpo_trainer = DPOTrainer(
 )
 dpo_trainer.train()
 
-dpo_trainer.save_model("./dpo_v1")
+dpo_trainer.save_model("./dpo_v")
