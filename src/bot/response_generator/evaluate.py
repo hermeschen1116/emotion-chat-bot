@@ -131,8 +131,10 @@ generation_config = GenerationConfig(
     min_new_tokens=5,
     repetition_penalty=1.5,
     top_k=100,
+    top_p=0.5,
     pad_token_id=tokenizer.pad_token_id,
     eos_token_id=tokenizer.eos_token_id,
+    temperature=0.5,
     
     # beam-search 0.8 
     do_sample=False,
