@@ -59,7 +59,7 @@ base_model, tokenizer = FastLanguageModel.from_pretrained(
 	load_in_4bit=True,
 	use_cache=False,
 	device_map="auto",
-	use_gradient_checkpointing=True,
+	use_gradient_checkpointing="unsloth",
 	low_cpu_mem_usage=True,
 )
 tokenizer.padding_side = "left"
@@ -83,10 +83,12 @@ model.load_adapter(
 model.print_trainable_parameters()
 
 training_args = DPOConfig(
-    output_dir="./output",
+    output_dir="./dpo_1epo",
     beta=0.1,
     model_adapter_name="traingg",
     ref_adapter_name="reference",
+    remove_unused_columns=False,
+    num_train_epochs=3,
     gradient_checkpointing=True
 )
 
@@ -99,4 +101,8 @@ dpo_trainer = DPOTrainer(
 )
 dpo_trainer.train()
 
-dpo_trainer.save_model("./dpo_v")
+# lora works like shit
+# model.save_pretrained_merged("lora_model", tokenizer, save_method = "lora",)
+
+# 16-bit working, but 4-bit somehow not working
+model.save_pretrained_merged("16bit_model_3epo", tokenizer, save_method = "merged_16bit",)

@@ -73,27 +73,39 @@ dataset = dataset.map(lambda samples: {
     ]
 }, input_columns="prompt", batched=True, num_proc=16)
 
-# Load Tokenizer
-base_model, tokenizer = FastLanguageModel.from_pretrained(
-    wandb.config["base_model"],
-    attn_implementation="flash_attention_2",
-    pretraining_tp=1,
-    load_in_4bit=True,
-    device_map="auto",
-    low_cpu_mem_usage=True,
-    trust_remote_code=True,
+# DPO model
+###########################
+
+from unsloth import FastLanguageModel
+model, tokenizer = FastLanguageModel.from_pretrained(
+    model_name = "16bit_model_1epo", # YOUR MODEL YOU USED FOR TRAINING
+    load_in_4bit = True,
 )
-tokenizer.padding_side = "left"
-tokenizer.clean_up_tokenization_spaces = True
-tokenizer.chat_template = wandb.config["chat_template"]
-tokenizer.add_special_tokens(wandb.config["special_tokens"])
-base_model.resize_token_embeddings(len(tokenizer))
+FastLanguageModel.for_inference(model) # Enable native 2x faster inference
 
-wandb.config["example_prompt"] = tokenizer.apply_chat_template(dataset[0]["prompt"], tokenize=False)
+###########################
 
-model = PeftModel.from_pretrained(base_model, run.use_model(wandb.config["fine_tuned_model"]))
-model = torch.compile(model)
-FastLanguageModel.for_inference(model)
+# # Load Tokenizer
+# base_model, tokenizer = FastLanguageModel.from_pretrained(
+#     wandb.config["base_model"],
+#     attn_implementation="flash_attention_2",
+#     pretraining_tp=1,
+#     load_in_4bit=True,
+#     device_map="auto",
+#     low_cpu_mem_usage=True,
+#     trust_remote_code=True,
+# )
+# tokenizer.padding_side = "left"
+# tokenizer.clean_up_tokenization_spaces = True
+# tokenizer.chat_template = wandb.config["chat_template"]
+# tokenizer.add_special_tokens(wandb.config["special_tokens"])
+# base_model.resize_token_embeddings(len(tokenizer))
+
+# wandb.config["example_prompt"] = tokenizer.apply_chat_template(dataset[0]["prompt"], tokenize=False)
+
+# model = PeftModel.from_pretrained(base_model, wandb.config["fine_tuned_model"])
+# model = torch.compile(model)
+# FastLanguageModel.for_inference(model)
 
 # Generate Response
 bot = ResponseGeneratorPipeline(
@@ -118,13 +130,27 @@ generation_config = GenerationConfig(
     max_new_tokens=20,
     min_new_tokens=5,
     repetition_penalty=1.5,
+    top_k=100,
     pad_token_id=tokenizer.pad_token_id,
-    eos_token_id=tokenizer.eos_token_id
+    eos_token_id=tokenizer.eos_token_id,
+    
+    # beam-search 0.8 
+    do_sample=False,
+    num_beams=2
+    
+    # beam-search multinomial 0.79
+    # do_sample=True,
+    # num_beams=2
+    
+    # diverse beam-search 0.79
+    # num_beams=2,
+    # num_beam_groups=2,
+    # diversity_penalty=1.0
 )
 
 result = dataset.map(lambda sample: {
     "test_response":
-        bot(sample, streamer=streamer, generation_config=generation_config)[0]["generated_text"][-1]["content"]["dialog"]
+        bot(sample, generation_config=generation_config)[0]["generated_text"][-1]["content"]["dialog"]
 }, input_columns="prompt")
 result = result.remove_columns("prompt")
 
