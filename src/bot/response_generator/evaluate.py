@@ -197,7 +197,7 @@ from collections import Counter
 gibberish_labels = [sample['label'] for sample in result["test_response_gibberish"]]
 label_distribution = Counter(gibberish_labels)
 
-wandb.log({"Gibberish Label Distribution": dict(label_distribution)})
+wandb.log({"Gibberish level": dict(label_distribution)})
 
 # Metrics
 emotion_id: dict = {label: index for index, label in enumerate(emotion_labels)}
