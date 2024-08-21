@@ -1,18 +1,19 @@
 from argparse import ArgumentParser
 from dataclasses import dataclass, Field
+import os
+
+import pickle
+import numpy as np
 
 import torch
 import wandb
-from bitsandbytes.optim import PagedLion32bit
-from datasets import load_dataset
+from datasets import load_dataset, Dataset
 from peft.peft_model import PeftModel
 from torch import tensor
 from tqdm.auto import tqdm
-from transformers import (GenerationConfig, HfArgumentParser, pipeline, TextStreamer)
+from transformers import (HfArgumentParser, pipeline, TextStreamer)
 from transformers.hf_argparser import HfArg
-from trl import AutoModelForCausalLMWithValueHead
 import pandas as pd
-from trl.core import LengthSampler
 from unsloth import FastLanguageModel
 
 from libs import CommonScriptArguments, CommonWanDBArguments, ResponseGeneratorPipeline
@@ -48,18 +49,22 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 
 # Load Dataset
 dataset = load_dataset(
-	"hermeschen1116/daily_dialog_for_RG",
+	wandb.config["dataset"],
 	split="train+validation",
 	keep_in_memory=True,
 	num_proc=16,
 	trust_remote_code=True
 )
 
+# dataset filtering
 history_length: int = 2 * wandb.config["num_turns_history"]
 dataset = dataset.filter(lambda sample: len(sample) >= (2 + history_length), input_columns="prompt", num_proc=16)
-print(f"Dataset size after filter: {len(dataset)}")
-dataset = dataset.take(1024)   # use very small dataset to debug
+print(f"dataset size after filter: {len(dataset)}")
 
+# take certain amount of data to see if it works
+dataset = dataset.take(2048) 
+
+# dataset preprocessing
 dataset = dataset.map(lambda sample: {
 	"prompt": sample[i: i + 2 + history_length] for i in range(0, len(sample) - 2, 2)
 			  if (i + 2 + history_length) <= len(sample)
@@ -78,7 +83,10 @@ dataset = dataset.map(lambda samples: {
 			  [{"role": "assistant", "content": {"emotion": sample[-1]["content"]["emotion"], "dialog": ""}}]
 	          for sample in samples],
 	"label": [sample[-1]["content"]["emotion"] for sample in samples]
-}, input_columns="prompt", remove_columns="prompt", batched=True, num_proc=16)
+}, input_columns="prompt", batched=True, num_proc=16) 
+
+# Target difference of chosen and rejected
+target_score_range = wandb.config["target_score_range"]
 
 # Load Tokenizer
 base_model, tokenizer = FastLanguageModel.from_pretrained(
@@ -101,18 +109,7 @@ base_model_with_adapter = PeftModel.from_pretrained(base_model, wandb.config["ad
 base_model_with_adapter.print_trainable_parameters()
 FastLanguageModel.for_inference(base_model_with_adapter)
 
-bot = ResponseGeneratorPipeline(
-    base_model_with_adapter,
-    tokenizer,
-    framework="pt",
-    task="conversation-generation",
-    num_workers=16,
-    torch_dtype="auto",
-    add_special_tokens=True,
-    truncation=False,
-    padding=True
-)
-
+# dataset to torch format and etc.
 dataset = dataset.with_format("torch")
 dataset = dataset.map(lambda sample: {
 	"input_ids": tokenizer.apply_chat_template(sample,
@@ -122,6 +119,21 @@ dataset = dataset.map(lambda sample: {
 	                                           add_generation_prompt=True,
 	                                           return_tensors="pt")
 }, input_columns="query", num_proc=16)
+
+# Text generation
+bot = ResponseGeneratorPipeline(
+    base_model_with_adapter,
+    tokenizer,
+    framework="pt",
+    task="conversation-generation",
+    num_workers=5, # cause some issue here
+    torch_dtype="auto",
+    add_special_tokens=True,
+    truncation=False,
+    padding=True
+)
+
+emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
 
 # Sentiment Analysis
 sentiment_analyser = pipeline(
@@ -159,11 +171,11 @@ gibberish_analyser = pipeline(
 
 def emotion_reward(response: str, emotion: str) -> float:
 	score = sentiment_analyser(response)[0]
- 
+
 	if score["label"] == emotion:
 		return score["score"] * 10
 	else:
-		return score["score"] - 1
+		return score["score"] * 0
 
 
 def non_gibberish_reward(response: str) -> float:
@@ -173,9 +185,9 @@ def non_gibberish_reward(response: str) -> float:
 		case "clean":
 			return score["score"] * 10
 		case "mild gibberish":
-			return score["score"] * 0.9
+			return score["score"] * 0.5
 		case _:
-			return score["score"] - 1
+			return score["score"] - 2
 
 
 # [TODO] 用級距的方式來給予分數
@@ -189,39 +201,21 @@ def length_reward(response_length: int) -> float:
 		return abs(difference_ratio_min + difference_ratio_max) * 10
 	else:
 		return difference_ratio_max * 0.9
+
+def reward(batch: dict) -> list:
+	emotion_scores = [emotion_reward(response, batch["label"])
+	                  for response in batch["response"]]
+	length_scores = [length_reward(response_length) for response_length in batch["response_length"]]
+	gibberish_scores = [non_gibberish_reward(response) for response in batch["response"]]
  
-def best_of_reward(batch: dict) -> list:
-	best_of_emotion_scores = []
-	best_of_length_scores = []
-	best_of_gibberish_scores = []
-	results = []
-	
-	# result of best_of emotion reward
-	for responses, emotion in zip(batch["response_best_of"], batch["label"]):
-		emotion_scores = [emotion_reward(response, emotion) for response in responses]
-		best_of_emotion_scores.append(emotion_scores)
-	# print(best_of_emotion_scores)
- 
-	# result of best_of length reward
-	for response_lengths in batch["response_best_of_len"]:
-		# print(response_lengths)
-		length_scores = [length_reward(response_length) for response_length in response_lengths]
-		best_of_length_scores.append(length_scores)
-	# print(best_of_length_scores)
- 
-	# result of best_of non_gibberish reward
-	for responses in batch["response_best_of"]:
-		gibberish_scores = [non_gibberish_reward(response) for response in responses]
-		best_of_gibberish_scores.append(gibberish_scores)
-	# print(best_of_gibberish_scores)
+	# print("\nemotion_scores: ",emotion_scores)
+	# print("\ngibberish_scores: ",gibberish_scores)
+	# print("\nlength_scores: ",length_scores)
 
 	reward_weight = tensor(wandb.config["reward_weights"], dtype=torch.float)
 	reward_bias = tensor(wandb.config["reward_bias"], dtype=torch.float)
-	for reward_scores in zip(best_of_emotion_scores, best_of_length_scores, best_of_gibberish_scores):
-		reward_score = [list(tup) for tup in zip(*reward_scores)]
-		result = [reward_weight.dot(tensor(reward_s, dtype=torch.float)) + reward_bias for reward_s in reward_score]
-		results.append(result)
-	return results
+	return [reward_weight.dot(tensor(reward_score, dtype=torch.float)) + reward_bias
+	        for reward_score in zip(emotion_scores, length_scores, gibberish_scores)]
 
 streamer = TextStreamer(
     tokenizer,
@@ -233,15 +227,16 @@ gen_kwargs = {
     "max_new_tokens":wandb.config["max_new_tokens"],
     "min_new_tokens":wandb.config["min_new_tokens"],
     "repetition_penalty":wandb.config["repetition_penalty"],
-    "top_k":2,
+    "top_k":5,
     "top_p":1.0, 
-    "temperature":30.0,
+    "temperature":2.0,
     "pad_token_id":tokenizer.pad_token_id,
-	"eos_token_id":tokenizer.eos_token_id
+	"eos_token_id":tokenizer.eos_token_id,
+    "do_sample":"False"
 }
 
-N_BEST_OF = 5
-device = 0 if torch.cuda.is_available() else "cpu"
+# set best_of candidates amount
+N_BEST_OF = wandb.config["n_best_of"]
 
 # :: [Resp]
 response_tensors_ref, response_tensors = [], []
@@ -251,58 +246,102 @@ response_tensors_best_of = []
 response_tensors_best_of_len = []
 input_ref = []
 
+def calculate_score_diff(chosen_score, rejected_score):
+    return chosen_score - rejected_score
+
 query_tensors = [input_ids.squeeze(0) for input_ids in dataset["input_ids"]]
 
-for i in range(len(dataset)):
+# Create dict for dataset
+keys = ['prompt', 'chosen', 'rejected', 'chosen_score', 'rejected_score']
+tmp_data = {key: [None] * len(dataset) for key in keys}
+
+# list of index of generation failure
+fail_index = []
+
+for i in tqdm(range(len(dataset))):
+    data = dataset[i]
     query = query_tensors[i]
-    input = tokenizer.decode(query, skip_special_tokens=True)
-    input_len = len(input)
-    input_ref.append(input)
+    input_text = tokenizer.decode(query, skip_special_tokens=True)
     
-    output = bot(
-        input,
-        **gen_kwargs,
-        streamer=streamer
-    )
-    response = output[0]['generated_text'][input_len:]
-    response_tensors_ref.append(response)
-    response_tensors_ref_len.append(len(response))
+    input_len = len(input_text)
+    input_ref.append(input_text)
 
-    # generating copies of the same query for the Best-of-n sampling
-    inputs = [input for _ in range(N_BEST_OF)]
-    output = bot(
-        inputs,
-        **gen_kwargs,
-        streamer=streamer
-    )
-    responses = [text[0]['generated_text'][input_len:] for text in output]
-    response_tensors_best_of.append(responses)
-    response_tensors_best_of_len.append([len(response) for response in responses])
+    inputs = [input_text for _ in range(N_BEST_OF)]
+    
+    # prevent endless generation
+    fail_counter = 0
+    
+    while True:
+        output = bot(inputs, **gen_kwargs)
+        responses = [text[0]['generated_text'][input_len:] for text in output]
+        tmp = {
+            'response': responses,
+            'response_length': [len(response) for response in responses],
+            'label': data['label'],
+        }
+        score_tmp = [reward.item() for reward in reward(tmp)]  # Use item() to get Python scalar
+        tmp["score"] = score_tmp
+        score_range = calculate_score_diff(max(score_tmp), min(score_tmp))
 
-test_data = (dataset.map(lambda sample: {
-    "query": sample["query"],
-    "label": sample["label"],
-    "input_ids": sample["input_ids"],
-})           
-.add_column("input", input_ref)
-.add_column("response_ref", response_tensors_ref)
-.add_column("response_ref_len", response_tensors_ref_len)
-.add_column("response_best_of", response_tensors_best_of)
-.add_column("response_best_of_len", response_tensors_best_of_len))
+        # If the generated output score range is less than expected, regenerate
+        print(f"\nRange of scores: {score_range:.3f}")
+        
+        if score_range < target_score_range or max(score_tmp) < 8 :
+            fail_counter += 1
+            print(f"fail: {fail_counter}/{20}")
+            if fail_counter <= 20:
+                print("\nRegenerating...")
+                continue
+            else:
+                fail_index.append(i)
+                break
+        
+        # # Print out some info for reference
+        # print(f"\nLabel: {tmp['label']}\n")
+        # print(f"assistant: {dataset[i]['query'][4]['content']['dialog']}")
+        # print(f"user: {dataset[i]['query'][5]['content']['dialog']}\n")
+        # # Print output
+        # for j in range(N_BEST_OF):
+        #     print(f"Score {j}: {score_tmp[j]:.3f}, Response: {tmp['response'][j]} \n {sentiment_analyser(tmp['response'][j])[0]}")
+        chosen = tmp['response'][score_tmp.index(max(score_tmp))]
+        rejected = tmp['response'][score_tmp.index(min(score_tmp))]
+        
+        chosen_sentiment = sentiment_analyser(chosen)[0]
+        chosen_gibberish = gibberish_analyser(chosen)[0]
+        
+        if chosen_sentiment['label'] != tmp['label'] or chosen_gibberish['label'] != "clean" or chosen_gibberish['score'] < 0.8:
+            fail_counter += 1
+            print(f"\nfail: {fail_counter}/{20}")
+            if fail_counter <= 20:
+                print("\nRegenerating...")
+                continue
+            else:
+                fail_index.append(i)
+                break
+        
+        
+        print(f"\nchosen : {chosen}")
+        print(f"rejected : {rejected}")
+        
+        tmp_data['prompt'][i] = input_text
+        tmp_data['chosen'][i] = tmp['response'][score_tmp.index(max(score_tmp))]
+        tmp_data['rejected'][i] = tmp['response'][score_tmp.index(min(score_tmp))]
+        tmp_data['chosen_score'][i] = max(score_tmp)
+        tmp_data['rejected_score'][i] = min(score_tmp)
+        
+        break
+    
+for i in sorted(fail_index, reverse=True):
+    for key in keys:
+        del tmp_data[key][i]
 
-scores_best_of = [torch.tensor(reward) for reward in best_of_reward(test_data)]
+# Show median and mean
+final_scores = [calculate_score_diff(chosen, rejected) for chosen, rejected in zip(tmp_data['chosen_score'], tmp_data['rejected_score'])]
+final_median = np.median(final_scores)
+final_mean = np.mean(final_scores)
+# print(f"\nOriginal Median: {original_median:.3f}, Original Mean: {original_mean:.3f}")
+print(f"Final Median: {final_median:.3f}, Final Mean: {final_mean:.3f}")
 
-response_best_of = [response_tensors_best_of[i][a.argmax().item()] for i, a in enumerate(scores_best_of)]
-response_best_of_reject = [response_tensors_best_of[i][a.argmin().item()] for i, a in enumerate(scores_best_of)]
-
-output_dataset = dataset.remove_columns(["input_ids"])
-output_dataset = (
-    output_dataset
-    .add_column("prompt", input_ref)
-    .add_column("chosen", response_best_of)
-    .add_column("chosen_score", [scores.max().item() for scores in scores_best_of])
-    .add_column("rejected", response_best_of_reject)
-    .add_column("rejected_score", [scores.min().item() for scores in scores_best_of])
-)
-
-output_dataset.push_to_hub("Shotaro30678/rlhf-RG-trl-style-raw-1024-query")
+# Convert updated_data back to dataset format
+output_dataset = Dataset.from_dict(tmp_data)
+output_dataset.push_to_hub("Shotaro30678/rlhf-RG-trl-style-v2-improved-score")
