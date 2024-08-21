@@ -139,15 +139,6 @@ generation_config = GenerationConfig(
     # beam-search 0.8 
     do_sample=False,
     num_beams=2
-    
-    # beam-search multinomial 0.79
-    # do_sample=True,
-    # num_beams=2
-    
-    # diverse beam-search 0.79
-    # num_beams=2,
-    # num_beam_groups=2,
-    # diversity_penalty=1.0
 )
 
 result = dataset.map(lambda sample: {
@@ -159,7 +150,7 @@ result = result.remove_columns("prompt")
 # Sentiment Analysis
 emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
 
-analyser = pipeline(
+sentiment_analyser = pipeline(
     model="Shotaro30678/emotion_text_classifier_on_dd_v1",
     framework="pt",
     task="sentiment-analysis",
@@ -167,10 +158,10 @@ analyser = pipeline(
     device_map="auto",
     torch_dtype="auto",
     model_kwargs={
-        "quantization_config": BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_compute_dtype=torch.float16
-        ),
+        # "quantization_config": BitsAndBytesConfig(
+        #     load_in_4bit=True,
+        #     bnb_4bit_compute_dtype=torch.float16
+        # ),
         "id2label": {k: v for k, v in enumerate(emotion_labels)},
         "label2id": {v: k for k, v in enumerate(emotion_labels)},
         "low_cpu_mem_usage": True
@@ -178,7 +169,35 @@ analyser = pipeline(
     trust_remote_code=True
 )
 
-result = result.add_column("test_response_sentiment", analyser(result["test_response"]))
+# Detect gibberish
+gibberish_analyser = pipeline(
+	model=wandb.config["gibberish_detector_model"],
+	tokenizer=wandb.config["gibberish_detector_model"],
+	max_length=512,
+	framework="pt",
+	task="text-classification",
+	num_workers=16,
+	device_map="cpu",
+	torch_dtype="auto",
+	model_kwargs={
+		# "quantization_config": BitsAndBytesConfig(
+		# 	load_in_4bit=True,
+		# 	bnb_4bit_compute_dtype=torch.float16
+		# ),
+		"low_cpu_mem_usage": True
+	},
+	trust_remote_code=True
+)
+
+result = result.add_column("test_response_sentiment", sentiment_analyser(result["test_response"]))
+result = result.add_column("test_response_gibberish", gibberish_analyser(result["test_response"]))
+
+from collections import Counter
+
+gibberish_labels = [sample['label'] for sample in result["test_response_gibberish"]]
+label_distribution = Counter(gibberish_labels)
+
+wandb.log({"Gibberish Label Distribution": dict(label_distribution)})
 
 # Metrics
 emotion_id: dict = {label: index for index, label in enumerate(emotion_labels)}
