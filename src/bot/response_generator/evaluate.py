@@ -78,7 +78,7 @@ dataset = dataset.map(lambda samples: {
 
 from unsloth import FastLanguageModel
 model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name = "16bit_model_1epo", # YOUR MODEL YOU USED FOR TRAINING
+    model_name = "16bit_model_3epo", # YOUR MODEL YOU USED FOR TRAINING
     load_in_4bit = True,
 )
 FastLanguageModel.for_inference(model) # Enable native 2x faster inference
@@ -127,15 +127,15 @@ streamer = TextStreamer(
 )
 
 generation_config = GenerationConfig(
-    max_new_tokens=20,
+    max_new_tokens=200,
     min_new_tokens=5,
     repetition_penalty=1.5,
-    top_k=100,
-    top_p=0.5,
+    top_k=5,
+    top_p=1.0,
     pad_token_id=tokenizer.pad_token_id,
     eos_token_id=tokenizer.eos_token_id,
-    temperature=0.5,
-    
+    temperature=0.0,
+    stop_strings=".",
     # beam-search 0.8 
     do_sample=False,
     num_beams=2
