@@ -44,7 +44,7 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 
 # Load Dataset
 dataset = load_dataset(
-	"Shotaro30678/rlhf-RG-trl-style-refined",
+	wandb.config["dataset"],
 	split="train",
 	keep_in_memory=True,
 	num_proc=16,
@@ -88,7 +88,7 @@ training_args = DPOConfig(
     model_adapter_name="traingg",
     ref_adapter_name="reference",
     remove_unused_columns=False,
-    num_train_epochs=3,
+    num_train_epochs=5,
     gradient_checkpointing=True
 )
 
@@ -105,4 +105,4 @@ dpo_trainer.train()
 # model.save_pretrained_merged("lora_model", tokenizer, save_method = "lora",)
 
 # 16-bit working, but 4-bit somehow not working
-model.save_pretrained_merged("16bit_model_3epo", tokenizer, save_method = "merged_16bit",)
+model.save_pretrained_merged("16bit_model_5epo", tokenizer, save_method = "merged_16bit",)
