@@ -133,9 +133,9 @@ generation_config = GenerationConfig(
     top_k=5,
     top_p=1.0,
     pad_token_id=tokenizer.pad_token_id,
-    eos_token_id=tokenizer.eos_token_id,
-    temperature=0.0,
-    stop_strings=".",
+    # eos_token_id=tokenizer.eos_token_id,
+    temperature=1.5,
+    stop_strings=[".","!","?"],
     # beam-search 0.8 
     do_sample=False,
     num_beams=2
@@ -143,7 +143,7 @@ generation_config = GenerationConfig(
 
 result = dataset.map(lambda sample: {
     "test_response":
-        bot(sample, generation_config=generation_config)[0]["generated_text"][-1]["content"]["dialog"]
+        bot(sample, generation_config=generation_config, tokenizer=tokenizer)[0]["generated_text"][-1]["content"]["dialog"]
 }, input_columns="prompt")
 result = result.remove_columns("prompt")
 
@@ -207,6 +207,9 @@ sentiment_pred: torch.tensor = torch.tensor([emotion_id[sample["label"]]
                                              for sample in result["test_response_sentiment"]])
 
 num_emotion_labels: int = len(emotion_labels)
+
+# WARNING:root:Warning: Some classes do not exist in the target. F1 scores for these classes will be cast to zeros.
+
 wandb.log({
     "F1-score": multiclass_f1_score(sentiment_true, sentiment_pred, num_classes=num_emotion_labels, average="weighted"),
     "Accuracy": multiclass_accuracy(sentiment_true, sentiment_pred, num_classes=num_emotion_labels)
