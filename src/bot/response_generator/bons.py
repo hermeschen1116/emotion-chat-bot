@@ -288,8 +288,8 @@ for i in tqdm(range(len(dataset))):
         
         if score_range < target_score_range or max(score_tmp) < 8 :
             fail_counter += 1
-            print(f"fail: {fail_counter}/{20}")
-            if fail_counter <= 20:
+            print(f"fail: {fail_counter}/{30}")
+            if fail_counter <= 30:
                 print("\nRegenerating...")
                 continue
             else:
@@ -316,8 +316,8 @@ for i in tqdm(range(len(dataset))):
             # add this line to force "chosen" end with ["!", ".", "?"]
             ):
             fail_counter += 1
-            print(f"\nfail: {fail_counter}/{20}")
-            if fail_counter <= 20:
+            print(f"\nfail: {fail_counter}/{30}")
+            if fail_counter <= 30:
                 print("\nRegenerating...")
                 continue
             else:
