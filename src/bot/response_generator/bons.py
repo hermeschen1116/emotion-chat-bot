@@ -309,7 +309,12 @@ for i in tqdm(range(len(dataset))):
         chosen_sentiment = sentiment_analyser(chosen)[0]
         chosen_gibberish = gibberish_analyser(chosen)[0]
         
-        if chosen_sentiment['label'] != tmp['label'] or chosen_gibberish['label'] != "clean" or chosen_gibberish['score'] < 0.8:
+        if (chosen_sentiment['label'] != tmp['label'] 
+            or chosen_gibberish['label'] != "clean" 
+            or chosen_gibberish['score'] < 0.8
+            or chosen.lstrip(" ").rstrip(" ")[-1:] not in ["!", ".", "?"]
+            # add this line to force "chosen" end with ["!", ".", "?"]
+            ):
             fail_counter += 1
             print(f"\nfail: {fail_counter}/{20}")
             if fail_counter <= 20:
@@ -344,4 +349,4 @@ print(f"Final Median: {final_median:.3f}, Final Mean: {final_mean:.3f}")
 
 # Convert updated_data back to dataset format
 output_dataset = Dataset.from_dict(tmp_data)
-output_dataset.push_to_hub("Shotaro30678/rlhf-RG-trl-style-v2-improved-score")
+output_dataset.push_to_hub("Shotaro30678/rlhf-RG-trl-style-v3")
