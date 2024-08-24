@@ -83,12 +83,12 @@ model.load_adapter(
 model.print_trainable_parameters()
 
 training_args = DPOConfig(
-    output_dir="./dpo_1epo",
+    output_dir="./checkpoints",
     beta=0.1,
     model_adapter_name="traingg",
     ref_adapter_name="reference",
     remove_unused_columns=False,
-    num_train_epochs=5,
+    num_train_epochs=3,
     gradient_checkpointing=True
 )
 
@@ -101,8 +101,5 @@ dpo_trainer = DPOTrainer(
 )
 dpo_trainer.train()
 
-# lora works like shit
-# model.save_pretrained_merged("lora_model", tokenizer, save_method = "lora",)
-
 # 16-bit working, but 4-bit somehow not working
-model.save_pretrained_merged("16bit_model_5epo", tokenizer, save_method = "merged_16bit",)
+model.save_pretrained_merged("16bit_model_3epo-v3", tokenizer, save_method = "merged_16bit",)
