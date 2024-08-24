@@ -1,17 +1,18 @@
 from argparse import ArgumentParser
 from dataclasses import Field, dataclass
 
+from collections import Counter
+
 import torch
 import wandb
-from datasets import load_dataset, load_from_disk
-from peft.peft_model import PeftModel
+from datasets import load_dataset
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
+from sklearn.metrics import classification_report
 from transformers import (
-    BitsAndBytesConfig,
     GenerationConfig,
     HfArgumentParser,
     TextStreamer,
-    pipeline, TextGenerationPipeline
+    pipeline
 )
 from transformers.hf_argparser import HfArg
 from unsloth import FastLanguageModel
@@ -78,7 +79,7 @@ dataset = dataset.map(lambda samples: {
 
 from unsloth import FastLanguageModel
 model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name = "16bit_model_3epo", # YOUR MODEL YOU USED FOR TRAINING
+    model_name = "16bit_model_3epo-v3", # YOUR MODEL YOU USED FOR TRAINING
     load_in_4bit = True,
 )
 FastLanguageModel.for_inference(model) # Enable native 2x faster inference
@@ -120,30 +121,32 @@ bot = ResponseGeneratorPipeline(
     padding=True
 )
 
-streamer = TextStreamer(
-    tokenizer,
-    skip_special_tokens=True,
-    clean_up_tokenization_spaces=True
-)
+# streamer = TextStreamer(
+#     tokenizer,
+#     skip_special_tokens=True,
+#     clean_up_tokenization_spaces=True
+# )
 
 generation_config = GenerationConfig(
-    max_new_tokens=200,
+    max_new_tokens=150,  # Reduce the max tokens to generate
     min_new_tokens=5,
-    repetition_penalty=1.5,
-    top_k=5,
-    top_p=1.0,
+    repetition_penalty=1.1,
+    top_k=3,  # Reduce the top_k sampling
+    top_p=0.9,  # Reduce the top_p sampling
     pad_token_id=tokenizer.pad_token_id,
-    # eos_token_id=tokenizer.eos_token_id,
-    temperature=1.5,
-    stop_strings=[".","!","?"],
-    # beam-search 0.8 
-    do_sample=False,
-    num_beams=2
+    eos_token_id=tokenizer.eos_token_id,
+    temperature=1.0,  # Adjust temperature for faster response
+    do_sample=True,  # Sampling instead of beam search
+    num_beams=1  # Greedy search
 )
 
 result = dataset.map(lambda sample: {
     "test_response":
-        bot(sample, generation_config=generation_config, tokenizer=tokenizer)[0]["generated_text"][-1]["content"]["dialog"]
+        bot(sample,
+            # streamer=streamer,
+            generation_config=generation_config,
+            tokenizer=tokenizer
+            )[0]["generated_text"][-1]["content"]["dialog"]
 }, input_columns="prompt")
 result = result.remove_columns("prompt")
 
@@ -158,10 +161,6 @@ sentiment_analyser = pipeline(
     device_map="auto",
     torch_dtype="auto",
     model_kwargs={
-        # "quantization_config": BitsAndBytesConfig(
-        #     load_in_4bit=True,
-        #     bnb_4bit_compute_dtype=torch.float16
-        # ),
         "id2label": {k: v for k, v in enumerate(emotion_labels)},
         "label2id": {v: k for k, v in enumerate(emotion_labels)},
         "low_cpu_mem_usage": True
@@ -180,10 +179,6 @@ gibberish_analyser = pipeline(
 	device_map="cpu",
 	torch_dtype="auto",
 	model_kwargs={
-		# "quantization_config": BitsAndBytesConfig(
-		# 	load_in_4bit=True,
-		# 	bnb_4bit_compute_dtype=torch.float16
-		# ),
 		"low_cpu_mem_usage": True
 	},
 	trust_remote_code=True
@@ -192,12 +187,15 @@ gibberish_analyser = pipeline(
 result = result.add_column("test_response_sentiment", sentiment_analyser(result["test_response"]))
 result = result.add_column("test_response_gibberish", gibberish_analyser(result["test_response"]))
 
-from collections import Counter
-
 gibberish_labels = [sample['label'] for sample in result["test_response_gibberish"]]
 label_distribution = Counter(gibberish_labels)
 
 wandb.log({"Gibberish level": dict(label_distribution)})
+
+incomplete_idx = [sample.rstrip(" ")[-1:] not in ["!", ".", "?"] for sample in result["test_response"]]
+incomplete_num = Counter(incomplete_idx)
+
+wandb.log({"Incomplete amount": dict(incomplete_num)})
 
 # Metrics
 emotion_id: dict = {label: index for index, label in enumerate(emotion_labels)}
@@ -217,3 +215,5 @@ wandb.log({
 wandb.log({"evaluation_result": wandb.Table(dataframe=result.to_pandas())})
 
 wandb.finish()
+
+print(classification_report(sentiment_true, sentiment_pred))
