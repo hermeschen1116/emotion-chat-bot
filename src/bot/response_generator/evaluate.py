@@ -8,6 +8,7 @@ import wandb
 from datasets import load_dataset
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from sklearn.metrics import classification_report
+from peft.peft_model import PeftModel
 from transformers import (
     GenerationConfig,
     HfArgumentParser,
@@ -86,7 +87,7 @@ FastLanguageModel.for_inference(model) # Enable native 2x faster inference
 
 ###########################
 
-# # Load Tokenizer
+# Load Tokenizer
 # base_model, tokenizer = FastLanguageModel.from_pretrained(
 #     wandb.config["base_model"],
 #     attn_implementation="flash_attention_2",
@@ -216,4 +217,4 @@ wandb.log({"evaluation_result": wandb.Table(dataframe=result.to_pandas())})
 
 wandb.finish()
 
-print(classification_report(sentiment_true, sentiment_pred))
+print(classification_report(sentiment_true, sentiment_pred, target_names=emotion_labels))
