@@ -1,0 +1,12 @@
+{
+	"chat_template_file": "./chat_template/Llama2_OUT_INST_UNI.json",
+	"job_type": "fine_tune",
+	"project": "emotion-chat-bot-ncu-dpo",
+	"group": "Response Generator",
+	"notes": "fine tune model on Candidates Generator task",
+	"config": {
+		"base_model": "meta-llama/Llama-2-7b-hf",
+		"adapter": "hermeschen1116/response_generator_for_emotion_chat_bot",
+		"dataset": "Shotaro30678/rlhf-RG-trl-style-v3"
+	}
+}
