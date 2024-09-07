@@ -1,8 +1,5 @@
 from argparse import ArgumentParser
 from dataclasses import dataclass, Field
-import os
-
-import pickle
 import numpy as np
 
 import torch
@@ -13,7 +10,6 @@ from torch import tensor
 from tqdm.auto import tqdm
 from transformers import (HfArgumentParser, pipeline, TextStreamer)
 from transformers.hf_argparser import HfArg
-import pandas as pd
 from unsloth import FastLanguageModel
 
 from libs import CommonScriptArguments, CommonWanDBArguments, ResponseGeneratorPipeline
@@ -119,6 +115,8 @@ dataset = dataset.map(lambda sample: {
 	                                           add_generation_prompt=True,
 	                                           return_tensors="pt")
 }, input_columns="query", num_proc=16)
+
+print(dataset)
 
 # Text generation
 bot = ResponseGeneratorPipeline(
@@ -349,4 +347,4 @@ print(f"Final Median: {final_median:.3f}, Final Mean: {final_mean:.3f}")
 
 # Convert updated_data back to dataset format
 output_dataset = Dataset.from_dict(tmp_data)
-output_dataset.push_to_hub("Shotaro30678/rlhf-RG-trl-style-v3")
+# output_dataset.push_to_hub("Shotaro30678/rlhf-RG-trl-style-v3")
