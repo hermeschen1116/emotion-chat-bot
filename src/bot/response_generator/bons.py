@@ -310,7 +310,7 @@ for i in tqdm(range(len(dataset))):
         if (chosen_sentiment['label'] != tmp['label'] 
             or chosen_gibberish['label'] != "clean" 
             or chosen_gibberish['score'] < 0.8
-            or chosen.lstrip(" ").rstrip(" ")[-1:] not in ["!", ".", "?"]
+            or chosen.strip(" ")[-1:] not in ["!", ".", "?"]
             # add this line to force "chosen" end with ["!", ".", "?"]
             ):
             fail_counter += 1
@@ -347,4 +347,4 @@ print(f"Final Median: {final_median:.3f}, Final Mean: {final_mean:.3f}")
 
 # Convert updated_data back to dataset format
 output_dataset = Dataset.from_dict(tmp_data)
-# output_dataset.push_to_hub("Shotaro30678/rlhf-RG-trl-style-v3")
+output_dataset.push_to_hub("Shotaro30678/rlhf-RG-trl-style-v3")
