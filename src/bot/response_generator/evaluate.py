@@ -50,7 +50,7 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 
 
 # Load and Process Dataset
-dataset = load_dataset("hermeschen1116/daily_dialog_for_RG", split="test", num_proc=16, trust_remote_code=True)
+dataset = load_dataset(wandb.config["dataset"],, split="test", num_proc=16, trust_remote_code=True)
 
 dataset = dataset.map(lambda samples: {
     "dialog_bot": [sample[-1]["content"]["dialog"] for sample in samples],

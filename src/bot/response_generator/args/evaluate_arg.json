@@ -5,7 +5,7 @@
   "group": "Response Generator",
   "notes": "evaluate performance of models fine tune on different hyperparameters",
   "config": {
-    "dataset": "daily_dialog_for_RG:latest",
+    "dataset": "hermeschen1116/daily_dialog_for_RG",
     "base_model": "meta-llama/Llama-2-7b-hf",
     "fine_tuned_model": "hermeschen1116/response_generator_for_emotion_chat_bot",
     "system_prompt": "",
