@@ -20,7 +20,6 @@ from unsloth import FastLanguageModel
 
 from libs import CommonScriptArguments, CommonWanDBArguments, ResponseGeneratorPipeline
 
-
 @dataclass
 class ScriptArguments(CommonScriptArguments):
     chat_template_file: Field[str] = HfArg(aliases="--chat-template-file", default="")
@@ -41,7 +40,7 @@ run = wandb.init(
     project=wandb_args.project,
     group=wandb_args.group,
     notes=wandb_args.notes,
-    mode=wandb_args.mode,
+    mode="offline",
     resume=wandb_args.resume
 )
 wandb.config["chat_template"] = chat_template["template"]
@@ -52,7 +51,6 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 
 # Load and Process Dataset
 dataset = load_dataset("hermeschen1116/daily_dialog_for_RG", split="test", num_proc=16, trust_remote_code=True)
-# dataset = dataset.train_test_split(test_size=0.001)["test"]
 
 dataset = dataset.map(lambda samples: {
     "dialog_bot": [sample[-1]["content"]["dialog"] for sample in samples],
@@ -77,16 +75,16 @@ dataset = dataset.map(lambda samples: {
 
 # DPO model
 ###########################
-
 from unsloth import FastLanguageModel
 model, tokenizer = FastLanguageModel.from_pretrained(
     model_name = "16bit_model_3epo-v3", # YOUR MODEL YOU USED FOR TRAINING
     load_in_4bit = True,
 )
 FastLanguageModel.for_inference(model) # Enable native 2x faster inference
-
 ###########################
 
+# SFT model
+###########################
 # Load Tokenizer
 # base_model, tokenizer = FastLanguageModel.from_pretrained(
 #     wandb.config["base_model"],
@@ -108,6 +106,7 @@ FastLanguageModel.for_inference(model) # Enable native 2x faster inference
 # model = PeftModel.from_pretrained(base_model, wandb.config["fine_tuned_model"])
 # model = torch.compile(model)
 # FastLanguageModel.for_inference(model)
+###########################
 
 # Generate Response
 bot = ResponseGeneratorPipeline(
@@ -122,11 +121,11 @@ bot = ResponseGeneratorPipeline(
     padding=True
 )
 
-# streamer = TextStreamer(
-#     tokenizer,
-#     skip_special_tokens=True,
-#     clean_up_tokenization_spaces=True
-# )
+streamer = TextStreamer(
+    tokenizer,
+    skip_special_tokens=True,
+    clean_up_tokenization_spaces=True
+)
 
 generation_config = GenerationConfig(
     max_new_tokens=150,  # Reduce the max tokens to generate
@@ -144,7 +143,7 @@ generation_config = GenerationConfig(
 result = dataset.map(lambda sample: {
     "test_response":
         bot(sample,
-            # streamer=streamer,
+            streamer=streamer,
             generation_config=generation_config,
             tokenizer=tokenizer
             )[0]["generated_text"][-1]["content"]["dialog"]
@@ -207,7 +206,6 @@ sentiment_pred: torch.tensor = torch.tensor([emotion_id[sample["label"]]
 
 num_emotion_labels: int = len(emotion_labels)
 
-# WARNING:root:Warning: Some classes do not exist in the target. F1 scores for these classes will be cast to zeros.
 
 wandb.log({
     "F1-score": multiclass_f1_score(sentiment_true, sentiment_pred, num_classes=num_emotion_labels, average="weighted"),
