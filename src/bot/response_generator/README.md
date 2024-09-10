@@ -112,6 +112,7 @@ fine_tune_dpo.py --json_file args/dpo_arg.json
       trust_remote_code=True
     )  
     ```
+
     - **參數設定**
     
       根據[官方文件](https://huggingface.co/docs/transformers/main_classes/text_generation#transformers.GenerationConfig)以及交叉測試，我們發現 `multinomial sampling` 的結果最爲穩定平衡。
@@ -132,28 +133,59 @@ fine_tune_dpo.py --json_file args/dpo_arg.json
       ```
 
     - **評估指標**
-      WIP
+      - *情感分析 Sentiment analysis*
+
+        透過自訂的情感分析模型 [Shotaro30678/emotion_text_classifier_on_dd_v1](https://huggingface.co/Shotaro30678/emotion_text_classifier_on_dd_v1) 分析生成的情感是否與目標相同。
+
+      - *胡言亂語等級 Gibberish level*
+
+        利用 [madhurjindal/autonlp-Gibberish-Detector-492513457](https://huggingface.co/madhurjindal/autonlp-Gibberish-Detector-492513457) 來分析回覆的胡言亂語等級，並且進行統計。
+
+      - *不完整回覆數量 Incomplete amount*
+
+        若回覆結尾爲 `!`, `?`, `.` 則標記爲**完整 (Complete)**，反之則爲**不完整 (Incomplete)**。
 
 ## 數據
 
 - **生成時長**
 
-  在輸入為 2048 行的情況下，我們在單張 `RTX 3090` 共花費了 `12h 4m 21s` 生成。
+  在 **1000 筆**的輸入下，在單張 `RTX 3090` 上大約需要 `5m` 來執行。
 
-- **分數分佈**
-  
-  這邊的分數指 `[chosen_score] - [rejected_score]`
+- **模型表現**
 
-  ![alt text](image.png)
+  - *情感分析分數 Sentiment Score:*
 
-  |指標     |分數       |
-  |--------|----------|
-  |Median  |**17.547**|
-  |Mean    |**16.144**|
-  |SD      |**5.815**|
+    | **Metric**   | **DPO Trained** | **Baseline** |
+    |--------------|:----------------------:|:--------------------------:|
+    | **Accuracy** | 0.851                 | 0.788                     |
+    | **F1-score** | 0.8564                | 0.7975                    |
+
+  - *胡言亂語分佈 Gibberish Distribution:*
+
+    | **Category**        | **DPO Trained** | **Baseline** |
+    |---------------------|:----------------------:|:--------------------------:|
+    | **Clean**           | 882                   | 898                       |
+    | **Mild Gibberish**  | 94                    | 58                        |
+    | **Word Salad**      | 21                    | 33                        |
+    | **Noise**           | 3                     | 11                        |
+
+  - *不完整回覆 Cut-Off Output:*
+
+    | **Output Type**     | **DPO Trained** | **Baseline** |
+    |---------------------|:----------------------:|:--------------------------:|
+    | **Complete Output** | 985                   | 975                       |
+    | **Incomplete Output** | 15                  | 25                        |
 
 ## 版本迭代
 
-- v1:建立基本流程，但是分數未設定限制導致差距小且資料集分數整體偏低。
-- v2:改善分數計算，但時常出現 `chosen` 中有 `cut-off` 的回覆。
-- v3:透過強制篩選 `chosen` 來精準控制結果，並且捨棄 `cut-off` 的回覆。
+- PPO: 用盡各種方法仍然會 `OOM` (單張 `RTX3090 24G`)
+- RLOO: 用盡各種方法仍然會 `OOM` (單張 `RTX3090 24G`)
+- DPO: 成功訓練。
+- evaluate.py: 改進生成策略，新增評估方式。
+
+## 結論
+- 即便我們透過 DPO 成功訓練，但 DPO 需要建立 `preference dataset` 的模式會相當**耗時且難以保證資料集的品質**。同時 DPO 因其離線架構 (Offline-RLHF) 可能使結果在**某些情況下不如 PPO (Online-RLHF)**。
+
+  > 附註： [Offline vs. Online Reinforcement Learning](https://huggingface.co/learn/deep-rl-course/unitbonus3/offline-online), [Online DPO Trainer](https://huggingface.co/docs/trl/main/en/online_dpo_trainer#online-dpo-trainer)
+
+- 理論上 RLOO 應該是**相對更佳**的解決方案。RLOO 為 Online-RLHF，相比 Offline-RLHF 可以即時收集回饋並且改進模型參數。RLOO 比起 PPO 有更好的性能且需要更少的記憶體，同時也無需建立資料集。但即使如此，此方案對於我們現有的硬體來說仍然需求過高。

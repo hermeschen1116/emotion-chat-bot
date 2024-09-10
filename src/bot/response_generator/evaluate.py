@@ -40,7 +40,7 @@ run = wandb.init(
     project=wandb_args.project,
     group=wandb_args.group,
     notes=wandb_args.notes,
-    mode="offline",
+    mode=wandb_args.mode,
     resume=wandb_args.resume
 )
 wandb.config["chat_template"] = chat_template["template"]
@@ -50,7 +50,7 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 
 
 # Load and Process Dataset
-dataset = load_dataset(wandb.config["dataset"],, split="test", num_proc=16, trust_remote_code=True)
+dataset = load_dataset(wandb.config["dataset"], split="test", num_proc=16, trust_remote_code=True)
 
 dataset = dataset.map(lambda samples: {
     "dialog_bot": [sample[-1]["content"]["dialog"] for sample in samples],
@@ -77,7 +77,7 @@ dataset = dataset.map(lambda samples: {
 ###########################
 from unsloth import FastLanguageModel
 model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name = "16bit_model_3epo-v3", # YOUR MODEL YOU USED FOR TRAINING
+    model_name = "Shotaro30678/response_generator_DPO", # YOUR MODEL YOU USED FOR TRAINING
     load_in_4bit = True,
 )
 FastLanguageModel.for_inference(model) # Enable native 2x faster inference
@@ -154,7 +154,7 @@ result = result.remove_columns("prompt")
 emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
 
 sentiment_analyser = pipeline(
-    model="Shotaro30678/emotion_text_classifier_on_dd_v1",
+    model=wandb.config["sentiment_analyser_model"],
     framework="pt",
     task="sentiment-analysis",
     num_workers=16,
