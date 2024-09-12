@@ -144,9 +144,10 @@
 
 - **分數分佈**
   
-  這邊的分數指 `[chosen_score] - [rejected_score]`
+  這邊的分數指 `[chosen_score] - [rejected_score]`/home/user/github/chat-bot/src/bot/response_generator/image.png
 
-  ![alt text](image.png)
+  ![distribution](https://github.com/user-attachments/assets/3b4903f9-4c1d-40f9-83ad-b379f28c687a)
+
 
   |指標     |分數       |
   |--------|----------|
