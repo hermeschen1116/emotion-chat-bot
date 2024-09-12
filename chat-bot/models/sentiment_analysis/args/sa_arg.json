@@ -1,0 +1,10 @@
+{
+	"job_type": "fine_tune",
+	"project": "emotion-chat-bot-ncu-sa",
+	"group": "Sentiment Analysis",
+	"notes": "fine tune model on Sentiment Analysis task",
+	"config": {
+		"base_model": "michellejieli/emotion_text_classifier",
+		"dataset": "benjaminbeilharz/better_daily_dialog"
+	}
+}

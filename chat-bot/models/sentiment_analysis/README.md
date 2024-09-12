@@ -1,5 +1,4 @@
-# 專題
-中央大學專題
+# Sentiment Analysis
 
 ### HOW-TO
 執行 `run_SA.ipynb`
@@ -22,33 +21,4 @@
 #### 整體流程
 * 利用 huggingface 的 load_dataset 來直接存取資料集，並且整理成可用的形式。例如更改 feature 名稱來對應需求。
 * 使用 AutoTokenizer 以及 AutoModelForSequenceClassification 來產生需要的組件，並且使用 trainer.train() 進行訓練。
-
-
-
-
-### To-Do
-- [X] mapping output to dailydialog style
-- [X] test performance
-- [ ] ...
----
-### 專題作業時程
-#### Sentiment Analysis （3月初）
-* Test prompt and optimize 
-#### Response Generator （3月底）
-* Test prompt and optimize
-#### Candidate Generator （4月中）
-* Test prompt
-* Test different length of history
-* Optimize 
-* (option) use Trl to strengthen divergence 
-#### Similarity Analysis （3月底）
-* Find right math formula
-* Experiment 
-#### Emotion Model （4月底）
-* Understand different types of attention mechanism 
-* Build model with attention mechanism 
-* Optimize
-#### Full Model（5月中）
-* Optimize and Improve 
-* Application
 
