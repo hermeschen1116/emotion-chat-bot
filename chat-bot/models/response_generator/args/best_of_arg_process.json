@@ -1,0 +1,25 @@
+{
+	"chat_template_file": "./chat_template/Llama2_OUT_INST_UNI.json",
+	"job_type": "tweak_dataset",
+	"project": "emotion-chat-bot-ncu_tweak_dataset",
+	"group": "Response Generator",
+	"notes": "twead the dataset that generated with best of N",
+	"config": {
+		"dataset": "Shotaro30678/rlhf-RG-trl-style-raw-1024-query",
+		"base_model": "meta-llama/Llama-2-7b-hf",
+		"adapter": "hermeschen1116/response_generator_for_emotion_chat_bot",
+		"sentiment_analysis_model": "Shotaro30678/emotion_text_classifier_on_dd_v1",
+		"gibberish_detector_model": "madhurjindal/autonlp-Gibberish-Detector-492513457",
+		"system_prompt": "",
+		"num_turns_history": 2,
+		"top_k": 0.0,
+		"top_p": 1.0,
+		"max_input_tokens": 2048,
+		"min_new_tokens": 5,
+		"max_new_tokens": 20,
+		"repetition_penalty": 1.5,
+		"reward_weights": [0.4, 0.25, 0.35],
+		"reward_bias": 0.001,
+		"target_score_range":5
+	}
+}
