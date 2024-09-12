@@ -22,7 +22,6 @@ class CommonScriptArguments:
 
     def __post_init__(self):
         load_dotenv(encoding="utf-8")
-        wandb.require("core")
 
         if self.huggingface_api_token is None:
             self.huggingface_api_token = os.environ.get("HF_TOKEN", "")
