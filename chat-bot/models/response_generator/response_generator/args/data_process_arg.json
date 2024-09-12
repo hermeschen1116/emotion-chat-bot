@@ -1,7 +1,0 @@
-{
-  "job_type": "dataset",
-  "project": "emotion-chat-bot-ncu",
-  "group": "Response Generator",
-  "notes": "build up dataset for RG",
-  "dataset_description": "modified version of daily dialog dataset from huggingface for response generator module"
-}

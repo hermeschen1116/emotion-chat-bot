@@ -1,23 +1,24 @@
 from argparse import ArgumentParser
 from dataclasses import Field, dataclass
 
+from collections import Counter
+
 import torch
 import wandb
-from datasets import load_dataset, load_from_disk
-from peft.peft_model import PeftModel
+from datasets import load_dataset
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
+from sklearn.metrics import classification_report
+from peft.peft_model import PeftModel
 from transformers import (
-    BitsAndBytesConfig,
     GenerationConfig,
     HfArgumentParser,
     TextStreamer,
-    pipeline, TextGenerationPipeline
+    pipeline
 )
 from transformers.hf_argparser import HfArg
 from unsloth import FastLanguageModel
 
 from libs import CommonScriptArguments, CommonWanDBArguments, ResponseGeneratorPipeline
-
 
 @dataclass
 class ScriptArguments(CommonScriptArguments):
@@ -49,8 +50,7 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 
 
 # Load and Process Dataset
-dataset = load_dataset("hermeschen1116/daily_dialog_for_RG", split="test", num_proc=16, trust_remote_code=True)
-# dataset = dataset.train_test_split(test_size=0.001)["test"]
+dataset = load_dataset(wandb.config["dataset"], split="test", num_proc=16, trust_remote_code=True)
 
 dataset = dataset.map(lambda samples: {
     "dialog_bot": [sample[-1]["content"]["dialog"] for sample in samples],
@@ -73,27 +73,40 @@ dataset = dataset.map(lambda samples: {
     ]
 }, input_columns="prompt", batched=True, num_proc=16)
 
-# Load Tokenizer
-base_model, tokenizer = FastLanguageModel.from_pretrained(
-    wandb.config["base_model"],
-    attn_implementation="flash_attention_2",
-    pretraining_tp=1,
-    load_in_4bit=True,
-    device_map="auto",
-    low_cpu_mem_usage=True,
-    trust_remote_code=True,
+# DPO model
+###########################
+from unsloth import FastLanguageModel
+model, tokenizer = FastLanguageModel.from_pretrained(
+    model_name = "Shotaro30678/response_generator_DPO", # YOUR MODEL YOU USED FOR TRAINING
+    load_in_4bit = True,
 )
-tokenizer.padding_side = "left"
-tokenizer.clean_up_tokenization_spaces = True
-tokenizer.chat_template = wandb.config["chat_template"]
-tokenizer.add_special_tokens(wandb.config["special_tokens"])
-base_model.resize_token_embeddings(len(tokenizer))
+FastLanguageModel.for_inference(model) # Enable native 2x faster inference
+###########################
 
-wandb.config["example_prompt"] = tokenizer.apply_chat_template(dataset[0]["prompt"], tokenize=False)
+# SFT model
+###########################
+# Load Tokenizer
+# base_model, tokenizer = FastLanguageModel.from_pretrained(
+#     wandb.config["base_model"],
+#     attn_implementation="flash_attention_2",
+#     pretraining_tp=1,
+#     load_in_4bit=True,
+#     device_map="auto",
+#     low_cpu_mem_usage=True,
+#     trust_remote_code=True,
+# )
+# tokenizer.padding_side = "left"
+# tokenizer.clean_up_tokenization_spaces = True
+# tokenizer.chat_template = wandb.config["chat_template"]
+# tokenizer.add_special_tokens(wandb.config["special_tokens"])
+# base_model.resize_token_embeddings(len(tokenizer))
 
-model = PeftModel.from_pretrained(base_model, run.use_model(wandb.config["fine_tuned_model"]))
-model = torch.compile(model)
-FastLanguageModel.for_inference(model)
+# wandb.config["example_prompt"] = tokenizer.apply_chat_template(dataset[0]["prompt"], tokenize=False)
+
+# model = PeftModel.from_pretrained(base_model, wandb.config["fine_tuned_model"])
+# model = torch.compile(model)
+# FastLanguageModel.for_inference(model)
+###########################
 
 # Generate Response
 bot = ResponseGeneratorPipeline(
@@ -115,34 +128,39 @@ streamer = TextStreamer(
 )
 
 generation_config = GenerationConfig(
-    max_new_tokens=20,
+    max_new_tokens=150,  # Reduce the max tokens to generate
     min_new_tokens=5,
-    repetition_penalty=1.5,
+    repetition_penalty=1.1,
+    top_k=3,  # Reduce the top_k sampling
+    top_p=0.9,  # Reduce the top_p sampling
     pad_token_id=tokenizer.pad_token_id,
-    eos_token_id=tokenizer.eos_token_id
+    eos_token_id=tokenizer.eos_token_id,
+    temperature=1.0,  # Adjust temperature for faster response
+    do_sample=True,  # Sampling instead of beam search
+    num_beams=1  # Greedy search
 )
 
 result = dataset.map(lambda sample: {
     "test_response":
-        bot(sample, streamer=streamer, generation_config=generation_config)[0]["generated_text"][-1]["content"]["dialog"]
+        bot(sample,
+            streamer=streamer,
+            generation_config=generation_config,
+            tokenizer=tokenizer
+            )[0]["generated_text"][-1]["content"]["dialog"]
 }, input_columns="prompt")
 result = result.remove_columns("prompt")
 
 # Sentiment Analysis
 emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
 
-analyser = pipeline(
-    model="Shotaro30678/emotion_text_classifier_on_dd_v1",
+sentiment_analyser = pipeline(
+    model=wandb.config["sentiment_analyser_model"],
     framework="pt",
     task="sentiment-analysis",
     num_workers=16,
     device_map="auto",
     torch_dtype="auto",
     model_kwargs={
-        "quantization_config": BitsAndBytesConfig(
-            load_in_4bit=True,
-            bnb_4bit_compute_dtype=torch.float16
-        ),
         "id2label": {k: v for k, v in enumerate(emotion_labels)},
         "label2id": {v: k for k, v in enumerate(emotion_labels)},
         "low_cpu_mem_usage": True
@@ -150,7 +168,34 @@ analyser = pipeline(
     trust_remote_code=True
 )
 
-result = result.add_column("test_response_sentiment", analyser(result["test_response"]))
+# Detect gibberish
+gibberish_analyser = pipeline(
+	model=wandb.config["gibberish_detector_model"],
+	tokenizer=wandb.config["gibberish_detector_model"],
+	max_length=512,
+	framework="pt",
+	task="text-classification",
+	num_workers=16,
+	device_map="cpu",
+	torch_dtype="auto",
+	model_kwargs={
+		"low_cpu_mem_usage": True
+	},
+	trust_remote_code=True
+)
+
+result = result.add_column("test_response_sentiment", sentiment_analyser(result["test_response"]))
+result = result.add_column("test_response_gibberish", gibberish_analyser(result["test_response"]))
+
+gibberish_labels = [sample['label'] for sample in result["test_response_gibberish"]]
+label_distribution = Counter(gibberish_labels)
+
+wandb.log({"Gibberish level": dict(label_distribution)})
+
+incomplete_idx = [sample.rstrip(" ")[-1:] not in ["!", ".", "?"] for sample in result["test_response"]]
+incomplete_num = Counter(incomplete_idx)
+
+wandb.log({"Incomplete amount": dict(incomplete_num)})
 
 # Metrics
 emotion_id: dict = {label: index for index, label in enumerate(emotion_labels)}
@@ -160,6 +205,7 @@ sentiment_pred: torch.tensor = torch.tensor([emotion_id[sample["label"]]
                                              for sample in result["test_response_sentiment"]])
 
 num_emotion_labels: int = len(emotion_labels)
+
 wandb.log({
     "F1-score": multiclass_f1_score(sentiment_true, sentiment_pred, num_classes=num_emotion_labels, average="weighted"),
     "Accuracy": multiclass_accuracy(sentiment_true, sentiment_pred, num_classes=num_emotion_labels)
@@ -167,3 +213,5 @@ wandb.log({
 wandb.log({"evaluation_result": wandb.Table(dataframe=result.to_pandas())})
 
 wandb.finish()
+
+print(classification_report(sentiment_true, sentiment_pred, target_names=emotion_labels))
