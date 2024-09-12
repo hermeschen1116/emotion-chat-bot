@@ -181,3 +181,5 @@ pyrightconfig.json
 # WanDB
 **/**/wandb/
 **/**/artifacts/
+
+uv.lock
