@@ -1,39 +1,36 @@
-[tool.poetry]
+[project]
 name = "chat-bot"
 version = "0.1.0"
-description = ""
+description = "A WIP experiment of making a chat bot with it own emotion"
 authors = [
-    "hermeschen1116 <108386417+hermeschen1116@users.noreply.github.com>",
-    "yangyx30678 <yangyx0000001@gmail.com>",
+	"hermeschen1116 <108386417+hermeschen1116@users.noreply.github.com>",
+	"yangyx30678 <yangyx0000001@gmail.com>"
 ]
 readme = "README.md"
-package-mode = false
+requires-python = ">=3.12"
+dependencies = [
+    "accelerate>=0.34.2",
+    "bitsandbytes>=0.43.3",
+    "flash-attn>=2.6.3",
+    "peft>=0.12.0",
+    "torch==2.4.0",
+    "transformers>=4.44.2",
+    "trl>=0.10.1",
+    "unsloth[cu121-ampere-torch240]",
+    "xformers>=0.0.27.post2",
+]
 
-[tool.poetry.dependencies]
-python = "~3.11"
-pip = "^24.1.2"
-wheel = "^0.43.0"
-setuptools = "^70.3.0"
-huggingface-hub = "^0.23.0"
-torch = "^2.3.0"
-datasets = "^2.19.1"
-peft = "^0.11.1"
-trl = "^0.8.6"
-transformers = "^4.41.0"
-accelerate = "^0.30.1"
-evaluate = "^0.4.1"
-torcheval = "^0.0.7"
-python-dotenv = "^1.0.1"
-unsloth = { git = "https://github.com/unslothai/unsloth.git", extras = ["huggingface"] }
-xformers = "^0.0.26.post1"
+[tool.uv]
+dev-dependencies = [
+    "datasets>=3.0.0",
+    "evaluate>=0.4.3",
+    "huggingface-hub>=0.24.7",
+    "python-dotenv>=1.0.1",
+    "setuptools>=74.1.2",
+    "torcheval>=0.0.7",
+    "wandb>=0.18.0",
+    "wheel>=0.44.0",
+]
 
-[tool.poetry.group.cuda.dependencies]
-bitsandbytes = "^0.43.1"
-flash-attn = "^2.6.1"
-
-[tool.poetry.group.dev.dependencies]
-wandb = "^0.17.4"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
+[tool.uv.sources]
+unsloth = { git = "https://github.com/unslothai/unsloth.git" }
