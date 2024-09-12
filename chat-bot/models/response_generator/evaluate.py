@@ -206,7 +206,6 @@ sentiment_pred: torch.tensor = torch.tensor([emotion_id[sample["label"]]
 
 num_emotion_labels: int = len(emotion_labels)
 
-
 wandb.log({
     "F1-score": multiclass_f1_score(sentiment_true, sentiment_pred, num_classes=num_emotion_labels, average="weighted"),
     "Accuracy": multiclass_accuracy(sentiment_true, sentiment_pred, num_classes=num_emotion_labels)
