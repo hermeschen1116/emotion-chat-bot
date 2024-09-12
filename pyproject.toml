@@ -15,12 +15,14 @@ dependencies = [
 	"torch==2.4.0",
 	"transformers>=4.44.2",
 	"trl>=0.10.1",
-	"unsloth[cu121-ampere-torch240]",
-	"xformers>=0.0.27.post2",
 ]
 
 [project.optional-dependencies]
-cuda = ["bitsandbytes>=0.43.3"]
+cuda = [
+	"bitsandbytes>=0.43.3",
+	"unsloth[cu121-ampere-torch240]",
+	"xformers>=0.0.27.post2",
+]
 
 [tool.uv]
 dev-dependencies = [
