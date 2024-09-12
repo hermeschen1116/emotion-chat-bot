@@ -156,13 +156,13 @@ dependencies = [
     { name = "torch" },
     { name = "transformers" },
     { name = "trl" },
-    { name = "unsloth", extra = ["cu121-ampere-torch240"] },
-    { name = "xformers" },
 ]
 
 [package.optional-dependencies]
 cuda = [
     { name = "bitsandbytes" },
+    { name = "unsloth", extra = ["cu121-ampere-torch240"] },
+    { name = "xformers" },
 ]
 
 [package.dev-dependencies]
@@ -186,8 +186,8 @@ requires-dist = [
     { name = "torch", specifier = "==2.4.0" },
     { name = "transformers", specifier = ">=4.44.2" },
     { name = "trl", specifier = ">=0.10.1" },
-    { name = "unsloth", extras = ["cu121-ampere-torch240"], git = "https://github.com/unslothai/unsloth.git" },
-    { name = "xformers", specifier = ">=0.0.27.post2" },
+    { name = "unsloth", extras = ["cu121-ampere-torch240"], marker = "extra == 'cuda'", git = "https://github.com/unslothai/unsloth.git" },
+    { name = "xformers", marker = "extra == 'cuda'", specifier = ">=0.0.27.post2" },
 ]
 
 [package.metadata.requires-dev]
