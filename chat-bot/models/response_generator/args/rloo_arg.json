@@ -1,0 +1,30 @@
+{
+	"chat_template_file": "./chat_template/Llama2_OUT_INST_UNI.json",
+	"job_type": "fine_tune",
+	"project": "emotion-chat-bot-ncu",
+	"group": "Response Generator",
+	"notes": "fine tune model on Candidates Generator task",
+	"config": {
+		"dataset": "hermeschen1116/daily_dialog_for_RG",
+		"base_model": "meta-llama/Llama-2-7b-hf",
+		"adapter": "hermeschen1116/response_generator_for_emotion_chat_bot",
+		"sentiment_analysis_model": "Shotaro30678/emotion_text_classifier_on_dd_v1",
+		"gibberish_detector_model": "madhurjindal/autonlp-Gibberish-Detector-492513457",
+		"system_prompt": "",
+		"num_turns_history": 2,
+		"num_epoches": 1,
+		"learning_rate": 2e-4,
+		"lr_gamma": 0.9,
+		"max_grad_norm": 0.3,
+		"score_clip": 0,
+		"top_k": 0.0,
+		"top_p": 1.0,
+		"max_input_tokens": 2048,
+		"min_new_tokens": 5,
+		"max_new_tokens": 20,
+		"repetition_penalty": 1.5,
+		"reward_weights": [0.4, 0.25, 0.35],
+		"reward_bias": 0.001,
+		"fine_tuned_model": "response_generator"
+	}
+}
