@@ -26,11 +26,11 @@ sent_pred = []
 sent_true = []
 raw_sent_pred = []
 
-for i in range(len(dataset)):
-    sent_true.append(dataset[i]['prompt'][-1]['content']['emotion'])
-    sent_pred.append(analyzer(dataset[i]['prompt'][-1]['content']['dialog'])[0]['label'])
+for data in dataset:
+    sent_true.append(data['prompt'][-1]['content']['emotion'])
+    sent_pred.append(analyzer(data['prompt'][-1]['content']['dialog'])[0]['label'])
     
-    raw_res = raw_analyzer(dataset[i]['prompt'][-1]['content']['dialog'])[0]['label']
+    raw_res = raw_analyzer(data['prompt'][-1]['content']['dialog'])[0]['label']
     if raw_res == 'joy':
         raw_sent_pred.append('happiness')
         continue
