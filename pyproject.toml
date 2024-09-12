@@ -4,33 +4,34 @@ version = "0.1.0"
 description = "A WIP experiment of making a chat bot with it own emotion"
 authors = [
 	"hermeschen1116 <108386417+hermeschen1116@users.noreply.github.com>",
-	"yangyx30678 <yangyx0000001@gmail.com>"
+	"yangyx30678 <yangyx0000001@gmail.com>",
 ]
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
-    "accelerate>=0.34.2",
-    "bitsandbytes>=0.43.3",
-    "flash-attn>=2.6.3",
-    "peft>=0.12.0",
-    "torch==2.4.0",
-    "transformers>=4.44.2",
-    "trl>=0.10.1",
-    "unsloth[cu121-ampere-torch240]",
-    "xformers>=0.0.27.post2",
+	"accelerate>=0.34.2",
+	"bitsandbytes>=0.43.3; os_name != 'darwin'",
+	"flash-attn>=2.6.3",
+	"peft>=0.12.0",
+	"torch==2.4.0",
+	"transformers>=4.44.2",
+	"trl>=0.10.1",
+	"unsloth[cu121-ampere-torch240]",
+	"xformers>=0.0.27.post2",
 ]
 
 [tool.uv]
 dev-dependencies = [
-    "datasets>=3.0.0",
-    "evaluate>=0.4.3",
-    "huggingface-hub>=0.24.7",
-    "python-dotenv>=1.0.1",
-    "setuptools>=74.1.2",
-    "torcheval>=0.0.7",
-    "wandb>=0.18.0",
-    "wheel>=0.44.0",
+	"datasets>=3.0.0",
+	"evaluate>=0.4.3",
+	"huggingface-hub>=0.24.7",
+	"python-dotenv>=1.0.1",
+	"setuptools>=74.1.2",
+	"torcheval>=0.0.7",
+	"wandb>=0.18.0",
+	"wheel>=0.44.0",
 ]
+no-build-isolation-package = ["xformers", "flash-attn"]
 
 [tool.uv.sources]
 unsloth = { git = "https://github.com/unslothai/unsloth.git" }
