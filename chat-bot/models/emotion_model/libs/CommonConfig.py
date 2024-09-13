@@ -15,16 +15,11 @@ from .CommonUtils import value_candidate_check
 
 @dataclass
 class CommonScriptArguments:
-	huggingface_api_token: Field[Optional[str]] = (
-        HfArg(aliases=["--huggingface-api-token", "--huggingface-token", "--hf-token"], default=os.environ.get("HF_TOKEN", "")))
-	wandb_api_token: Field[Optional[str]] = (
-        HfArg(aliases=["--wandb-api-token", "--wandb-token"], default=os.environ.get("WANDB_API_KEY", "")))
-
 	def __post_init__(self):
 		load_dotenv(encoding="utf-8")
 
-		huggingface_hub.login(token=self.huggingface_api_token, add_to_git_credential=True)
-		wandb.login(key=self.wandb_api_token, relogin=True)
+		huggingface_hub.login(token=os.environ.get("HF_TOKEN", ""), add_to_git_credential=True)
+		wandb.login(key=os.environ.get("WANDB_API_KEY", ""), relogin=True)
 
 		torch.backends.cudnn.deterministic = True
 		random.seed(hash("setting random seeds") % 2 ** 32 - 1)
