@@ -43,26 +43,26 @@ class CommonScriptArguments:
 @dataclass
 class CommonWanDBArguments:
     name: Field[Optional[str]] = HfArg(aliases=["--wandb-name"], default=None)
-    job_type: Optional[str] = HfArg(aliases=["--wandb-job-type", "--job-type"], default=None)
-    config: Union[Dict, str, None] = HfArg(aliases="--wandb-type", default_factory=dict)
-    project: Optional[str] = HfArg(aliases="--wandb-project", default=None)
+    job_type: Field[Optional[str]] = HfArg(aliases=["--wandb-job-type", "--job-type"], default=None)
+    config: Field[Union[Dict, str, None]] = HfArg(aliases="--wandb-type", default_factory=dict)
+    project: Field[Optional[str]] = HfArg(aliases="--wandb-project", default=None)
     group: Field[Optional[Union[Literal[
     				"Sentiment Analysis",
                     "Emotion Predictor",
                     "Emotion Model",
                     "Similarity Analysis",
                     "Response Generator"], None]]] = HfArg(aliases=["--wandb-group", "--group"], default=None)
-    notes: Optional[str] = HfArg(aliases=["--wandb-notes", "--notes"], default=None)
-    mode: Optional[Union[Literal["online", "offline", "disabled"], None]] = HfArg(aliases="--wandb-mode", default=None)
-    allow_val_change: Optional[bool] = HfArg(aliases="--allow-val-change", default=False)
-    resume: Optional[str] = HfArg(aliases="--wandb-resume", default=None)
+    notes: Field[Optional[str]] = HfArg(aliases=["--wandb-notes", "--notes"], default=None)
+    mode: Field[Optional[Union[Literal["online", "offline", "disabled"], None]]] = HfArg(aliases="--wandb-mode", default=None)
+    allow_val_change: Field[Optional[bool]] = HfArg(aliases="--allow-val-change", default=False)
+    resume: Field[Optional[str]] = HfArg(aliases="--wandb-resume", default=None)
 
     def __post_init__(self):
-	    module: List = ["Sentiment Analysis",
-	                    "Emotion Predictor",
-	                    "Emotion Model",
-	                    "Similarity Analysis",
-	                    "Response Generator"]
+        module: List = ["Sentiment Analysis",
+                        "Emotion Predictor",
+                        "Emotion Model",
+                        "Similarity Analysis",
+                        "Response Generator"]
 
         self.group = value_candidate_check(self.group,
                                            use_default_value=True,

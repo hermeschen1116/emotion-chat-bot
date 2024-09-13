@@ -3,6 +3,7 @@ from collections import Counter
 from dataclasses import Field, dataclass
 
 import torch
+from torch import Tensor
 import wandb
 from datasets import load_dataset
 from libs import (CommonScriptArguments, CommonWanDBArguments,
@@ -198,8 +199,8 @@ wandb.log({"Incomplete amount": dict(incomplete_num)})
 # Metrics
 emotion_id: dict = {label: index for index, label in enumerate(emotion_labels)}
 
-sentiment_true: torch.tensor = torch.tensor([emotion_id[sample] for sample in result["emotion_bot"]])
-sentiment_pred: torch.tensor = torch.tensor([emotion_id[sample["label"]]
+sentiment_true: Tensor = torch.tensor([emotion_id[sample] for sample in result["emotion_bot"]])
+sentiment_pred: Tensor = torch.tensor([emotion_id[sample["label"]]
                                              for sample in result["test_response_sentiment"]])
 
 num_emotion_labels: int = len(emotion_labels)
