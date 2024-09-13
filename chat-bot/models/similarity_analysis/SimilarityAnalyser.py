@@ -1,8 +1,8 @@
 from dataclasses import dataclass
-from typing import Optional, Any, Annotated, Union, Callable
+from typing import Annotated, Any, Callable, Optional, Union
 
 import torch
-from torch import tensor, float32
+from torch import float32, tensor
 
 
 @dataclass

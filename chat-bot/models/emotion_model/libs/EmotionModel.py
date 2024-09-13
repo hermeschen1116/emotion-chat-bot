@@ -1,7 +1,7 @@
-from .Attention import *
-
 import torch
 from torch import Tensor
+
+from .Attention import *
 
 
 def representation_evolute(model, representation_src: list, emotion_compositions: list) -> Tensor:

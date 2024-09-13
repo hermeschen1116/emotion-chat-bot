@@ -1,13 +1,14 @@
 import os
 import random
-from dataclasses import dataclass, Field
-from typing import Optional, Union, Dict, Literal, List
+from dataclasses import dataclass
+from typing import Dict, List, Literal, Optional, Union
 
 import huggingface_hub
 import numpy as np
 import torch.cuda
 import wandb
 from dotenv import load_dotenv
+from pyarrow import Field
 from transformers.hf_argparser import HfArg
 
 from .CommonUtils import value_candidate_check
@@ -15,22 +16,28 @@ from .CommonUtils import value_candidate_check
 
 @dataclass
 class CommonScriptArguments:
-    huggingface_api_token: Field[Optional[str]] = (
-        HfArg(aliases=["--huggingface-api-token", "--huggingface-token", "--hf-token"], default=os.environ.get("HF_TOKEN", "")))
-    wandb_api_token: Field[Optional[str]] = (
-        HfArg(aliases=["--wandb-api-token", "--wandb-token"], default=os.environ.get("WANDB_API_KEY", "")))
+	huggingface_api_token: Field[Optional[str]] = (
+        HfArg(aliases=["--huggingface-api-token", "--huggingface-token", "--hf-token"], default=None))
+	wandb_api_token: Field[Optional[str]] = (
+        HfArg(aliases=["--wandb-api-token", "--wandb-token"], default=None))
 
-    def __post_init__(self):
-        load_dotenv(encoding="utf-8")
+	def __post_init__(self):
+		load_dotenv(encoding="utf-8")
 
-        huggingface_hub.login(token=self.huggingface_api_token, add_to_git_credential=True)
-        wandb.login(key=self.wandb_api_token, relogin=True)
+		if self.huggingface_api_token is None:
+			self.huggingface_api_token = os.environ.get("HF_TOKEN", "")
 
-        torch.backends.cudnn.deterministic = True
-        random.seed(hash("setting random seeds") % 2 ** 32 - 1)
-        np.random.seed(hash("improves reproducibility") % 2 ** 32 - 1)
-        torch.manual_seed(hash("by removing stochasticity") % 2 ** 32 - 1)
-        torch.cuda.manual_seed_all(hash("so runs are repeatable") % 2 ** 32 - 1)
+		if self.wandb_api_token is None:
+			self.wandb_api_token = os.environ.get("WANDB_API_KEY", "")
+
+		huggingface_hub.login(token=self.huggingface_api_token, add_to_git_credential=True)
+		wandb.login(key=self.wandb_api_token, relogin=True)
+
+		torch.backends.cudnn.deterministic = True
+		random.seed(hash("setting random seeds") % 2 ** 32 - 1)
+		np.random.seed(hash("improves reproducibility") % 2 ** 32 - 1)
+		torch.manual_seed(hash("by removing stochasticity") % 2 ** 32 - 1)
+		torch.cuda.manual_seed_all(hash("so runs are repeatable") % 2 ** 32 - 1)
 
 
 @dataclass

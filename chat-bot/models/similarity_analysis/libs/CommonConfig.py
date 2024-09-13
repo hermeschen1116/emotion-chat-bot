@@ -1,7 +1,7 @@
 import os
 import random
 from dataclasses import dataclass
-from typing import Optional, Union, Dict, Literal, List
+from typing import Dict, List, Literal, Optional, Union
 
 import huggingface_hub
 import numpy as np

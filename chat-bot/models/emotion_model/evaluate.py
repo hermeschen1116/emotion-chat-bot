@@ -2,17 +2,17 @@ from argparse import ArgumentParser
 from dataclasses import dataclass
 from typing import Optional
 
-from pyarrow import Field
-from torch import Tensor
 import torch
-from datasets import load_from_disk, Dataset
-from safetensors.torch import load_model
-from torcheval.metrics.functional import multiclass_f1_score, multiclass_accuracy
-from transformers.hf_argparser import HfArgumentParser, HfArg
-
 import wandb
-
-from libs import EmotionModel, representation_evolute, CommonScriptArguments, CommonWanDBArguments, get_torch_device
+from datasets import Dataset, load_from_disk
+from libs import (CommonScriptArguments, CommonWanDBArguments, EmotionModel,
+                  get_torch_device, representation_evolute)
+from pyarrow import Field
+from safetensors.torch import load_model
+from torch import Tensor
+from torcheval.metrics.functional import (multiclass_accuracy,
+                                          multiclass_f1_score)
+from transformers.hf_argparser import HfArg, HfArgumentParser
 
 
 @dataclass

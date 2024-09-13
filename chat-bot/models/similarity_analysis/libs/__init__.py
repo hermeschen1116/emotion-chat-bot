@@ -1,5 +1,5 @@
-from .CommonConfig import (CommonScriptArguments, CommonWanDBArguments)
-from .CommonUtils import (value_candidate_check, get_torch_device)
+from .CommonConfig import CommonScriptArguments, CommonWanDBArguments
+from .CommonUtils import get_torch_device, value_candidate_check
 
 __all__ = [
     "CommonUtils",
