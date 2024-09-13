@@ -42,4 +42,5 @@ no-build-isolation-package = ["xformers", "flash-attn"]
 unsloth = { git = "https://github.com/unslothai/unsloth.git" }
 
 [tool.isort]
-src_paths = ["."]
+profile = "hug"
+src_paths = ["isort", "test"]
