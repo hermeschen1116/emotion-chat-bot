@@ -1,26 +1,27 @@
 from typing import Optional
 
+from torch import Tensor
 import torch
 
 
-def diagonal_indices(source: torch.tensor) -> torch.tensor:
+def diagonal_indices(source: Tensor) -> Tensor:
     source_shape: torch.Size = source.shape
     if len(source_shape) != 2:
-        raise ValueError(f"""The source tensor is in shape {tuple(source_shape)}), 
+        raise ValueError(f"""The source tensor is in shape {tuple(source_shape)}),
                              you should input a 2-D matrix.""")
     if source_shape[0] != source_shape[1]:
-        raise ValueError(f"""The source tensor is in shape {tuple(source_shape)}, 
+        raise ValueError(f"""The source tensor is in shape {tuple(source_shape)},
                              you should input a square matrix.""")
 
     return torch.tensor([i for i in range(source_shape[0])])
 
 
-def diagonal_softmax(source: torch.tensor, dtype: Optional[torch.dtype] = torch.float) -> torch.tensor:
-    diagonal: torch.tensor = diagonal_indices(source)
+def diagonal_softmax(source: Tensor, dtype: Optional[torch.dtype] = torch.float) -> Tensor:
+    diagonal: Tensor = diagonal_indices(source)
 
-    softmax_diagonal: torch.tensor = torch.softmax(source[diagonal, diagonal], dim=0, dtype=dtype)
+    softmax_diagonal: Tensor = torch.softmax(source[diagonal, diagonal], dim=0, dtype=dtype)
 
-    dest: torch.tensor = source
+    dest: Tensor = source
     dest[diagonal, diagonal] = softmax_diagonal.to(dtype=dest.dtype)
 
     return dest
@@ -31,7 +32,7 @@ class DotProductAttention(torch.nn.Module):
         super(DotProductAttention, self).__init__()
         self.__dtype: torch.dtype = dtype
 
-    def forward(self, query: torch.tensor, keys: torch.tensor) -> torch.tensor:
+    def forward(self, query: Tensor, keys: Tensor) -> torch.tensor:
         raw_attention: torch.tensor = torch.sum(query * keys, dim=1)
 
         return diagonal_softmax(raw_attention.squeeze().diag(), dtype=self.__dtype)

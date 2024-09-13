@@ -1,7 +1,7 @@
 import os
 import shutil
 from argparse import ArgumentParser
-from dataclasses import dataclass
+from dataclasses import dataclass, Field
 from typing import Optional
 
 import torch
@@ -19,7 +19,7 @@ from libs import generate_dummy_representation, get_sentiment_composition, Commo
 
 @dataclass
 class ScriptArguments(CommonScriptArguments):
-    dataset_path: Optional[str] = HfArg(aliases="--dataset-path", default="./dataset")
+    dataset_path: Field[Optional[str]] = HfArg(aliases="--dataset-path", default="./dataset")
 
 
 config_getter = ArgumentParser()
