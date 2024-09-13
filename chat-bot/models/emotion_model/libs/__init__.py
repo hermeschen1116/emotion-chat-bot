@@ -1,25 +1,11 @@
-from .Attention import (
-    diagonal_indices,
-    diagonal_softmax,
-    DotProductAttention,
-    ScaledDotProductAttention,
-    AdditiveAttention,
-    DualLinearAttention
-)
-
-from .DataProcess import (
-    generate_dummy_representation,
-    get_sentiment_composition
-)
-
-from .EmotionModel import (
-    representation_evolute,
-    EmotionModel
-)
-
+from .Attention import (AdditiveAttention, DotProductAttention,
+                        DualLinearAttention, ScaledDotProductAttention,
+                        diagonal_indices, diagonal_softmax)
 from .CommonConfig import CommonScriptArguments, CommonWanDBArguments
-
 from .CommonUtils import get_torch_device, value_candidate_check
+from .DataProcess import (generate_dummy_representation,
+                          get_sentiment_composition)
+from .EmotionModel import EmotionModel, representation_evolute
 
 __all__ = [
     "diagonal_indices",

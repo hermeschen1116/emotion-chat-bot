@@ -29,6 +29,7 @@ dev-dependencies = [
 	"datasets>=3.0.0",
 	"evaluate>=0.4.3",
 	"huggingface-hub>=0.24.7",
+	"isort[pipfile-deprecated-finder,requirements-deprecated-finder]>=5.13.2",
 	"python-dotenv>=1.0.1",
 	"setuptools>=74.1.2",
 	"torcheval>=0.0.7",
@@ -39,3 +40,7 @@ no-build-isolation-package = ["xformers", "flash-attn"]
 
 [tool.uv.sources]
 unsloth = { git = "https://github.com/unslothai/unsloth.git" }
+
+[tool.isort]
+profile = "hug"
+src_paths = ["isort", "test"]

@@ -5,22 +5,23 @@ from typing import Optional
 
 import torch
 import torch.nn.functional as f
+import wandb
 from datasets import load_from_disk
+from libs import (CommonScriptArguments, CommonWanDBArguments, EmotionModel,
+                  get_torch_device, representation_evolute)
+from pyarrow import Field
 from safetensors.torch import save_model
 from torch.utils.data import DataLoader
-from torcheval.metrics.functional import multiclass_f1_score, multiclass_accuracy
+from torcheval.metrics.functional import (multiclass_accuracy,
+                                          multiclass_f1_score)
 from tqdm.auto import tqdm
-from transformers.hf_argparser import HfArgumentParser, HfArg
-
-import wandb
-
-from libs import EmotionModel, representation_evolute, CommonScriptArguments, CommonWanDBArguments, get_torch_device
+from transformers.hf_argparser import HfArg, HfArgumentParser
 
 
 @dataclass
 class ScriptArguments(CommonScriptArguments):
-    dtype: Optional[str] = HfArg(aliases="--dtype", default="torch.float32")
-    device: Optional[str] = HfArg(aliases="--device", default_factory=get_torch_device)
+    dtype: Field[Optional[str]] = HfArg(aliases="--dtype", default="torch.float32")
+    device: Field[Optional[str]] = HfArg(aliases="--device", default_factory=get_torch_device)
 
 
 config_getter = ArgumentParser()
@@ -53,7 +54,7 @@ optimizer = torch.optim.Adagrad(model.parameters(), lr=wandb.config["learning_ra
 train_dataloader = DataLoader(dataset["train"])
 validation_dataloader = DataLoader(dataset["validation"])
 for i in range(wandb.config["num_epochs"]):
-    running_loss: torch.float = 0
+    running_loss: float = 0
     model.train()
     for sample in tqdm(train_dataloader, colour="green"):
         representation, emotion_composition = sample["bot_representation"], sample["user_dialog_emotion_composition"]
@@ -73,7 +74,7 @@ for i in range(wandb.config["num_epochs"]):
     if i + 1 == wandb.config["num_epochs"]:
         wandb.log({"train/train_loss": running_loss / len(train_dataloader)})
 
-    running_loss: torch.float = 0
+    running_loss = 0
     true_labels: list = []
     predicted_labels: list = []
     model.eval()

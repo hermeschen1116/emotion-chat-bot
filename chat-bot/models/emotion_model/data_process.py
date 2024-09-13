@@ -1,25 +1,22 @@
 import os
 import shutil
 from argparse import ArgumentParser
-from dataclasses import dataclass
+from dataclasses import Field, dataclass
 from typing import Optional
 
 import torch
 import wandb
 from datasets import load_dataset
-from transformers import (HfArgumentParser,
-                          BitsAndBytesConfig,
-                          AutoModelForSequenceClassification,
-                          AutoTokenizer,
-                          pipeline)
+from libs import (CommonScriptArguments, CommonWanDBArguments,
+                  generate_dummy_representation, get_sentiment_composition)
+from transformers import (AutoModelForSequenceClassification, AutoTokenizer,
+                          BitsAndBytesConfig, HfArgumentParser, pipeline)
 from transformers.hf_argparser import HfArg
-
-from libs import generate_dummy_representation, get_sentiment_composition, CommonScriptArguments, CommonWanDBArguments
 
 
 @dataclass
 class ScriptArguments(CommonScriptArguments):
-    dataset_path: Optional[str] = HfArg(aliases="--dataset-path", default="./dataset")
+    dataset_path: Field[Optional[str]] = HfArg(aliases="--dataset-path", default="./dataset")
 
 
 config_getter = ArgumentParser()

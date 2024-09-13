@@ -1,20 +1,20 @@
 from argparse import ArgumentParser
-from dataclasses import dataclass, Field
+from dataclasses import Field, dataclass
 
 import torch
 import wandb
 from bitsandbytes.optim import PagedLion32bit
 from datasets import load_dataset
+from libs import CommonScriptArguments, CommonWanDBArguments
 from peft.peft_model import PeftModel
 from torch import tensor
 from tqdm.auto import tqdm
-from transformers import (GenerationConfig, HfArgumentParser, pipeline, TextStreamer)
+from transformers import (GenerationConfig, HfArgumentParser, TextStreamer,
+                          pipeline)
 from transformers.hf_argparser import HfArg
 from trl import AutoModelForCausalLMWithValueHead, PPOConfig, PPOTrainer
 from trl.core import LengthSampler
 from unsloth import FastLanguageModel
-
-from libs import CommonScriptArguments, CommonWanDBArguments
 
 
 @dataclass

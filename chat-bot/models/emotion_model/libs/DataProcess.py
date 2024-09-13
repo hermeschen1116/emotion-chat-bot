@@ -1,14 +1,15 @@
 import torch
+from torch import Tensor
 
 
-def generate_dummy_representation(target_emotion: int) -> torch.tensor:
+def generate_dummy_representation(target_emotion: int) -> Tensor:
     while True:
         dummy = torch.clamp(torch.rand(7, dtype=torch.float32), -1, 1)
         if torch.argmax(dummy) == target_emotion:
             return dummy
 
 
-def get_sentiment_composition(analysis_result: list) -> torch.tensor:
+def get_sentiment_composition(analysis_result: list) -> Tensor:
     sentiment_possibility: dict = {}
     for emotion_score in analysis_result[0]:
         values: list = list(emotion_score.values())

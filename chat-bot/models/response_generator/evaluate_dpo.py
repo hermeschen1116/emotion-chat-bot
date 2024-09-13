@@ -1,24 +1,22 @@
 from argparse import ArgumentParser
+from collections import Counter
 from dataclasses import Field, dataclass
 
-from collections import Counter
-
 import torch
+from torch import Tensor
 import wandb
 from datasets import load_dataset
-from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
-from sklearn.metrics import classification_report
+from libs import (CommonScriptArguments, CommonWanDBArguments,
+                  ResponseGeneratorPipeline)
 from peft.peft_model import PeftModel
-from transformers import (
-    GenerationConfig,
-    HfArgumentParser,
-    TextStreamer,
-    pipeline
-)
+from sklearn.metrics import classification_report
+from torcheval.metrics.functional import (multiclass_accuracy,
+                                          multiclass_f1_score)
+from transformers import (GenerationConfig, HfArgumentParser, TextStreamer,
+                          pipeline)
 from transformers.hf_argparser import HfArg
 from unsloth import FastLanguageModel
 
-from libs import CommonScriptArguments, CommonWanDBArguments, ResponseGeneratorPipeline
 
 @dataclass
 class ScriptArguments(CommonScriptArguments):
@@ -76,6 +74,7 @@ dataset = dataset.map(lambda samples: {
 # DPO model
 ###########################
 from unsloth import FastLanguageModel
+
 model, tokenizer = FastLanguageModel.from_pretrained(
     model_name = "Shotaro30678/response_generator_DPO", # YOUR MODEL YOU USED FOR TRAINING
     load_in_4bit = True,
@@ -200,8 +199,8 @@ wandb.log({"Incomplete amount": dict(incomplete_num)})
 # Metrics
 emotion_id: dict = {label: index for index, label in enumerate(emotion_labels)}
 
-sentiment_true: torch.tensor = torch.tensor([emotion_id[sample] for sample in result["emotion_bot"]])
-sentiment_pred: torch.tensor = torch.tensor([emotion_id[sample["label"]]
+sentiment_true: Tensor = torch.tensor([emotion_id[sample] for sample in result["emotion_bot"]])
+sentiment_pred: Tensor = torch.tensor([emotion_id[sample["label"]]
                                              for sample in result["test_response_sentiment"]])
 
 num_emotion_labels: int = len(emotion_labels)
