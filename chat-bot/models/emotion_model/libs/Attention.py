@@ -50,7 +50,7 @@ class ScaledDotProductAttention(torch.nn.Module):
     def forward(self, query: Tensor, keys: Tensor) -> Tensor:
         self.__scaler = float(query.shape[-1]) if self.__scaler is None else self.__scaler
 
-        raw_attention: Tensor = torch.sum(query * keys / torch.sqrt_(Tensor(self.__scaler)), dim=1)
+        raw_attention: Tensor = torch.sum(query * keys / torch.sqrt_(torch.tensor(self.__scaler)), dim=1)
 
         return diagonal_softmax(raw_attention.squeeze().diag(), dtype=self.__dtype)
 
