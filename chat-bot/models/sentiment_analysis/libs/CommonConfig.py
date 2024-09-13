@@ -23,12 +23,6 @@ class CommonScriptArguments:
 	def __post_init__(self):
 		load_dotenv(encoding="utf-8")
 
-		if self.huggingface_api_token == "":
-			raise ValueError("HF_TOKEN is empty")
-
-		if self.wandb_api_token == "":
-			raise ValueError("WADDB_API_KEY is empty")
-
 		huggingface_hub.login(token=self.huggingface_api_token, add_to_git_credential=True)
 		wandb.login(key=self.wandb_api_token, relogin=True)
 
