@@ -1,15 +1,13 @@
 import tempfile
 from argparse import ArgumentParser
-from dataclasses import dataclass
+from dataclasses import Field, dataclass
 from typing import Optional
 
-from pyarrow import Field
 import wandb
 from datasets import load_dataset
+from libs import CommonScriptArguments, CommonWanDBArguments
 from transformers import HfArgumentParser
 from transformers.hf_argparser import HfArg
-
-from libs import CommonScriptArguments, CommonWanDBArguments
 
 
 @dataclass

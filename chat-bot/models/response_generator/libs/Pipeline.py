@@ -1,5 +1,5 @@
 from transformers import TextGenerationPipeline
-from transformers.pipelines.text_generation import ReturnType, Chat
+from transformers.pipelines.text_generation import Chat, ReturnType
 
 
 class ResponseGeneratorPipeline(TextGenerationPipeline):

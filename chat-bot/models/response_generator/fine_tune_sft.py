@@ -5,12 +5,11 @@ from dataclasses import Field, dataclass
 import torch
 import wandb
 from datasets import concatenate_datasets, load_dataset
+from libs import CommonScriptArguments, CommonWanDBArguments
 from transformers import HfArgumentParser, TrainingArguments
 from transformers.hf_argparser import HfArg
-from trl import SFTTrainer, DataCollatorForCompletionOnlyLM
+from trl import DataCollatorForCompletionOnlyLM, SFTTrainer
 from unsloth import FastLanguageModel
-
-from libs import CommonScriptArguments, CommonWanDBArguments
 
 
 @dataclass
@@ -50,7 +49,7 @@ dataset = load_dataset(
     num_proc=16,
     trust_remote_code=True
 )
-# dataset = dataset.train_test_split(train_size=0.001, test_size=0.001)
+# dataset = dataset.train_test_split(train_size=0.001)["train"]
 
 system_prompt: list = [{"role": "system", "content": {"emotion": "", "dialog": wandb.config["system_prompt"]}}]
 
@@ -75,7 +74,6 @@ tokenizer.chat_template = wandb.config["chat_template"]
 tokenizer.add_special_tokens(wandb.config["special_tokens"])
 base_model.resize_token_embeddings(len(tokenizer))
 
-# base_model = PeftModel.from_pretrained(base_model, run.use_model(wandb.config["base_model"]))
 base_model = FastLanguageModel.get_peft_model(
     base_model,
     target_modules=[
@@ -131,12 +129,16 @@ trainer_arguments = TrainingArguments(
     optim=wandb.config["optim"],
     group_by_length=True,
     report_to=["wandb"],
+    push_to_hub=True,
+    hub_model_id="response_generator_for_emotion_chat_bot",
     gradient_checkpointing=True,
     gradient_checkpointing_kwargs={
         "use_reentrant": True
     },
     auto_find_batch_size=True,
     torch_compile=False,
+    include_tokens_per_second=True,
+    include_num_input_tokens_seen=True,
     neftune_noise_alpha=wandb.config["neftune_noise_alpha"]
 )
 
