@@ -53,7 +53,6 @@ def compute_metrics(pred):
 
 num_labels = 7
 
-
 emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
 id2label = {k: v for k, v in enumerate(emotion_labels)}
 label2id = {v: k for k, v in enumerate(emotion_labels)}
