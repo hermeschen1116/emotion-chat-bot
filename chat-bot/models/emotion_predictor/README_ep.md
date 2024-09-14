@@ -166,7 +166,7 @@ python fine_tune_SA.py
      macro avg     0.1923    0.1510    0.1448      6740
   weighted avg     0.7331    0.8105    0.7403      6740
   ```
-- **Fine-tuned: (5 epoches half neutral data)**
+- **Fine-tuned: 最終決定版 (5 epoches half neutral data)**
 
   ```
                 precision    recall  f1-score   support
