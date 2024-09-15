@@ -1,3 +1,4 @@
+import random
 from argparse import ArgumentParser
 from dataclasses import Field, dataclass
 
@@ -5,6 +6,7 @@ import torch
 import wandb
 from datasets import load_dataset
 from libs import CommonScriptArguments, CommonWanDBArguments
+from peft import LoraConfig, get_peft_model
 from sklearn.metrics import accuracy_score, f1_score
 from transformers import (
     AutoModelForSequenceClassification,
@@ -53,6 +55,16 @@ def compute_metrics(pred):
     acc = accuracy_score(labels, preds)
     return {"accuracy": acc, "f1": f1}
 
+def remove_half_neutral(data):
+    data_set = data["train"]
+    label_0_indices = [i for i, row in enumerate(data_set) if row["label"] == 0]
+    num_to_remove = len(label_0_indices) // 2
+    indices_to_remove = random.sample(label_0_indices, num_to_remove)
+    filtered_data = data_set.filter(
+        lambda x, i: i not in indices_to_remove, with_indices=True
+    )
+    data["train"] = filtered_data
+    return data
 
 num_labels = 7
 
@@ -76,9 +88,13 @@ def preprocessing(data):
     return data
 
 
-data = load_dataset(wandb.config["dataset"], num_proc=16)
+raw_data = load_dataset(
+    wandb.config["dataset"],
+    num_proc=16
+    )
 
-data = preprocessing(data)
+processed_data = preprocessing(raw_data)
+half_neutral_data = remove_half_neutral(processed_data)
 
 base_model = wandb.config["base_model"]
 
@@ -87,11 +103,20 @@ model = AutoModelForSequenceClassification.from_pretrained(
     base_model, num_labels=num_labels, id2label=id2label, label2id=label2id
 )
 
-emotions = data
-emotions_encoded = emotions.map(tokenize, batched=True, batch_size=None)
+encoded_data = half_neutral_data.map(tokenize, batched=True, batch_size=None)
 
-batch_size = 64
-logging_steps = len(emotions_encoded["train"]) // batch_size
+lora_config = LoraConfig(
+    lora_alpha=64,
+    lora_dropout=0.2,
+    r=128,
+    bias="none",
+    task_type="SEQ_CLS",
+    use_rslora=True,
+)
+peft_model = get_peft_model(model, lora_config)
+
+batch_size = 8
+logging_steps = len(encoded_data["train"]) // batch_size
 
 training_args = TrainingArguments(
     output_dir="./checkpoints",
@@ -100,10 +125,12 @@ training_args = TrainingArguments(
     per_device_eval_batch_size=batch_size,
     gradient_accumulation_steps=1,
     optim="paged_adamw_32bit",
-    save_steps=25,
+    save_steps=5000,
+    save_total_limit=2,
+    save_strategy="epoch",
     logging_steps=logging_steps,
-    learning_rate=2e-5,
-    weight_decay=0.01,
+    learning_rate=0.0001,
+    weight_decay=0.1,
     fp16=False,
     bf16=False,
     max_grad_norm=0.3,
@@ -115,15 +142,16 @@ training_args = TrainingArguments(
     gradient_checkpointing=True,
     gradient_checkpointing_kwargs={"use_reentrant": True},
     eval_strategy="epoch",
-    log_level="error",
+    overwrite_output_dir=True,
 )
+wandb.config["trainer_arguments"] = training_args.to_dict()
 
 trainer = Trainer(
-    model=model,
+    model=peft_model,
     args=training_args,
     compute_metrics=compute_metrics,
-    train_dataset=emotions_encoded["train"],
-    eval_dataset=emotions_encoded["validation"],
+    train_dataset=encoded_data["train"],
+    eval_dataset=encoded_data["validation"],
     tokenizer=tokenizer,
 )
 
