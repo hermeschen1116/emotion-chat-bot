@@ -3,6 +3,7 @@ from dataclasses import dataclass
 from typing import Optional
 
 import torch
+from transformers.pipelines.base import AutoModel
 import wandb
 from datasets import Dataset, load_from_disk
 from libs import (
@@ -22,9 +23,7 @@ from transformers.hf_argparser import HfArg, HfArgumentParser
 @dataclass
 class ScriptArguments(CommonScriptArguments):
     dtype: Field[Optional[str]] = HfArg(aliases="--dtype", default="torch.float32")
-    device: Field[Optional[str]] = HfArg(
-        aliases="--device", default_factory=get_torch_device
-    )
+    device: Field[Optional[str]] = HfArg(aliases="--device", default_factory=get_torch_device)
 
 
 config_getter = ArgumentParser()
@@ -49,9 +48,10 @@ run = wandb.init(
 dataset_path = run.use_artifact(wandb.config["dataset"]).download()
 eval_dataset: Dataset = load_from_disk(dataset_path)["test"]
 
-model_path = run.use_artifact(wandb.config["model"], type="model").download()
-model = torch.compile(EmotionModel(dtype=dtype, device=args.device))
-load_model(model, f"{model_path}/emotion_model.safetensors")
+# model_path = run.use_artifact(wandb.config["model"], type="model").download()
+# model = torch.compile(EmotionModel(dtype=dtype, device=args.device))
+# load_model(model, f"{model_path}/emotion_model.safetensors")
+model = AutoModel.from_pretrained("hermeschen1116/emotion_model_for_emotion_chat_bot")
 
 eval_dataset = eval_dataset.map(
     lambda samples: {
@@ -67,28 +67,18 @@ eval_dataset = eval_dataset.map(
 )
 
 eval_dataset = eval_dataset.map(
-    lambda samples: {
-        "bot_most_possible_emotion": [
-            torch.argmax(torch.tensor(sample), dim=1) for sample in samples
-        ]
-    },
+    lambda samples: {"bot_most_possible_emotion": [torch.argmax(torch.tensor(sample), dim=1) for sample in samples]},
     input_columns="bot_representation",
     batched=True,
     num_proc=16,
 )
 
-predicted_labels: Tensor = torch.cat(
-    [torch.tensor(turn) for turn in eval_dataset["bot_most_possible_emotion"]]
-)
-true_labels: Tensor = torch.cat(
-    [torch.tensor(turn) for turn in eval_dataset["bot_emotion"]]
-)
+predicted_labels: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_most_possible_emotion"]])
+true_labels: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_emotion"]])
 
 wandb.log(
     {
-        "F1-score": multiclass_f1_score(
-            true_labels, predicted_labels, num_classes=7, average="weighted"
-        ),
+        "F1-score": multiclass_f1_score(true_labels, predicted_labels, num_classes=7, average="weighted"),
         "Accuracy": multiclass_accuracy(true_labels, predicted_labels, num_classes=7),
     }
 )
@@ -105,13 +95,9 @@ emotion_labels: list = [
 eval_dataset = eval_dataset.map(
     lambda samples: {
         "bot_most_possible_emotion": [
-            [emotion_labels[emotion_id] for emotion_id in sample]
-            for sample in samples["bot_most_possible_emotion"]
+            [emotion_labels[emotion_id] for emotion_id in sample] for sample in samples["bot_most_possible_emotion"]
         ],
-        "bot_emotion": [
-            [emotion_labels[emotion_id] for emotion_id in sample]
-            for sample in samples["bot_emotion"]
-        ],
+        "bot_emotion": [[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples["bot_emotion"]],
     },
     batched=True,
     num_proc=16,
@@ -119,9 +105,7 @@ eval_dataset = eval_dataset.map(
 
 result = eval_dataset.map(
     lambda samples: {
-        "bot_most_possible_emotion": [
-            ", ".join(sample) for sample in samples["bot_most_possible_emotion"]
-        ],
+        "bot_most_possible_emotion": [", ".join(sample) for sample in samples["bot_most_possible_emotion"]],
         "bot_emotion": [", ".join(sample) for sample in samples["bot_emotion"]],
     },
     batched=True,
