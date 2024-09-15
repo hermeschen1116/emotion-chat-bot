@@ -2,7 +2,6 @@ from argparse import ArgumentParser
 from dataclasses import Field, dataclass
 from typing import Optional
 
-import huggingface_hub
 import torch
 import wandb
 from datasets import Dataset, load_from_disk
@@ -13,11 +12,9 @@ from libs import (
     get_torch_device,
     representation_evolute,
 )
-from safetensors.torch import load_model
 from torch import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from transformers.hf_argparser import HfArg, HfArgumentParser
-from transformers.pipelines.base import AutoModel
 
 
 @dataclass

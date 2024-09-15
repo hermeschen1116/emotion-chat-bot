@@ -1,4 +1,3 @@
-import tempfile
 from argparse import ArgumentParser
 from dataclasses import Field, dataclass
 from typing import Optional
@@ -14,7 +13,6 @@ from libs import (
     get_torch_device,
     representation_evolute,
 )
-from safetensors.torch import save_model
 from torch.utils.data import DataLoader
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from tqdm.auto import tqdm

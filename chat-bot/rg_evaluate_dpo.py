@@ -6,7 +6,6 @@ import torch
 import wandb
 from datasets import load_dataset
 from libs import CommonScriptArguments, CommonWanDBArguments, ResponseGeneratorPipeline
-from peft.peft_model import PeftModel
 from sklearn.metrics import classification_report
 from torch import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
@@ -109,7 +108,6 @@ dataset = dataset.map(
 
 # DPO model
 ###########################
-from unsloth import FastLanguageModel
 
 model, tokenizer = FastLanguageModel.from_pretrained(
     model_name="Shotaro30678/response_generator_DPO",  # YOUR MODEL YOU USED FOR TRAINING

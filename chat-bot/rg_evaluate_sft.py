@@ -3,7 +3,7 @@ from dataclasses import Field, dataclass
 
 import torch
 import wandb
-from datasets import load_dataset, load_from_disk
+from datasets import load_dataset
 from libs import CommonScriptArguments, CommonWanDBArguments, ResponseGeneratorPipeline
 from peft.peft_model import PeftModel
 from torch import Tensor
@@ -12,7 +12,6 @@ from transformers import (
     BitsAndBytesConfig,
     GenerationConfig,
     HfArgumentParser,
-    TextGenerationPipeline,
     TextStreamer,
     pipeline,
 )
@@ -197,6 +196,16 @@ analyser = pipeline(
 result = result.add_column("test_response_sentiment", analyser(result["test_response"]))
 
 # Metrics
+emotion_labels: list = [
+    "neutral",
+    "anger",
+    "disgust",
+    "fear",
+    "happiness",
+    "sadness",
+    "surprise ",
+]
+
 emotion_id: dict = {label: index for index, label in enumerate(emotion_labels)}
 
 sentiment_true: Tensor = torch.tensor(

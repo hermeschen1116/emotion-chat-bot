@@ -1,12 +1,9 @@
-import os
-
 import torch
 from datasets import Dataset, load_dataset
 from dotenv import load_dotenv
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
-    confusion_matrix,
     f1_score,
 )
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
@@ -85,9 +82,6 @@ def create_classifier_pipeline(model_name, num_labels, id2label, label2id, token
         "sentiment-analysis", model=classifier_model, tokenizer=tokenizer, device=0
     )
     return classifier
-
-
-# cm_labels = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
 
 
 def evaluate(predictions):
