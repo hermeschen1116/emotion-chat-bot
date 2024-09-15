@@ -3,12 +3,13 @@ from dataclasses import Field, dataclass
 
 import wandb
 from datasets import load_dataset
-from libs import CommonScriptArguments, CommonWanDBArguments
 from peft.peft_model import PeftModel
 from transformers import HfArgumentParser
 from transformers.hf_argparser import HfArg
 from trl import DPOConfig, DPOTrainer
 from unsloth import FastLanguageModel, PatchDPOTrainer
+
+from libs import CommonScriptArguments, CommonWanDBArguments
 
 PatchDPOTrainer()  # not very sure what it does
 

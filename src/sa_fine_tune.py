@@ -4,7 +4,6 @@ from dataclasses import Field, dataclass
 import torch
 import wandb
 from datasets import load_dataset
-from libs import CommonScriptArguments, CommonWanDBArguments
 from sklearn.metrics import accuracy_score, f1_score
 from transformers import (
     AutoModelForSequenceClassification,
@@ -14,6 +13,8 @@ from transformers import (
     TrainingArguments,
 )
 from transformers.hf_argparser import HfArg
+
+from libs import CommonScriptArguments, CommonWanDBArguments
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 

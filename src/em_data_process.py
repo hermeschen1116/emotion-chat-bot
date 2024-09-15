@@ -5,12 +5,6 @@ from typing import Optional
 import torch
 import wandb
 from datasets import load_dataset
-from libs import (
-    CommonScriptArguments,
-    CommonWanDBArguments,
-    generate_dummy_representation,
-    get_sentiment_composition,
-)
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
@@ -19,6 +13,13 @@ from transformers import (
     pipeline,
 )
 from transformers.hf_argparser import HfArg
+
+from libs import (
+    CommonScriptArguments,
+    CommonWanDBArguments,
+    generate_dummy_representation,
+    get_sentiment_composition,
+)
 
 
 @dataclass
