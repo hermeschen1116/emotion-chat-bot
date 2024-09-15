@@ -1,27 +1,27 @@
 from argparse import ArgumentParser
-from dataclasses import dataclass, Field
+from dataclasses import Field, dataclass
 
 import torch
+import wandb
 from datasets import load_dataset
-from transformers import (AutoTokenizer,
-                          AutoModelForSequenceClassification,
-                          Trainer,
-                          TrainingArguments
-                         )
-
-from transformers import HfArgumentParser
-from transformers.hf_argparser import HfArg
-
 from libs import CommonScriptArguments, CommonWanDBArguments
 from sklearn.metrics import accuracy_score, f1_score
-
-import wandb
+from transformers import (
+    AutoModelForSequenceClassification,
+    AutoTokenizer,
+    HfArgumentParser,
+    Trainer,
+    TrainingArguments,
+)
+from transformers.hf_argparser import HfArg
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+
 @dataclass
 class ScriptArguments(CommonScriptArguments):
-	chat_template_file: Field[str] = HfArg(aliases="--chat-template-file", default="")
+    chat_template_file: Field[str] = HfArg(aliases="--chat-template-file", default="")
+
 
 config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)
@@ -32,17 +32,19 @@ args, wandb_args = parser.parse_json_file(config.json_file)
 
 # Initialize Wandb
 run = wandb.init(
-	job_type=wandb_args.job_type,
-	config=wandb_args.config,
-	project=wandb_args.project,
-	group=wandb_args.group,
-	notes=wandb_args.notes,
-	mode=wandb_args.mode,
-	resume=wandb_args.resume
+    job_type=wandb_args.job_type,
+    config=wandb_args.config,
+    project=wandb_args.project,
+    group=wandb_args.group,
+    notes=wandb_args.notes,
+    mode=wandb_args.mode,
+    resume=wandb_args.resume,
 )
+
 
 def tokenize(batch):
     return tokenizer(batch["text"], padding="max_length", truncation=True)
+
 
 def compute_metrics(pred):
     labels = pred.label_ids
@@ -51,11 +53,21 @@ def compute_metrics(pred):
     acc = accuracy_score(labels, preds)
     return {"accuracy": acc, "f1": f1}
 
+
 num_labels = 7
 
-emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
+emotion_labels: list = [
+    "neutral",
+    "anger",
+    "disgust",
+    "fear",
+    "happiness",
+    "sadness",
+    "surprise",
+]
 id2label = {k: v for k, v in enumerate(emotion_labels)}
 label2id = {v: k for k, v in enumerate(emotion_labels)}
+
 
 def preprocessing(data):
     data = data.rename_column("utterance", "text")
@@ -63,21 +75,16 @@ def preprocessing(data):
     data = data.remove_columns(["dialog_id", "turn_type"])
     return data
 
-data = load_dataset(
-    wandb.config['dataset'],
-    num_proc=16
-)
+
+data = load_dataset(wandb.config["dataset"], num_proc=16)
 
 data = preprocessing(data)
 
-base_model = wandb.config['base_model']
+base_model = wandb.config["base_model"]
 
 tokenizer = AutoTokenizer.from_pretrained(base_model)
 model = AutoModelForSequenceClassification.from_pretrained(
-    base_model,
-    num_labels=num_labels,
-    id2label=id2label,
-    label2id=label2id
+    base_model, num_labels=num_labels, id2label=id2label, label2id=label2id
 )
 
 emotions = data
@@ -108,15 +115,17 @@ training_args = TrainingArguments(
     gradient_checkpointing=True,
     gradient_checkpointing_kwargs={"use_reentrant": True},
     eval_strategy="epoch",
-    log_level="error"
+    log_level="error",
 )
 
-trainer = Trainer(model=model,
-                  args=training_args,
-                  compute_metrics=compute_metrics,
-                  train_dataset=emotions_encoded["train"],
-                  eval_dataset=emotions_encoded["validation"],
-                  tokenizer=tokenizer)
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    compute_metrics=compute_metrics,
+    train_dataset=emotions_encoded["train"],
+    eval_dataset=emotions_encoded["validation"],
+    tokenizer=tokenizer,
+)
 
-trainer.train();
+trainer.train()
 trainer.model.save_pretrained("sentiment_analyzer_DD")

@@ -3,17 +3,14 @@ from collections import Counter
 from dataclasses import Field, dataclass
 
 import torch
-from torch import Tensor
 import wandb
 from datasets import load_dataset
-from libs import (CommonScriptArguments, CommonWanDBArguments,
-                  ResponseGeneratorPipeline)
+from libs import CommonScriptArguments, CommonWanDBArguments, ResponseGeneratorPipeline
 from peft.peft_model import PeftModel
 from sklearn.metrics import classification_report
-from torcheval.metrics.functional import (multiclass_accuracy,
-                                          multiclass_f1_score)
-from transformers import (GenerationConfig, HfArgumentParser, TextStreamer,
-                          pipeline)
+from torch import Tensor
+from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
+from transformers import GenerationConfig, HfArgumentParser, TextStreamer, pipeline
 from transformers.hf_argparser import HfArg
 from unsloth import FastLanguageModel
 
@@ -30,7 +27,9 @@ config = config_getter.parse_args()
 parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
 args, wandb_args = parser.parse_json_file(config.json_file)
 
-chat_template: dict = eval(open(args.chat_template_file, "r", encoding="utf-8", closefd=True).read())
+chat_template: dict = eval(
+    open(args.chat_template_file, "r", encoding="utf-8", closefd=True).read()
+)
 
 run = wandb.init(
     job_type=wandb_args.job_type,
@@ -39,7 +38,7 @@ run = wandb.init(
     group=wandb_args.group,
     notes=wandb_args.notes,
     mode=wandb_args.mode,
-    resume=wandb_args.resume
+    resume=wandb_args.resume,
 )
 wandb.config["chat_template"] = chat_template["template"]
 wandb.config["instruction_template"] = chat_template["instruction"]
@@ -48,38 +47,75 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 
 
 # Load and Process Dataset
-dataset = load_dataset(wandb.config["dataset"], split="test", num_proc=16, trust_remote_code=True)
+dataset = load_dataset(
+    wandb.config["dataset"], split="test", num_proc=16, trust_remote_code=True
+)
 
-dataset = dataset.map(lambda samples: {
-    "dialog_bot": [sample[-1]["content"]["dialog"] for sample in samples],
-    "emotion_bot": [sample[-1]["content"]["emotion"] for sample in samples],
-}, input_columns="prompt", batched=True, num_proc=16)
+dataset = dataset.map(
+    lambda samples: {
+        "dialog_bot": [sample[-1]["content"]["dialog"] for sample in samples],
+        "emotion_bot": [sample[-1]["content"]["emotion"] for sample in samples],
+    },
+    input_columns="prompt",
+    batched=True,
+    num_proc=16,
+)
 
-dataset = dataset.map(lambda samples: {
-    "history": ["\n".join(
-        [f"{turn['role']}({turn['content']['emotion']}): {turn['content']['dialog']}" for turn in sample[:-1]]
-    ) for sample in samples]
-}, input_columns="prompt", batched=True, num_proc=16)
+dataset = dataset.map(
+    lambda samples: {
+        "history": [
+            "\n".join(
+                [
+                    f"{turn['role']}({turn['content']['emotion']}): {turn['content']['dialog']}"
+                    for turn in sample[:-1]
+                ]
+            )
+            for sample in samples
+        ]
+    },
+    input_columns="prompt",
+    batched=True,
+    num_proc=16,
+)
 
-system_prompt: list = [{"role": "system", "content": {"emotion": "", "dialog": wandb.config["system_prompt"]}}]
+system_prompt: list = [
+    {
+        "role": "system",
+        "content": {"emotion": "", "dialog": wandb.config["system_prompt"]},
+    }
+]
 
-dataset = dataset.map(lambda samples: {
-    "prompt": [
-        system_prompt + sample[:-1] +
-        [{"role": "assistant", "content": {"emotion": sample[-1]["content"]["emotion"], "dialog": ""}}]
-        for sample in samples
-    ]
-}, input_columns="prompt", batched=True, num_proc=16)
+dataset = dataset.map(
+    lambda samples: {
+        "prompt": [
+            system_prompt
+            + sample[:-1]
+            + [
+                {
+                    "role": "assistant",
+                    "content": {
+                        "emotion": sample[-1]["content"]["emotion"],
+                        "dialog": "",
+                    },
+                }
+            ]
+            for sample in samples
+        ]
+    },
+    input_columns="prompt",
+    batched=True,
+    num_proc=16,
+)
 
 # DPO model
 ###########################
 from unsloth import FastLanguageModel
 
 model, tokenizer = FastLanguageModel.from_pretrained(
-    model_name = "Shotaro30678/response_generator_DPO", # YOUR MODEL YOU USED FOR TRAINING
-    load_in_4bit = True,
+    model_name="Shotaro30678/response_generator_DPO",  # YOUR MODEL YOU USED FOR TRAINING
+    load_in_4bit=True,
 )
-FastLanguageModel.for_inference(model) # Enable native 2x faster inference
+FastLanguageModel.for_inference(model)  # Enable native 2x faster inference
 ###########################
 
 # SFT model
@@ -117,13 +153,11 @@ bot = ResponseGeneratorPipeline(
     torch_dtype="auto",
     add_special_tokens=True,
     truncation=False,
-    padding=True
+    padding=True,
 )
 
 streamer = TextStreamer(
-    tokenizer,
-    skip_special_tokens=True,
-    clean_up_tokenization_spaces=True
+    tokenizer, skip_special_tokens=True, clean_up_tokenization_spaces=True
 )
 
 generation_config = GenerationConfig(
@@ -136,21 +170,32 @@ generation_config = GenerationConfig(
     eos_token_id=tokenizer.eos_token_id,
     temperature=1.0,  # Adjust temperature for faster response
     do_sample=True,  # Sampling instead of beam search
-    num_beams=1  # Greedy search
+    num_beams=1,  # Greedy search
 )
 
-result = dataset.map(lambda sample: {
-    "test_response":
-        bot(sample,
+result = dataset.map(
+    lambda sample: {
+        "test_response": bot(
+            sample,
             streamer=streamer,
             generation_config=generation_config,
-            tokenizer=tokenizer
-            )[0]["generated_text"][-1]["content"]["dialog"]
-}, input_columns="prompt")
+            tokenizer=tokenizer,
+        )[0]["generated_text"][-1]["content"]["dialog"]
+    },
+    input_columns="prompt",
+)
 result = result.remove_columns("prompt")
 
 # Sentiment Analysis
-emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
+emotion_labels: list = [
+    "neutral",
+    "anger",
+    "disgust",
+    "fear",
+    "happiness",
+    "sadness",
+    "surprise",
+]
 
 sentiment_analyser = pipeline(
     model=wandb.config["sentiment_analyser_model"],
@@ -162,36 +207,40 @@ sentiment_analyser = pipeline(
     model_kwargs={
         "id2label": {k: v for k, v in enumerate(emotion_labels)},
         "label2id": {v: k for k, v in enumerate(emotion_labels)},
-        "low_cpu_mem_usage": True
+        "low_cpu_mem_usage": True,
     },
-    trust_remote_code=True
+    trust_remote_code=True,
 )
 
 # Detect gibberish
 gibberish_analyser = pipeline(
-	model=wandb.config["gibberish_detector_model"],
-	tokenizer=wandb.config["gibberish_detector_model"],
-	max_length=512,
-	framework="pt",
-	task="text-classification",
-	num_workers=16,
-	device_map="cpu",
-	torch_dtype="auto",
-	model_kwargs={
-		"low_cpu_mem_usage": True
-	},
-	trust_remote_code=True
+    model=wandb.config["gibberish_detector_model"],
+    tokenizer=wandb.config["gibberish_detector_model"],
+    max_length=512,
+    framework="pt",
+    task="text-classification",
+    num_workers=16,
+    device_map="cpu",
+    torch_dtype="auto",
+    model_kwargs={"low_cpu_mem_usage": True},
+    trust_remote_code=True,
 )
 
-result = result.add_column("test_response_sentiment", sentiment_analyser(result["test_response"]))
-result = result.add_column("test_response_gibberish", gibberish_analyser(result["test_response"]))
+result = result.add_column(
+    "test_response_sentiment", sentiment_analyser(result["test_response"])
+)
+result = result.add_column(
+    "test_response_gibberish", gibberish_analyser(result["test_response"])
+)
 
-gibberish_labels = [sample['label'] for sample in result["test_response_gibberish"]]
+gibberish_labels = [sample["label"] for sample in result["test_response_gibberish"]]
 label_distribution = Counter(gibberish_labels)
 
 wandb.log({"Gibberish level": dict(label_distribution)})
 
-incomplete_idx = [sample.rstrip(" ")[-1:] not in ["!", ".", "?"] for sample in result["test_response"]]
+incomplete_idx = [
+    sample.rstrip(" ")[-1:] not in ["!", ".", "?"] for sample in result["test_response"]
+]
 incomplete_num = Counter(incomplete_idx)
 
 wandb.log({"Incomplete amount": dict(incomplete_num)})
@@ -199,18 +248,32 @@ wandb.log({"Incomplete amount": dict(incomplete_num)})
 # Metrics
 emotion_id: dict = {label: index for index, label in enumerate(emotion_labels)}
 
-sentiment_true: Tensor = torch.tensor([emotion_id[sample] for sample in result["emotion_bot"]])
-sentiment_pred: Tensor = torch.tensor([emotion_id[sample["label"]]
-                                             for sample in result["test_response_sentiment"]])
+sentiment_true: Tensor = torch.tensor(
+    [emotion_id[sample] for sample in result["emotion_bot"]]
+)
+sentiment_pred: Tensor = torch.tensor(
+    [emotion_id[sample["label"]] for sample in result["test_response_sentiment"]]
+)
 
 num_emotion_labels: int = len(emotion_labels)
 
-wandb.log({
-    "F1-score": multiclass_f1_score(sentiment_true, sentiment_pred, num_classes=num_emotion_labels, average="weighted"),
-    "Accuracy": multiclass_accuracy(sentiment_true, sentiment_pred, num_classes=num_emotion_labels)
-})
+wandb.log(
+    {
+        "F1-score": multiclass_f1_score(
+            sentiment_true,
+            sentiment_pred,
+            num_classes=num_emotion_labels,
+            average="weighted",
+        ),
+        "Accuracy": multiclass_accuracy(
+            sentiment_true, sentiment_pred, num_classes=num_emotion_labels
+        ),
+    }
+)
 wandb.log({"evaluation_result": wandb.Table(dataframe=result.to_pandas())})
 
 wandb.finish()
 
-print(classification_report(sentiment_true, sentiment_pred, target_names=emotion_labels))
+print(
+    classification_report(sentiment_true, sentiment_pred, target_names=emotion_labels)
+)

@@ -25,7 +25,9 @@ config = config_getter.parse_args()
 parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
 args, wandb_args = parser.parse_json_file(config.json_file)
 
-chat_template: dict = eval(open(args.chat_template_file, "r", encoding="utf-8", closefd=True).read())
+chat_template: dict = eval(
+    open(args.chat_template_file, "r", encoding="utf-8", closefd=True).read()
+)
 
 # Initialize Wandb
 run = wandb.init(
@@ -36,7 +38,7 @@ run = wandb.init(
     group=wandb_args.group,
     notes=wandb_args.notes,
     mode=wandb_args.mode,
-    resume=wandb_args.resume
+    resume=wandb_args.resume,
 )
 wandb.config["chat_template"] = chat_template["template"]
 wandb.config["instruction_template"] = chat_template["instruction"]
@@ -48,15 +50,23 @@ dataset = load_dataset(
     "hermeschen1116/daily_dialog_for_RG",
     split="train+validation",
     num_proc=16,
-    trust_remote_code=True
+    trust_remote_code=True,
 )
 # dataset = dataset.train_test_split(train_size=0.001)["train"]
 
-system_prompt: list = [{"role": "system", "content": {"emotion": "", "dialog": wandb.config["system_prompt"]}}]
+system_prompt: list = [
+    {
+        "role": "system",
+        "content": {"emotion": "", "dialog": wandb.config["system_prompt"]},
+    }
+]
 
-dataset = dataset.map(lambda samples: {
-    "prompt": [system_prompt + sample for sample in samples]
-}, input_columns="prompt", batched=True, num_proc=16)
+dataset = dataset.map(
+    lambda samples: {"prompt": [system_prompt + sample for sample in samples]},
+    input_columns="prompt",
+    batched=True,
+    num_proc=16,
+)
 
 # Load Tokenizer
 base_model, tokenizer = FastLanguageModel.from_pretrained(
@@ -75,20 +85,31 @@ tokenizer.chat_template = wandb.config["chat_template"]
 tokenizer.add_special_tokens(wandb.config["special_tokens"])
 base_model.resize_token_embeddings(len(tokenizer))
 
-base_model = PeftModel.from_pretrained(base_model, run.use_model(wandb.config["base_model"]))
+base_model = PeftModel.from_pretrained(
+    base_model, run.use_model(wandb.config["base_model"])
+)
 base_model.print_trainable_parameters()
 FastLanguageModel.for_training(base_model)
 
-dataset = dataset.map(lambda samples: {
-    "prompt": [tokenizer.apply_chat_template(sample, tokenize=False) for sample in samples]
-}, input_columns="prompt", batched=True, num_proc=16)
+dataset = dataset.map(
+    lambda samples: {
+        "prompt": [
+            tokenizer.apply_chat_template(sample, tokenize=False) for sample in samples
+        ]
+    },
+    input_columns="prompt",
+    batched=True,
+    num_proc=16,
+)
 wandb.config["example_prompt"] = dataset[0]["prompt"]
 
-special_tokens_map: dict = dict(zip(tokenizer.all_special_tokens, [[ids] for ids in tokenizer.all_special_ids]))
+special_tokens_map: dict = dict(
+    zip(tokenizer.all_special_tokens, [[ids] for ids in tokenizer.all_special_ids])
+)
 data_collator = DataCollatorForCompletionOnlyLM(
     special_tokens_map[wandb.config["response_template"]],
     instruction_template=special_tokens_map[wandb.config["instruction_template"]],
-    tokenizer=tokenizer
+    tokenizer=tokenizer,
 )
 
 trainer_arguments = TrainingArguments(
@@ -115,14 +136,12 @@ trainer_arguments = TrainingArguments(
     push_to_hub=True,
     hub_model_id="response_generator_for_emotion_chat_bot",
     gradient_checkpointing=True,
-    gradient_checkpointing_kwargs={
-        "use_reentrant": True
-    },
+    gradient_checkpointing_kwargs={"use_reentrant": True},
     auto_find_batch_size=True,
     torch_compile=False,
     include_tokens_per_second=True,
     include_num_input_tokens_seen=True,
-    neftune_noise_alpha=wandb.config["neftune_noise_alpha"]
+    neftune_noise_alpha=wandb.config["neftune_noise_alpha"],
 )
 
 # Setup Tuner
@@ -134,15 +153,12 @@ tuner = SFTTrainer(
     dataset_text_field="prompt",
     tokenizer=tokenizer,
     max_seq_length=4096,
-    dataset_num_proc=16
+    dataset_num_proc=16,
 )
 
 tuner.train()
 
-model_artifact = wandb.Artifact(
-    wandb.config["fine_tuned_model"],
-    type="model"
-)
+model_artifact = wandb.Artifact(wandb.config["fine_tuned_model"], type="model")
 
 tuner.model = torch.compile(tuner.model)
 with tempfile.TemporaryDirectory() as temp_dir:
