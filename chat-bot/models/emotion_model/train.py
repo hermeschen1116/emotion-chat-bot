@@ -48,8 +48,12 @@ run = wandb.init(
 )
 
 # Load Dataset
-dataset_path = run.use_artifact(wandb.config["dataset"]).download()
-dataset = load_from_disk(dataset_path)
+dataset = load_dataset(
+    wandb.config["dataset"],
+    split="train+validation",
+    num_proc=16,
+    trust_remote_code=True,
+)
 
 model = EmotionModel(
     dropout=wandb.config["dropout"],
