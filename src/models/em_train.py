@@ -48,7 +48,6 @@ run = wandb.init(
 # Load Dataset
 dataset = load_dataset(
     wandb.config["dataset"],
-    split="train+validation",
     num_proc=16,
     trust_remote_code=True,
 )

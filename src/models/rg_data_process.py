@@ -109,16 +109,4 @@ dataset = dataset.map(
 
 dataset.push_to_hub("daily_dialog_for_RG")
 
-dataset_artifact = wandb.Artifact(
-    args.dataset_name,
-    type="dataset",
-    description=args.dataset_description,
-    metadata=dict(dataset),
-)
-
-with tempfile.TemporaryDirectory() as temp_dir:
-    dataset.save_to_disk(temp_dir, num_proc=16)
-    dataset_artifact.add_dir(temp_dir)
-    run.log_artifact(dataset_artifact)
-
 wandb.finish()
