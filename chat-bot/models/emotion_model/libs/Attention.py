@@ -7,11 +7,15 @@ from torch import Tensor
 def diagonal_indices(source: Tensor) -> Tensor:
     source_shape: torch.Size = source.shape
     if len(source_shape) != 2:
-        raise ValueError(f"""The source tensor is in shape {tuple(source_shape)}),
-                             you should input a 2-D matrix.""")
+        raise ValueError(
+            f"""The source tensor is in shape {tuple(source_shape)}),
+                             you should input a 2-D matrix."""
+        )
     if source_shape[0] != source_shape[1]:
-        raise ValueError(f"""The source tensor is in shape {tuple(source_shape)},
-                             you should input a square matrix.""")
+        raise ValueError(
+            f"""The source tensor is in shape {tuple(source_shape)},
+                             you should input a square matrix."""
+        )
 
     return torch.tensor([i for i in range(source_shape[0])])
 

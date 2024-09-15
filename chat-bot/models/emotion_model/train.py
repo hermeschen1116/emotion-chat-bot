@@ -24,7 +24,9 @@ from transformers.hf_argparser import HfArg, HfArgumentParser
 @dataclass
 class ScriptArguments(CommonScriptArguments):
     dtype: Field[Optional[str]] = HfArg(aliases="--dtype", default="torch.float32")
-    device: Field[Optional[str]] = HfArg(aliases="--device", default_factory=get_torch_device)
+    device: Field[Optional[str]] = HfArg(
+        aliases="--device", default_factory=get_torch_device
+    )
 
 
 config_getter = ArgumentParser()
@@ -95,7 +97,9 @@ for i in range(wandb.config["num_epochs"]):
                 sample["bot_representation"],
                 sample["user_dialog_emotion_composition"],
             )
-            labels = f.one_hot(torch.cat(sample["bot_emotion"]), 7).to(dtype=torch.float)
+            labels = f.one_hot(torch.cat(sample["bot_emotion"]), 7).to(
+                dtype=torch.float
+            )
 
             output = representation_evolute(model, representation, emotion_composition)
 
@@ -114,7 +118,9 @@ for i in range(wandb.config["num_epochs"]):
                     num_classes=7,
                     average="weighted",
                 ),
-                "val/accuracy": multiclass_accuracy(torch.cat(true_labels), torch.cat(predicted_labels), num_classes=7),
+                "val/accuracy": multiclass_accuracy(
+                    torch.cat(true_labels), torch.cat(predicted_labels), num_classes=7
+                ),
             }
         )
 

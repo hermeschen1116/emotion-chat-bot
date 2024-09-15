@@ -178,16 +178,6 @@ result = dataset.map(
 result = result.remove_columns("prompt")
 
 # Sentiment Analysis
-emotion_labels: list = [
-    "neutral",
-    "anger",
-    "disgust",
-    "fear",
-    "happiness",
-    "sadness",
-    "surprise",
-]
-
 analyser = pipeline(
     model="Shotaro30678/emotion_text_classifier_on_dd_v1",
     framework="pt",
@@ -199,8 +189,6 @@ analyser = pipeline(
         "quantization_config": BitsAndBytesConfig(
             load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16
         ),
-        "id2label": {k: v for k, v in enumerate(emotion_labels)},
-        "label2id": {v: k for k, v in enumerate(emotion_labels)},
         "low_cpu_mem_usage": True,
     },
     trust_remote_code=True,

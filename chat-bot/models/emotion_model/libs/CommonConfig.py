@@ -57,9 +57,9 @@ class CommonWanDBArguments:
     notes: Field[Optional[str]] = HfArg(
         aliases=["--wandb-notes", "--notes"], default=None
     )
-    mode: Field[Optional[Union[Literal["online", "offline", "disabled"], None]]] = (
-        HfArg(aliases="--wandb-mode", default=None)
-    )
+    mode: Field[
+        Optional[Union[Literal["online", "offline", "disabled"], None]]
+    ] = HfArg(aliases="--wandb-mode", default=None)
     allow_val_change: Field[Optional[bool]] = HfArg(
         aliases="--allow-val-change", default=False
     )
