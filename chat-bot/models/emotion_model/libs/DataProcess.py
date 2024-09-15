@@ -15,7 +15,19 @@ def get_sentiment_composition(analysis_result: list) -> Tensor:
         values: list = list(emotion_score.values())
         sentiment_possibility[values[0]] = values[1]
 
-    emotions: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
-    sentiment_composition: list = [sentiment_possibility[emotion] for emotion in emotions]
+    emotions: list = [
+        "neutral",
+        "anger",
+        "disgust",
+        "fear",
+        "happiness",
+        "sadness",
+        "surprise",
+    ]
+    sentiment_composition: list = [
+        sentiment_possibility[emotion] for emotion in emotions
+    ]
 
-    return torch.softmax(torch.tensor(sentiment_composition), dim=-1, dtype=torch.float32)
+    return torch.softmax(
+        torch.tensor(sentiment_composition), dim=-1, dtype=torch.float32
+    )

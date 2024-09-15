@@ -1,7 +1,8 @@
 import torch
+from huggingface_hub import PyTorchModelHubMixin
 from torch import Tensor
 
-from .Attention import *
+from .Attention import diagonal_softmax
 
 
 def representation_evolute(model, representation_src: list, emotion_compositions: list) -> Tensor:
@@ -13,13 +14,13 @@ def representation_evolute(model, representation_src: list, emotion_compositions
     return torch.tensor(representations[1:], dtype=torch.float, requires_grad=True)
 
 
-class EmotionModel(torch.nn.Module):
+class EmotionModel(torch.nn.Module, PyTorchModelHubMixin):
     def __init__(
         self,
         dropout: float = 0.5,
         bias: bool = True,
         dtype: torch.dtype = torch.float,
-        device: str = "cpu"
+        device: str = "cpu",
     ):
         super(EmotionModel, self).__init__()
 
@@ -39,10 +40,10 @@ class EmotionModel(torch.nn.Module):
 
         raw_attention: Tensor = torch.sum(self.__dropout(q) * self.__dropout(k), dim=1, dtype=self.__dtype)
 
-        attention_score: Tensor = (diagonal_softmax(raw_attention.squeeze().diag(), dtype=self.__dtype)
-                                         .to(device=self.__device))
+        attention_score: Tensor = diagonal_softmax(raw_attention.squeeze().diag(), dtype=self.__dtype).to(
+            device=self.__device
+        )
 
-        difference: Tensor = torch.clamp(
-            torch.sum(self.__weight_D((attention_score ** 3)), dim=1), -1, 1)
+        difference: Tensor = torch.clamp(torch.sum(self.__weight_D((attention_score**3)), dim=1), -1, 1)
 
         return representation.to(dtype=self.__dtype, device=self.__device) + difference

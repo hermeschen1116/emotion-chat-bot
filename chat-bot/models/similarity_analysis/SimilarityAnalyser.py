@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Annotated, Any, Callable, Optional, Union
 
 import torch
-from torch import float32, Tensor
+from torch import Tensor, float32
 
 
 @dataclass
@@ -12,13 +12,19 @@ class ValueRange:
 
     def validate(self, x: float) -> float:
         if not (self.min_value <= x <= self.max_value):
-            raise ValueError(f"{x} must be in range [{self.min_value}, {self.max_value}]")
+            raise ValueError(
+                f"{x} must be in range [{self.min_value}, {self.max_value}]"
+            )
         return x
 
 
 class SimilarityAnalyser:
-    def __init__(self, threshold: Annotated[float, ValueRange(0, 1)], dtype: Optional[Any] = float32,
-                 device: str = "cpu") -> None:
+    def __init__(
+        self,
+        threshold: Annotated[float, ValueRange(0, 1)],
+        dtype: Optional[Any] = float32,
+        device: str = "cpu",
+    ) -> None:
         self.__threshold: float = ValueRange(0, 1).validate(threshold)
         self.__dtype: Any = dtype
         self.__device: str = device
@@ -36,43 +42,59 @@ class SimilarityAnalyser:
         self.__call__(self.__cached_representations, self.__cached_ideal_representation)
 
     def __calculate_ratio_of_length_of_representation(self) -> Tensor:
-        length_of_representations: Tensor = torch.norm(self.__cached_representations, dim=1)
-        length_of_ideal_representation: Tensor = torch.norm(self.__cached_ideal_representation)
+        length_of_representations: Tensor = torch.norm(
+            self.__cached_representations, dim=1
+        )
+        length_of_ideal_representation: Tensor = torch.norm(
+            self.__cached_ideal_representation
+        )
 
         return length_of_representations / length_of_ideal_representation
 
     def __call__(
-            self,
-            representations: Union[list[Tensor], Tensor],
-            ideal_representation: Tensor
+        self, representations: Union[list[Tensor], Tensor], ideal_representation: Tensor
     ) -> Tensor:
-
         self.__cached_representations = (
-            representations if type(representations) is Tensor else torch.stack(representations))
+            representations
+            if type(representations) is Tensor
+            else torch.stack(representations)
+        )
         self.__cached_representations = (
-            self.__cached_representations.clone().detach().to(dtype=self.__dtype, device=self.__device))
+            self.__cached_representations.clone()
+            .detach()
+            .to(dtype=self.__dtype, device=self.__device)
+        )
 
         self.__cached_ideal_representation = (
-            ideal_representation.clone().detach().to(dtype=self.__dtype, device=self.__device))
+            ideal_representation.clone()
+            .detach()
+            .to(dtype=self.__dtype, device=self.__device)
+        )
 
-        cosine_similarity: Tensor = torch.cosine_similarity(self.__cached_representations,
-                                                            self.__cached_ideal_representation)
-        ratio_of_representations: Tensor = self.__calculate_ratio_of_length_of_representation()
-        self.__cached_similarity = torch.clamp(cosine_similarity * ratio_of_representations, 0, 1)
+        cosine_similarity: Tensor = torch.cosine_similarity(
+            self.__cached_representations, self.__cached_ideal_representation
+        )
+        ratio_of_representations: Tensor = (
+            self.__calculate_ratio_of_length_of_representation()
+        )
+        self.__cached_similarity = torch.clamp(
+            cosine_similarity * ratio_of_representations, 0, 1
+        )
 
         return self.__cached_similarity
 
     @staticmethod
-    def __get_indices_of_filtered_tensor(target_tensor: Tensor,
-                                         filter_func: Callable[[Tensor], Tensor]
-                                         ) -> Tensor:
+    def __get_indices_of_filtered_tensor(
+        target_tensor: Tensor, filter_func: Callable[[Tensor], Tensor]
+    ) -> Tensor:
         mask: Tensor = filter_func(target_tensor)
 
         return torch.nonzero(mask)
 
     def get_max_similarity(self) -> float:
-        valid_similarity_indices: Tensor = self.__get_indices_of_filtered_tensor(self.__cached_similarity,
-                                                                                 lambda x: x <= self.__threshold)
+        valid_similarity_indices: Tensor = self.__get_indices_of_filtered_tensor(
+            self.__cached_similarity, lambda x: x <= self.__threshold
+        )
         if len(valid_similarity_indices) == 0:
             return 0
 
@@ -81,19 +103,37 @@ class SimilarityAnalyser:
 
     def get_representation_with_max_similarity(self, max_similarity: float) -> list:
         representation_with_max_similarity_indices: Tensor = (
-            self.__get_indices_of_filtered_tensor(self.__cached_similarity, lambda x: x == max_similarity))
+            self.__get_indices_of_filtered_tensor(
+                self.__cached_similarity, lambda x: x == max_similarity
+            )
+        )
 
-        return self.__cached_representations[representation_with_max_similarity_indices].squeeze().tolist()
+        return (
+            self.__cached_representations[representation_with_max_similarity_indices]
+            .squeeze()
+            .tolist()
+        )
 
     def get_most_similar_representation(self) -> dict[Tensor, float]:
         max_similarity: float = self.get_max_similarity()
-        representations_with_max_similarity: list = self.get_representation_with_max_similarity(max_similarity)
+        representations_with_max_similarity: list = (
+            self.get_representation_with_max_similarity(max_similarity)
+        )
 
-        return {"representations": representations_with_max_similarity, "similarity": max_similarity}
+        return {
+            "representations": representations_with_max_similarity,
+            "similarity": max_similarity,
+        }
 
     def get_most_similar_representation_index(self) -> int:
-        max_similarity_value: float = self.get_most_similar_representation()["similarity"]
+        max_similarity_value: float = self.get_most_similar_representation()[
+            "similarity"
+        ]
 
-        return (self.__get_indices_of_filtered_tensor(self.__cached_similarity, lambda x: x == max_similarity_value)
-                .squeeze()
-                .tolist())
+        return (
+            self.__get_indices_of_filtered_tensor(
+                self.__cached_similarity, lambda x: x == max_similarity_value
+            )
+            .squeeze()
+            .tolist()
+        )
