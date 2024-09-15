@@ -1,8 +1,6 @@
-import tempfile
 from argparse import ArgumentParser
 from dataclasses import Field, dataclass
 
-import torch
 import wandb
 from datasets import load_dataset
 from libs import CommonScriptArguments, CommonWanDBArguments
