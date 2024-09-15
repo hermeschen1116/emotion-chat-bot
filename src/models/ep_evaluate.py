@@ -71,7 +71,6 @@ data_name = "benjaminbeilharz/better_daily_dialog"
 data = load_dataset(data_name, split="test", num_proc=8)
 data = preprocessing(data)
 data = shifting(data)
-data
 
 
 def create_classifier_pipeline(model_name, num_labels, id2label, label2id, tokenizer):
