@@ -2,6 +2,7 @@ from argparse import ArgumentParser
 from dataclasses import Field, dataclass
 from typing import Optional
 
+import huggingface_hub
 import torch
 from transformers.pipelines.base import AutoModel
 import wandb
@@ -47,10 +48,7 @@ run = wandb.init(
 dataset_path = run.use_artifact(wandb.config["dataset"]).download()
 eval_dataset: Dataset = load_from_disk(dataset_path)["test"]
 
-# model_path = run.use_artifact(wandb.config["model"], type="model").download()
-# model = torch.compile(EmotionModel(dtype=dtype, device=args.device))
-# load_model(model, f"{model_path}/emotion_model.safetensors")
-model = AutoModel.from_pretrained("hermeschen1116/emotion_model_for_emotion_chat_bot")
+model = EmotionModel.from_pretrained("hermeschen1116/emotion_model_for_emotion_chat_bot")
 
 eval_dataset = eval_dataset.map(
     lambda samples: {
