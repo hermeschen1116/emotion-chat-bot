@@ -50,9 +50,7 @@ run = wandb.init(
 dataset_path = run.use_artifact(wandb.config["dataset"]).download()
 eval_dataset: Dataset = load_from_disk(dataset_path)["test"]
 
-model = EmotionModel.from_pretrained(
-    "hermeschen1116/emotion_model_for_emotion_chat_bot"
-)
+model = EmotionModel.from_pretrained(wandb.config["model"])
 
 eval_dataset = eval_dataset.map(
     lambda samples: {

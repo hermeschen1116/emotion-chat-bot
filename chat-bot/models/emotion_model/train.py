@@ -124,7 +124,7 @@ for i in range(wandb.config["num_epochs"]):
             }
         )
 
-model_artifact = wandb.Artifact(wandb.config["trained_model_name"], type="model")
+# model_artifact = wandb.Artifact(wandb.config["trained_model_name"], type="model")
 
 model = torch.compile(model)
 model.push_to_hub("emotion_model_for_emotion_chat_bot")

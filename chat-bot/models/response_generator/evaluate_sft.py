@@ -179,7 +179,7 @@ result = result.remove_columns("prompt")
 
 # Sentiment Analysis
 analyser = pipeline(
-    model="Shotaro30678/emotion_text_classifier_on_dd_v1",
+    model="Shotaro30678/sentiment_analysis_for_emotion_chat_bot",
     framework="pt",
     task="sentiment-analysis",
     num_workers=16,

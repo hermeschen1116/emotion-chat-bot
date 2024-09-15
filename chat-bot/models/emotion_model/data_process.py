@@ -144,19 +144,19 @@ dataset = dataset.map(
 
 dataset.push_to_hub("emotion_transition_from_dialog")
 
-dataset_artifact = wandb.Artifact(
-    "daily_dialog_for_EM",
-    type="dataset",
-    description="modified version of daily dialog dataset from huggingface for emotion model module",
-    metadata=dict(dataset),
-)
+# dataset_artifact = wandb.Artifact(
+#     "daily_dialog_for_EM",
+#     type="dataset",
+#     description="modified version of daily dialog dataset from huggingface for emotion model module",
+#     metadata=dict(dataset),
+# )
 
-dataset.save_to_disk(args.dataset_path, num_proc=16)
-dataset_artifact.add_dir(args.dataset_path)
+# dataset.save_to_disk(args.dataset_path, num_proc=16)
+# dataset_artifact.add_dir(args.dataset_path)
 
-run.log_artifact(dataset_artifact)
+# run.log_artifact(dataset_artifact)
 
 wandb.finish()
 
-if os.path.exists(args.dataset_path):
-    shutil.rmtree(args.dataset_path, ignore_errors=True)
+# if os.path.exists(args.dataset_path):
+#     shutil.rmtree(args.dataset_path, ignore_errors=True)
