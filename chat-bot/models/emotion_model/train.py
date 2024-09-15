@@ -6,7 +6,7 @@ from typing import Optional
 import torch
 import torch.nn.functional as f
 import wandb
-from datasets import load_from_disk
+from datasets import load_dataset
 from libs import (
     CommonScriptArguments,
     CommonWanDBArguments,
