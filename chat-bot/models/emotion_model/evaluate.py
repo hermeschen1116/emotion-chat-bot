@@ -1,5 +1,5 @@
 from argparse import ArgumentParser
-from dataclasses import dataclass
+from dataclasses import Field, dataclass
 from typing import Optional
 
 import torch
@@ -13,7 +13,6 @@ from libs import (
     get_torch_device,
     representation_evolute,
 )
-from pyarrow import Field
 from safetensors.torch import load_model
 from torch import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
