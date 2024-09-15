@@ -158,12 +158,4 @@ tuner = SFTTrainer(
 
 tuner.train()
 
-model_artifact = wandb.Artifact(wandb.config["fine_tuned_model"], type="model")
-
-tuner.model = torch.compile(tuner.model)
-with tempfile.TemporaryDirectory() as temp_dir:
-    tuner.model.save_pretrained(temp_dir, save_embedding_layers=True)
-    model_artifact.add_dir(temp_dir)
-    run.log_artifact(model_artifact)
-
 wandb.finish()

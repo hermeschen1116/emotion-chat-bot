@@ -3,7 +3,7 @@ from dataclasses import Field, dataclass
 
 import torch
 import wandb
-from datasets import load_dataset, load_from_disk
+from datasets import load_dataset
 from libs import CommonScriptArguments, CommonWanDBArguments, ResponseGeneratorPipeline
 from peft.peft_model import PeftModel
 from torch import Tensor
@@ -12,7 +12,6 @@ from transformers import (
     BitsAndBytesConfig,
     GenerationConfig,
     HfArgumentParser,
-    TextGenerationPipeline,
     TextStreamer,
     pipeline,
 )
