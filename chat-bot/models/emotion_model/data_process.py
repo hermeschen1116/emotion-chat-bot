@@ -25,9 +25,7 @@ from transformers.hf_argparser import HfArg
 
 @dataclass
 class ScriptArguments(CommonScriptArguments):
-    dataset_path: Field[Optional[str]] = HfArg(
-        aliases="--dataset-path", default="./dataset"
-    )
+    dataset_path: Field[Optional[str]] = HfArg(aliases="--dataset-path", default="./dataset")
 
 
 config_getter = ArgumentParser()
@@ -47,14 +45,10 @@ run = wandb.init(
     resume=wandb_args.resume,
 )
 
-dataset = load_dataset(
-    "daily_dialog", num_proc=16, trust_remote_code=True
-).remove_columns(["act"])
+dataset = load_dataset("daily_dialog", num_proc=16, trust_remote_code=True).remove_columns(["act"])
 
 dataset = dataset.map(
-    lambda samples: {
-        "dialog": [[dialog.strip() for dialog in sample] for sample in samples]
-    },
+    lambda samples: {"dialog": [[dialog.strip() for dialog in sample] for sample in samples]},
     input_columns="dialog",
     batched=True,
     num_proc=16,
@@ -62,14 +56,8 @@ dataset = dataset.map(
 
 dataset = dataset.map(
     lambda samples: {
-        "dialog": [
-            sample[:-1] if len(sample) % 2 == 0 else sample
-            for sample in samples["dialog"]
-        ],
-        "emotion": [
-            sample[:-1] if len(sample) % 2 == 0 else sample
-            for sample in samples["emotion"]
-        ],
+        "dialog": [sample[:-1] if len(sample) % 2 == 0 else sample for sample in samples["dialog"]],
+        "emotion": [sample[:-1] if len(sample) % 2 == 0 else sample for sample in samples["emotion"]],
     },
     batched=True,
     num_proc=16,
@@ -86,20 +74,13 @@ dataset = dataset.map(
 
 dataset = dataset.map(
     lambda samples: {
-        "bot_representation": [
-            [generate_dummy_representation(sample[0])] for sample in samples["emotion"]
-        ],
+        "bot_representation": [[generate_dummy_representation(sample[0])] for sample in samples["emotion"]],
         "bot_emotion": [
-            [emotion for i, emotion in enumerate(sample[1:]) if i % 2 == 1]
-            for sample in samples["emotion"]
+            [emotion for i, emotion in enumerate(sample[1:]) if i % 2 == 1] for sample in samples["emotion"]
         ],
-        "bot_dialog": [
-            [emotion for i, emotion in enumerate(sample[1:]) if i % 2 == 1]
-            for sample in samples["dialog"]
-        ],
+        "bot_dialog": [[emotion for i, emotion in enumerate(sample[1:]) if i % 2 == 1] for sample in samples["dialog"]],
         "user_dialog": [
-            [emotion for i, emotion in enumerate(sample[1:]) if i % 2 == 0]
-            for sample in samples["dialog"]
+            [emotion for i, emotion in enumerate(sample[1:]) if i % 2 == 0] for sample in samples["dialog"]
         ],
     },
     remove_columns=["emotion", "dialog"],
@@ -107,9 +88,7 @@ dataset = dataset.map(
     num_proc=16,
 )
 
-quantization_config = BitsAndBytesConfig(
-    load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16
-)
+quantization_config = BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16)
 quantization_config = None if not torch.cuda.is_available() else quantization_config
 sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(
     wandb_args.config["sentiment_analysis_model"],
@@ -136,12 +115,12 @@ sentiment_analysis_model = torch.compile(sentiment_analysis_model)
 
 dataset = dataset.map(
     lambda sample: {
-        "user_dialog_emotion_composition": [
-            get_sentiment_composition(analyser(dialog)) for dialog in sample
-        ]
+        "user_dialog_emotion_composition": [get_sentiment_composition(analyser(dialog)) for dialog in sample]
     },
     input_columns="user_dialog",
 )
+
+dataset.push_to_hub("emotion_transition_from_dialog")
 
 dataset_artifact = wandb.Artifact(
     "daily_dialog_for_EM",
