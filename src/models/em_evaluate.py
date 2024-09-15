@@ -5,10 +5,6 @@ from typing import Optional
 import torch
 import wandb
 from datasets import Dataset, load_from_disk
-from torch import Tensor
-from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
-from transformers.hf_argparser import HfArg, HfArgumentParser
-
 from libs import (
     CommonScriptArguments,
     CommonWanDBArguments,
@@ -16,6 +12,9 @@ from libs import (
     get_torch_device,
     representation_evolute,
 )
+from torch import Tensor
+from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
+from transformers.hf_argparser import HfArg, HfArgumentParser
 
 
 @dataclass

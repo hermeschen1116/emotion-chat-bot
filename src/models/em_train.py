@@ -6,11 +6,6 @@ import torch
 import torch.nn.functional as f
 import wandb
 from datasets import load_dataset
-from torch.utils.data import DataLoader
-from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
-from tqdm.auto import tqdm
-from transformers.hf_argparser import HfArg, HfArgumentParser
-
 from libs import (
     CommonScriptArguments,
     CommonWanDBArguments,
@@ -18,6 +13,10 @@ from libs import (
     get_torch_device,
     representation_evolute,
 )
+from torch.utils.data import DataLoader
+from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
+from tqdm.auto import tqdm
+from transformers.hf_argparser import HfArg, HfArgumentParser
 
 
 @dataclass
