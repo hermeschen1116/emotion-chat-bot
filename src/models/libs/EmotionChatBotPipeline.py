@@ -2,7 +2,7 @@ from transformers import TextGenerationPipeline
 from transformers.pipelines.text_generation import Chat, ReturnType
 
 
-class ResponseGeneratorPipeline(TextGenerationPipeline):
+class EmotionChatBotPipeline(TextGenerationPipeline):
     def postprocess(
         self,
         model_outputs,
