@@ -3,13 +3,14 @@ from typing import Any, List, Optional
 import torch
 
 
-def value_candidate_check(input_value: Any,
-                          possible_values: List,
-                          use_default_value: bool,
-                          default_value: Optional[Any]) -> Any:
+def value_candidate_check(
+    input_value: Any,
+    possible_values: List,
+    use_default_value: bool,
+    default_value: Optional[Any],
+) -> Any:
     if input_value not in possible_values:
-        error_message: str = \
-            f"This parameter should be any of {', '.join(possible_values)}, your input is {input_value}"
+        error_message: str = f"This parameter should be any of {', '.join(possible_values)}, your input is {input_value}"
         if use_default_value:
             print(error_message)
             return default_value

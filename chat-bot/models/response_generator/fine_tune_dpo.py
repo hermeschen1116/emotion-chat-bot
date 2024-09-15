@@ -10,11 +10,12 @@ from transformers.hf_argparser import HfArg
 from trl import DPOConfig, DPOTrainer
 from unsloth import FastLanguageModel, PatchDPOTrainer
 
-PatchDPOTrainer() # not very sure what it does
+PatchDPOTrainer()  # not very sure what it does
+
 
 @dataclass
 class ScriptArguments(CommonScriptArguments):
-	chat_template_file: Field[str] = HfArg(aliases="--chat-template-file", default="")
+    chat_template_file: Field[str] = HfArg(aliases="--chat-template-file", default="")
 
 
 config_getter = ArgumentParser()
@@ -24,17 +25,19 @@ config = config_getter.parse_args()
 parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
 args, wandb_args = parser.parse_json_file(config.json_file)
 
-chat_template: dict = eval(open(args.chat_template_file, "r", encoding="utf-8", closefd=True).read())
+chat_template: dict = eval(
+    open(args.chat_template_file, "r", encoding="utf-8", closefd=True).read()
+)
 
 # Initialize Wandb
 run = wandb.init(
-	job_type=wandb_args.job_type,
-	config=wandb_args.config,
-	project=wandb_args.project,
-	group=wandb_args.group,
-	notes=wandb_args.notes,
-	mode=wandb_args.mode,
-	resume=wandb_args.resume
+    job_type=wandb_args.job_type,
+    config=wandb_args.config,
+    project=wandb_args.project,
+    group=wandb_args.group,
+    notes=wandb_args.notes,
+    mode=wandb_args.mode,
+    resume=wandb_args.resume,
 )
 wandb.config["chat_template"] = chat_template["template"]
 wandb.config["instruction_template"] = chat_template["instruction"]
@@ -43,23 +46,23 @@ wandb.config["special_tokens"] = chat_template["special_tokens"]
 
 # Load Dataset
 dataset = load_dataset(
-	wandb.config["dataset"],
-	split="train",
-	keep_in_memory=True,
-	num_proc=16,
-	trust_remote_code=True
+    wandb.config["dataset"],
+    split="train",
+    keep_in_memory=True,
+    num_proc=16,
+    trust_remote_code=True,
 )
 
 # Load Tokenizer
 base_model, tokenizer = FastLanguageModel.from_pretrained(
-	wandb.config["base_model"],
-	attn_implementation="flash_attention_2",
-	pretraining_tp=1,
-	load_in_4bit=True,
-	use_cache=False,
-	device_map="auto",
-	use_gradient_checkpointing="unsloth",
-	low_cpu_mem_usage=True,
+    wandb.config["base_model"],
+    attn_implementation="flash_attention_2",
+    pretraining_tp=1,
+    load_in_4bit=True,
+    use_cache=False,
+    device_map="auto",
+    use_gradient_checkpointing="unsloth",
+    low_cpu_mem_usage=True,
 )
 tokenizer.padding_side = "left"
 tokenizer.clean_up_tokenization_spaces = True
@@ -72,12 +75,9 @@ model = PeftModel.from_pretrained(
     wandb.config["adapter"],
     is_trainable=True,
     adapter_name="traingg",
-    )
+)
 
-model.load_adapter(
-    wandb.config["adapter"],
-    adapter_name="reference"
-    )
+model.load_adapter(wandb.config["adapter"], adapter_name="reference")
 
 model.print_trainable_parameters()
 
@@ -88,7 +88,7 @@ training_args = DPOConfig(
     ref_adapter_name="reference",
     remove_unused_columns=False,
     num_train_epochs=3,
-    gradient_checkpointing=True
+    gradient_checkpointing=True,
 )
 
 dpo_trainer = DPOTrainer(
@@ -101,4 +101,8 @@ dpo_trainer = DPOTrainer(
 dpo_trainer.train()
 
 # 16-bit working, but 4-bit somehow not working
-model.save_pretrained_merged("16bit_model_3epo-v3", tokenizer, save_method = "merged_16bit",)
+model.save_pretrained_merged(
+    "16bit_model_3epo-v3",
+    tokenizer,
+    save_method="merged_16bit",
+)

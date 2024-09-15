@@ -1,11 +1,11 @@
 {
-  "dtype": "torch.float32",
-  "job_type": "evaluation",
-  "project": "emotion-chat-bot-ncu",
-  "group": "Emotion Model",
-  "notes": "evaluate performance trained emotion model with different attention",
-  "config": {
-    "dataset": "daily_dialog_for_EM:latest",
-    "model": "emotion_model:latest"
-  }
+	"dtype": "torch.float32",
+	"job_type": "evaluation",
+	"project": "emotion-chat-bot-ncu",
+	"group": "Emotion Model",
+	"notes": "evaluate performance trained emotion model with different attention",
+	"config": {
+		"dataset": "hermeschen1116/emotion_transition_from_dialog",
+		"model": "hermeschen1116/emotion_model_for_emotion_chat_bot"
+	}
 }
