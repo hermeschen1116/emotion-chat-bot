@@ -37,27 +37,21 @@ def get_sentiment_composition(analysis_result: list) -> Tensor:
 def flatten_data_and_abandon_data_with_neutral(
     source_dataset: Dataset, keep_ratio: float
 ) -> Dataset:
-    dataset_without_neutral = Dataset.from_list(
-        [
-            row
-            for sample in source_dataset["rows"]
-            for row in sample
-            if row["label"] != 0
-        ]
+    flattened_dataset = Dataset.from_list(
+        [row for sample in source_dataset["rows"] for row in sample]
     )
-    dataset_with_only_neutral = Dataset.from_list(
-        [
-            row
-            for sample in source_dataset["rows"]
-            for row in sample
-            if row["label"] == 0
-        ]
-    ).shuffle()
+
+    dataset_without_neutral = flattened_dataset.filter(
+        lambda sample: sample != 0, input_columns=["label"], num_proc=16
+    )
+    dataset_with_only_neutral = flattened_dataset.filter(
+        lambda sample: sample == 0, input_columns=["label"], num_proc=16
+    )
     num_row_with_neutral_to_take: int = int(len(dataset_with_only_neutral) * keep_ratio)
 
     return concatenate_datasets(
         [
             dataset_without_neutral,
-            dataset_with_only_neutral.take(num_row_with_neutral_to_take),
+            dataset_with_only_neutral.shuffle().take(num_row_with_neutral_to_take),
         ]
     )
