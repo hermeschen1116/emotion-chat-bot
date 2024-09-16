@@ -159,10 +159,10 @@ base_model = get_peft_model(base_model, peft_config)
 def compute_metrics(prediction) -> dict:
     sentiment_true: Tensor = torch.tensor(
         [[label] for label in prediction.label_ids.tolist()]
-    )
+    ).flatten()
     sentiment_pred: Tensor = torch.tensor(
-        [label] for label in prediction.predictions.argmax(-1).tolist()
-    )
+        [[label] for label in prediction.predictions.argmax(-1).tolist()]
+    ).flatten()
 
     return {
         "Accuracy": multiclass_accuracy(
