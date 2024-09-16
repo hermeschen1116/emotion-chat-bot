@@ -106,21 +106,20 @@ analyser = pipeline(
 )
 
 result = dataset.rename_column("label", "truth_id").add_column(
-    "prediction_id", analyser(dataset["text"])
+    "prediction", analyser(dataset["text"])
 )
 
 emotion_label: dict = {index: label for index, label in enumerate(emotion_labels)}
+emotion_id: dict = {label: index for index, label in enumerate(emotion_labels)}
 result = result.map(
     lambda samples: {
         "label": [
-            emotion_label[emotion_id]
-            for sample in samples["truth_id"]
-            for emotion_id in sample
+            emotion_label[emotion]
+            for emotion in samples["truth_id"]
         ],
-        "prediction": [
-            emotion_label[emotion_id]
-            for sample in samples["prediction_id"]
-            for emotion_id in sample
+        "prediction_id": [
+            emotion_id[emotion["label"]]
+            for emotion in samples["prediction"]
         ],
     },
     batched=True,
@@ -133,13 +132,13 @@ sentiment_pred: Tensor = torch.tensor([sample for sample in result["prediction_i
 wandb.log(
     {
         "F1-score": multiclass_f1_score(
-            sentiment_true,
             sentiment_pred,
+            sentiment_true,
             num_classes=num_emotion_labels,
             average="weighted",
         ),
         "Accuracy": multiclass_accuracy(
-            sentiment_true, sentiment_pred, num_classes=num_emotion_labels
+            sentiment_pred, sentiment_true, num_classes=num_emotion_labels
         ),
     }
 )
