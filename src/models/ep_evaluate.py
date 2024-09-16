@@ -1,138 +1,143 @@
+from argparse import ArgumentParser
+
 import torch
-from datasets import Dataset, load_dataset
-from dotenv import load_dotenv
-from sklearn.metrics import (
-    accuracy_score,
-    classification_report,
-    f1_score,
+import wandb
+from datasets import load_dataset
+from libs import (
+    CommonScriptArguments,
+    CommonWanDBArguments,
+    flatten_data_and_abandon_data_with_neutral,
 )
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
+from torch import Tensor
+from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
+from transformers import HfArgumentParser, pipeline
 
-load_dotenv()
+config_getter = ArgumentParser()
+config_getter.add_argument("--json_file", required=True, type=str)
+config = config_getter.parse_args()
 
-new_model = "/home/user/github/etc_on_dd-1"
-new_model_half = "/home/user/github/etc_on_dd-half_neutral"
-base_model = "michellejieli/emotion_text_classifier"
-tokenizer = AutoTokenizer.from_pretrained(base_model)
+parser = HfArgumentParser((CommonScriptArguments, CommonWanDBArguments))
+args, wandb_args = parser.parse_json_file(config.json_file)
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-num_labels = 7
-id2label = {
-    0: "neutral",
-    1: "anger",
-    2: "disgust",
-    3: "fear",
-    4: "happiness",
-    5: "sadness",
-    6: "surprise",
-}
-
-label2id = {v: k for k, v in id2label.items()}
-
-og_label2id = {
-    "neutral": 0,
-    "anger": 1,
-    "disgust": 2,
-    "fear": 3,
-    "joy": 4,
-    "sadness": 5,
-    "surprise": 6,
-}
-
-
-def preprocessing(data):
-    data = data.rename_column("utterance", "text")
-    data = data.rename_column("emotion", "label")
-    data = data.remove_columns("turn_type")
-    return data
-
-
-def shifting(data):
-    df = data.to_pandas()
-    df["label"] = df.groupby("dialog_id")["label"].shift(-1)
-    df.dropna(inplace=True)
-    df["label"] = df["label"].astype(int)
-    modified_dataset = Dataset.from_pandas(df)
-    data = modified_dataset
-    return data
-
-
-def predict(row, classifier, label2id):
-    text = row["text"]
-    true_label = row["label"]
-    predicted_result = classifier(text)[0]
-    predicted_label = label2id[predicted_result["label"]]
-    # print("predicted_result", predicted_result, "predicted_label", predicted_label, "true_label", true_label)
-
-    return {"predicted_label": predicted_label, "true_label": true_label}
-
-
-data_name = "benjaminbeilharz/better_daily_dialog"
-data = load_dataset(data_name, split="test", num_proc=8)
-data = preprocessing(data)
-data = shifting(data)
-
-
-def create_classifier_pipeline(model_name, num_labels, id2label, label2id, tokenizer):
-    classifier_model = AutoModelForSequenceClassification.from_pretrained(
-        model_name, num_labels=num_labels, id2label=id2label, label2id=label2id
-    )
-    classifier = pipeline(
-        "sentiment-analysis", model=classifier_model, tokenizer=tokenizer, device=0
-    )
-    return classifier
-
-
-def evaluate(predictions):
-    true_labels = [p["true_label"] for p in predictions]
-    predicted_labels = [p["predicted_label"] for p in predictions]
-    print(
-        classification_report(
-            true_labels,
-            predicted_labels,
-            target_names=[id2label[i] for i in range(num_labels)],
-            digits=4,
-        )
-    )
-    first10 = predicted_labels[0:9]
-    f1 = f1_score(true_labels, predicted_labels, average="weighted")
-    acc = accuracy_score(true_labels, predicted_labels)
-    return first10, f1, acc
-
-
-# full dataset 10 epoches
-classifier = create_classifier_pipeline(
-    new_model, num_labels, id2label, label2id, tokenizer
+run = wandb.init(
+    job_type=wandb_args.job_type,
+    config=wandb_args.config,
+    project=wandb_args.project,
+    group=wandb_args.group,
 )
-predictions = data.map(lambda row: predict(row, classifier, label2id))
-print("Fine-tuned:")
-ft_10, f1_ft, accuracy_ft = evaluate(predictions)
 
-# half dataset 5 epoches
-classifier = create_classifier_pipeline(
-    new_model_half, num_labels, id2label, label2id, tokenizer
-)
-predictions = data.map(lambda row: predict(row, classifier, label2id))
-print("\nFine-tuned-half:")
-ft_half_10, f1_ft_half, accuracy_ft_half = evaluate(predictions)
+dataset = load_dataset(
+    run.config["dataset"],
+    split="test",
+    num_proc=16,
+    trust_remote_code=True,
+).remove_columns(["act"])
+emotion_labels: list = dataset.features["emotion"].feature.names
+emotion_labels[0] = "neutral"
+num_emotion_labels: int = len(emotion_labels)
 
-# untrained
-classifier_model = AutoModelForSequenceClassification.from_pretrained(base_model)
-classifier = pipeline(
-    "sentiment-analysis", model=classifier_model, tokenizer=tokenizer, device=0
+dataset = dataset.map(
+    lambda samples: {
+        "response_emotion": [sample[1:] + [sample[0]] for sample in samples]
+    },
+    input_columns=["emotion"],
+    remove_columns=["emotion"],
+    batched=True,
+    num_proc=16,
 )
-predictions = data.map(lambda row: predict(row, classifier, og_label2id))
-print("\nOriginal:")
-og_10, f1, accuracy = evaluate(predictions)
 
-print(
-    "\ntrue:",
-    data[0:9]["label"],
-    "\nfine-tuned:",
-    ft_10,
-    "\nfine-tuned-half:",
-    ft_half_10,
-    "\noriginal:",
-    og_10,
+dataset = dataset.map(
+    lambda samples: {
+        "dialog": [sample[:-1] for sample in samples["dialog"]],
+        "response_emotion": [sample[:-1] for sample in samples["response_emotion"]],
+    },
+    batched=True,
+    num_proc=16,
 )
-# print("\ntrue:", data[0:9]['label'], "\nfine-tuned:", ft_10, "\noriginal:", og_10)
+
+dataset = dataset.map(
+    lambda samples: {
+        "dialog": [sample[:-1] for sample in samples["dialog"]],
+        "response_emotion": [sample[:-1] for sample in samples["response_emotion"]],
+    },
+    batched=True,
+    num_proc=16,
+)
+
+dataset = dataset.map(
+    lambda samples: {
+        "rows": [
+            [
+                {
+                    "text": dialog,
+                    "label": emotion,
+                }
+                for i, (emotion, dialog) in enumerate(zip(sample[0], sample[1]))
+            ]
+            for sample in zip(samples["response_emotion"], samples["dialog"])
+        ]
+    },
+    remove_columns=["response_emotion", "dialog"],
+    batched=True,
+    num_proc=16,
+)
+dataset = dataset.map(
+    lambda samples: {
+        "rows": [sample for sample in samples if len(sample) != 0],
+    },
+    input_columns=["rows"],
+    batched=True,
+    num_proc=16,
+)
+
+dataset = flatten_data_and_abandon_data_with_neutral(dataset, 1)
+
+analyser = pipeline(
+    model=run.config["model"],
+    framework="pt",
+    task="sentiment-analysis",
+    num_workers=16,
+    device_map="auto",
+    torch_dtype="auto",
+    model_kwargs={
+        "low_cpu_mem_usage": True,
+    },
+    trust_remote_code=True,
+)
+
+result = dataset.rename_column("label", "truth_id").add_column(
+    "prediction", analyser(dataset["text"])
+)
+
+emotion_label: dict = {index: label for index, label in enumerate(emotion_labels)}
+emotion_id: dict = {label: index for index, label in enumerate(emotion_labels)}
+result = result.map(
+    lambda samples: {
+        "label": [emotion_label[emotion] for emotion in samples["truth_id"]],
+        "prediction_id": [
+            emotion_id[emotion["label"]] for emotion in samples["prediction"]
+        ],
+    },
+    batched=True,
+    num_proc=16,
+)
+
+sentiment_true: Tensor = torch.tensor([sample for sample in result["truth_id"]])
+sentiment_pred: Tensor = torch.tensor([sample for sample in result["prediction_id"]])
+
+wandb.log(
+    {
+        "F1-score": multiclass_f1_score(
+            sentiment_pred,
+            sentiment_true,
+            num_classes=num_emotion_labels,
+            average="weighted",
+        ),
+        "Accuracy": multiclass_accuracy(
+            sentiment_pred, sentiment_true, num_classes=num_emotion_labels
+        ),
+    }
+)
+wandb.log({"evaluation_result": wandb.Table(dataframe=result.to_pandas())})
+
+wandb.finish()
