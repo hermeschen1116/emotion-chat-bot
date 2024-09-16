@@ -231,6 +231,7 @@ trainer_arguments = TrainingArguments(
     optim=run.config["optim"],
     group_by_length=True,
     report_to=["wandb"],
+    hub_model_id=run.config["fine_tuned_model"],
     gradient_checkpointing=True,
     gradient_checkpointing_kwargs={"use_reentrant": True},
     auto_find_batch_size=True,
@@ -251,6 +252,6 @@ tuner = Trainer(
 tuner.train()
 
 tuner.model = torch.compile(tuner.model)
-tuner.push_to_hub(run.config["fine_tuned_model"])
+tuner.push_to_hub()
 
 wandb.finish()
