@@ -1,13 +1,16 @@
-import random
 from argparse import ArgumentParser
-from dataclasses import Field, dataclass
 
 import torch
 import wandb
 from datasets import load_dataset
-from libs import CommonScriptArguments, CommonWanDBArguments
+from libs import (
+    CommonScriptArguments,
+    CommonWanDBArguments,
+    throw_out_partial_row_with_a_label
+)
 from peft import LoraConfig, get_peft_model
-from sklearn.metrics import accuracy_score, f1_score
+from torch import Tensor
+from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
@@ -15,145 +18,162 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
-from transformers.hf_argparser import HfArg
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-
-@dataclass
-class ScriptArguments(CommonScriptArguments):
-    chat_template_file: Field[str] = HfArg(aliases="--chat-template-file", default="")
-
 
 config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)
 config = config_getter.parse_args()
 
-parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
+parser = HfArgumentParser((CommonScriptArguments, CommonWanDBArguments))
 args, wandb_args = parser.parse_json_file(config.json_file)
 
-# Initialize Wandb
 run = wandb.init(
+    name=wandb_args.name,
     job_type=wandb_args.job_type,
     config=wandb_args.config,
     project=wandb_args.project,
     group=wandb_args.group,
     notes=wandb_args.notes,
-    mode=wandb_args.mode,
-    resume=wandb_args.resume,
 )
 
+dataset = load_dataset(
+    run.config["dataset"],
+    num_proc=16,
+    trust_remote_code=True,
+)
+emotion_labels: list = dataset["train"].features["label"].names
+num_emotion_labels: int = len(emotion_labels)
 
-def tokenize(batch):
-    return tokenizer(batch["text"], padding="max_length", truncation=True)
+train_dataset = throw_out_partial_row_with_a_label(
+    dataset["train"], run.config["neutral_keep_ratio"], 0
+)
+validation_dataset = dataset['validation']
 
-
-def compute_metrics(pred):
-    labels = pred.label_ids
-    preds = pred.predictions.argmax(-1)
-    f1 = f1_score(labels, preds, average="weighted")
-    acc = accuracy_score(labels, preds)
-    return {"accuracy": acc, "f1": f1}
-
-def remove_half_neutral(data):
-    data_set = data["train"]
-    label_0_indices = [i for i, row in enumerate(data_set) if row["label"] == 0]
-    num_to_remove = len(label_0_indices) // 2
-    indices_to_remove = random.sample(label_0_indices, num_to_remove)
-    filtered_data = data_set.filter(
-        lambda x, i: i not in indices_to_remove, with_indices=True
-    )
-    data["train"] = filtered_data
-    return data
-
-num_labels = 7
-
-emotion_labels: list = [
-    "neutral",
-    "anger",
-    "disgust",
-    "fear",
-    "happiness",
-    "sadness",
-    "surprise",
-]
-id2label = {k: v for k, v in enumerate(emotion_labels)}
-label2id = {v: k for k, v in enumerate(emotion_labels)}
-
-
-def preprocessing(data):
-    data = data.rename_column("utterance", "text")
-    data = data.rename_column("emotion", "label")
-    data = data.remove_columns(["dialog_id", "turn_type"])
-    return data
-
-
-raw_data = load_dataset(
-    wandb.config["dataset"],
-    num_proc=16
-    )
-
-processed_data = preprocessing(raw_data)
-half_neutral_data = remove_half_neutral(processed_data)
-
-base_model = wandb.config["base_model"]
-
-tokenizer = AutoTokenizer.from_pretrained(base_model)
-model = AutoModelForSequenceClassification.from_pretrained(
-    base_model, num_labels=num_labels, id2label=id2label, label2id=label2id
+tokenizer = AutoTokenizer.from_pretrained(
+    run.config["base_model"],
+    padding_side="right",
+    clean_up_tokenization_spaces=True,
+    trust_remote_code=True,
 )
 
-encoded_data = half_neutral_data.map(tokenize, batched=True, batch_size=None)
+base_model = AutoModelForSequenceClassification.from_pretrained(
+    run.config["base_model"],
+    num_labels=num_emotion_labels,
+    id2label={k: v for k, v in enumerate(emotion_labels)},
+    label2id={v: k for k, v in enumerate(emotion_labels)},
+    use_cache=False,
+    device_map="auto",
+    low_cpu_mem_usage=True,
+    trust_remote_code=True,
+)
 
-lora_config = LoraConfig(
-    lora_alpha=64,
-    lora_dropout=0.2,
-    r=128,
-    bias="none",
+peft_config = LoraConfig(
     task_type="SEQ_CLS",
-    use_rslora=True,
+    lora_alpha=run.config["lora_alpha"],
+    lora_dropout=run.config["lora_dropout"],
+    r=run.config["lora_rank"],
+    bias="none",
+    init_lora_weights=run.config["init_lora_weights"],
+    use_rslora=run.config["use_rslora"],
 )
-peft_model = get_peft_model(model, lora_config)
+base_model = get_peft_model(base_model, peft_config)
 
-batch_size = 8
-logging_steps = len(encoded_data["train"]) // batch_size
+train_dataset = train_dataset.map(
+    lambda samples: {
+        "input_ids": [
+            tokenizer.encode(sample, padding="max_length", truncation=True)
+            for sample in samples
+        ],
+    },
+    input_columns=["text"],
+    batched=True,
+    num_proc=16,
+)
+train_dataset.set_format("torch")
+validation_dataset = validation_dataset.map(
+    lambda samples: {
+        "input_ids": [
+            tokenizer.encode(sample, padding="max_length", truncation=True)
+            for sample in samples
+        ],
+    },
+    input_columns=["text"],
+    batched=True,
+    num_proc=16,
+)
+validation_dataset.set_format("torch")
 
-training_args = TrainingArguments(
+
+def compute_metrics(prediction) -> dict:
+    sentiment_true: Tensor = torch.tensor(
+        [[label] for label in prediction.label_ids.tolist()]
+    ).flatten()
+    sentiment_pred: Tensor = torch.tensor(
+        [[label] for label in prediction.predictions.argmax(-1).tolist()]
+    ).flatten()
+
+    return {
+        "Accuracy": multiclass_accuracy(
+            sentiment_true, sentiment_pred, num_classes=num_emotion_labels
+        ),
+        "F1-score": multiclass_f1_score(
+            sentiment_true,
+            sentiment_pred,
+            num_classes=num_emotion_labels,
+            average="weighted",
+        ),
+    }
+
+
+per_device_batch_size: int = 8
+logging_steps: int = len(dataset["train"]) // per_device_batch_size
+trainer_arguments = TrainingArguments(
     output_dir="./checkpoints",
-    num_train_epochs=2,
-    per_device_train_batch_size=batch_size,
-    per_device_eval_batch_size=batch_size,
+    overwrite_output_dir=True,
+    per_device_train_batch_size=8,
+    per_device_eval_batch_size=8,
     gradient_accumulation_steps=1,
-    optim="paged_adamw_32bit",
-    save_steps=5000,
+    learning_rate=run.config["learning_rate"],
+    lr_scheduler_type="constant",
+    weight_decay=run.config["weight_decay"],
+    max_grad_norm=run.config["max_grad_norm"],
+    num_train_epochs=run.config["num_train_epochs"],
+    warmup_ratio=run.config["warmup_ratio"],
+    max_steps=run.config["max_steps"],
+    logging_steps=logging_steps,
+    log_level="error",
+    save_steps=500,
     save_total_limit=2,
     save_strategy="epoch",
-    logging_steps=logging_steps,
-    learning_rate=0.0001,
-    weight_decay=0.1,
-    fp16=False,
+    eval_strategy="epoch",
+    load_best_model_at_end=True,
+    fp16=True,
     bf16=False,
-    max_grad_norm=0.3,
-    max_steps=-1,
-    warmup_ratio=0.03,
+    dataloader_num_workers=12,
+    optim=run.config["optim"],
     group_by_length=True,
-    lr_scheduler_type="constant",
     report_to=["wandb"],
+    hub_model_id=run.config["fine_tuned_model"],
     gradient_checkpointing=True,
     gradient_checkpointing_kwargs={"use_reentrant": True},
-    eval_strategy="epoch",
-    overwrite_output_dir=True,
+    auto_find_batch_size=True,
+    torch_compile=False,
+    include_tokens_per_second=True,
+    include_num_input_tokens_seen=True,
 )
-wandb.config["trainer_arguments"] = training_args.to_dict()
 
-trainer = Trainer(
-    model=peft_model,
-    args=training_args,
+tuner = Trainer(
+    model=base_model,
+    args=trainer_arguments,
     compute_metrics=compute_metrics,
-    train_dataset=encoded_data["train"],
-    eval_dataset=encoded_data["validation"],
+    train_dataset=train_dataset,
+    eval_dataset=validation_dataset,
     tokenizer=tokenizer,
 )
 
-trainer.train()
-trainer.model.save_pretrained("sentiment_analyzer_DD")
+tuner.train()
+
+tuner.model = torch.compile(tuner.model)
+tuner.model = tuner.model.merge_and_unload(progressbar=True)
+tuner.push_to_hub()
+
+wandb.finish()
