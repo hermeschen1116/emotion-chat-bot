@@ -85,7 +85,7 @@ train_dataset = flatten_data_and_abandon_data_with_neutral(
     dataset["train"], run.config["neutral_keep_ratio"]
 )
 validation_dataset = flatten_data_and_abandon_data_with_neutral(
-    dataset["validation"], run.config["neutral_keep_ratio"]
+    dataset["validation"], 1
 )
 
 tokenizer = AutoTokenizer.from_pretrained(
