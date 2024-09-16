@@ -12,13 +12,11 @@ from libs import (
     get_sentiment_composition,
 )
 from transformers import (
-    AutoModelForSequenceClassification,
-    AutoTokenizer,
     BitsAndBytesConfig,
     HfArgumentParser,
-    pipeline,
 )
 from transformers.hf_argparser import HfArg
+from transformers.pipelines import TextClassificationPipeline
 
 
 @dataclass
@@ -73,12 +71,8 @@ dataset = dataset.map(
     num_proc=16,
 )
 
-dataset = dataset.map(
-    lambda samples: {
-        "dialog": [sample for sample in samples["dialog"] if len(sample) > 2],
-        "emotion": [sample for sample in samples["emotion"] if len(sample) > 2],
-    },
-    batched=True,
+dataset = dataset.filter(
+    lambda sample: (len(sample["dialog"]) > 2) and (len(sample["emotion"]) > 2),
     num_proc=16,
 )
 
@@ -105,31 +99,22 @@ dataset = dataset.map(
     num_proc=16,
 )
 
-sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(
-    wandb_args.config["sentiment_analysis_model"],
-    quantization_config=BitsAndBytesConfig(
-        load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16
-    ),
+analyser = TextClassificationPipeline(
+    model=run.config["sentiment_analysis_model"],
+    framework="pt",
+    task="sentiment-analysis",
+    num_workers=16,
     device_map="auto",
-    low_cpu_mem_usage=True,
-)
-
-sentiment_analysis_tokenizer = AutoTokenizer.from_pretrained(
-    wandb_args.config["sentiment_analysis_model"], trust_remote_code=True
-)
-
-analyser = pipeline(
-    "sentiment-analysis",
-    model=sentiment_analysis_model,
-    tokenizer=sentiment_analysis_tokenizer,
-    top_k=7,
-    torch_dtype=torch.float32,
-    device_map="auto",
+    torch_dtype="auto",
+    model_kwargs={
+        "quantization_config": BitsAndBytesConfig(
+            load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16
+        ),
+        "topk": 7,
+        "low_cpu_mem_usage": True,
+    },
     trust_remote_code=True,
 )
-
-sentiment_analysis_model = torch.compile(sentiment_analysis_model)
-
 
 dataset = dataset.map(
     lambda sample: {
