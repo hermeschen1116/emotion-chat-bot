@@ -1,4 +1,5 @@
 import torch
+from datasets import Dataset, concatenate_datasets
 from torch import Tensor
 
 
@@ -30,4 +31,33 @@ def get_sentiment_composition(analysis_result: list) -> Tensor:
 
     return torch.softmax(
         torch.tensor(sentiment_composition), dim=-1, dtype=torch.float32
+    )
+
+
+def flatten_data_and_abandon_data_with_neutral(
+    source_dataset: Dataset, keep_ratio: float
+) -> Dataset:
+    dataset_without_neutral = Dataset.from_list(
+        [
+            row
+            for sample in source_dataset["rows"]
+            for row in sample
+            if row["label"] != 0
+        ]
+    )
+    dataset_with_only_neutral = Dataset.from_list(
+        [
+            row
+            for sample in source_dataset["rows"]
+            for row in sample
+            if row["label"] == 0
+        ]
+    ).shuffle()
+    num_row_with_neutral_to_take: int = int(len(dataset_with_only_neutral) * keep_ratio)
+
+    return concatenate_datasets(
+        [
+            dataset_without_neutral,
+            dataset_with_only_neutral.take(num_row_with_neutral_to_take),
+        ]
     )

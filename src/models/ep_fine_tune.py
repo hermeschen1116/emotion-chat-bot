@@ -1,176 +1,236 @@
-import os
-import random
+from argparse import ArgumentParser
 
 import torch
 import wandb
-from datasets import Dataset, load_dataset
-from dotenv import load_dotenv
-from huggingface_hub import login
+from datasets import load_dataset
+from libs import (
+    CommonScriptArguments,
+    CommonWanDBArguments,
+    flatten_data_and_abandon_data_with_neutral,
+)
 from peft import LoraConfig, get_peft_model
-from sklearn.metrics import accuracy_score, f1_score
+from torch import Tensor
+from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
+    HfArgumentParser,
     Trainer,
     TrainingArguments,
 )
 
-load_dotenv()
-login(token=os.environ.get("HF_TOKEN", ""), add_to_git_credential=True)
-wandb.login(key=os.environ.get("WANDB_API_KEY", ""))
+config_getter = ArgumentParser()
+config_getter.add_argument("--json_file", required=True, type=str)
+config = config_getter.parse_args()
 
-wandb_config = {
-    "base_model": "michellejieli/emotion_text_classifier",
-}
-wandb.init(
-    job_type="fine-tuning",
-    config=wandb_config,
-    project="emotion-chat-bot-ncu-half-neutral-data",
-    group="emotion_predictor_ex1",
-    mode="online",
-    # resume="auto"
+parser = HfArgumentParser((CommonScriptArguments, CommonWanDBArguments))
+args, wandb_args = parser.parse_json_file(config.json_file)
+
+run = wandb.init(
+    name=wandb_args.name,
+    job_type=wandb_args.job_type,
+    config=wandb_args.config,
+    project=wandb_args.project,
+    group=wandb_args.group,
+    notes=wandb_args.notes,
 )
 
-base_model = "michellejieli/emotion_text_classifier"
-new_model = "./etc_on_dd-half_neutral"
+dataset = load_dataset(
+    run.config["dataset"],
+    num_proc=16,
+    trust_remote_code=True,
+).remove_columns(["act"])
+emotion_labels: list = dataset["train"].features["emotion"].feature.names
+emotion_labels[0] = "neutral"
+num_emotion_labels: int = len(emotion_labels)
 
-num_labels = 7
-
-emotion_labels: list = [
-    "neutral",
-    "anger",
-    "disgust",
-    "fear",
-    "happiness",
-    "sadness",
-    "surprise",
-]
-id2label = {k: v for k, v in enumerate(emotion_labels)}
-label2id = {v: k for k, v in enumerate(emotion_labels)}
-
-
-def preprocessing(data):
-    data = data.rename_column("utterance", "text")
-    data = data.rename_column("emotion", "label")
-    data = data.remove_columns("turn_type")
-    return data
-
-
-def shift_labels(dataset):
-    df = dataset.to_pandas()
-    df["label"] = df.groupby("dialog_id")["label"].shift(-1)
-    df.dropna(inplace=True)
-    df["label"] = df["label"].astype(int)
-    dataset = Dataset.from_pandas(df)
-    dataset = dataset.remove_columns("dialog_id")
-    return dataset
-
-
-def remove_half_train(data):
-    data_set = data["train"]
-    label_0_indices = [i for i, row in enumerate(data_set) if row["label"] == 0]
-    num_to_remove = len(label_0_indices) // 2
-    indices_to_remove = random.sample(label_0_indices, num_to_remove)
-    filtered_data = data_set.filter(
-        lambda x, i: i not in indices_to_remove, with_indices=True
-    )
-    data["train"] = filtered_data
-    return data
-
-
-def shift_all(data):
-    data["train"] = shift_labels(data["train"])
-    data["validation"] = shift_labels(data["validation"])
-    data["test"] = shift_labels(data["test"])
-    return data
-
-
-data_name = "benjaminbeilharz/better_daily_dialog"
-data_raw = load_dataset(data_name, num_proc=16)
-data_raw = preprocessing(data_raw)
-data_raw = shift_all(data_raw)
-data_raw = remove_half_train(data_raw)
-data = data_raw
-
-tokenizer = AutoTokenizer.from_pretrained(base_model)
-model = AutoModelForSequenceClassification.from_pretrained(
-    base_model, num_labels=num_labels, id2label=id2label, label2id=label2id
+dataset = dataset.map(
+    lambda samples: {
+        "response_emotion": [sample[1:] + [sample[0]] for sample in samples]
+    },
+    input_columns=["emotion"],
+    remove_columns=["emotion"],
+    batched=True,
+    num_proc=16,
 )
 
+dataset = dataset.map(
+    lambda samples: {
+        "dialog": [sample[:-1] for sample in samples["dialog"]],
+        "response_emotion": [sample[:-1] for sample in samples["response_emotion"]],
+    },
+    batched=True,
+    num_proc=16,
+)
 
-def tokenize(batch):
-    return tokenizer(batch["text"], padding="max_length", truncation=True)
+dataset = dataset.map(
+    lambda samples: {
+        "dialog": [sample[:-1] for sample in samples["dialog"]],
+        "response_emotion": [sample[:-1] for sample in samples["response_emotion"]],
+    },
+    batched=True,
+    num_proc=16,
+)
 
+dataset = dataset.map(
+    lambda samples: {
+        "rows": [
+            [
+                {
+                    "text": dialog,
+                    "label": emotion,
+                }
+                for i, (emotion, dialog) in enumerate(zip(sample[0], sample[1]))
+            ]
+            for sample in zip(samples["response_emotion"], samples["dialog"])
+        ]
+    },
+    remove_columns=["response_emotion", "dialog"],
+    batched=True,
+    num_proc=16,
+)
+dataset = dataset.map(
+    lambda samples: {
+        "rows": [sample for sample in samples if len(sample) != 0],
+    },
+    input_columns=["rows"],
+    batched=True,
+    num_proc=16,
+)
 
-emotions = data
-emotions_encoded = emotions.map(tokenize, batched=True, batch_size=None)
-emotions_encoded = emotions_encoded.remove_columns(
-    ["__index_level_0__"]
-)  # some sort of weird bug
+train_dataset = flatten_data_and_abandon_data_with_neutral(
+    dataset["train"], run.config["neutral_keep_ratio"]
+)
+validation_dataset = flatten_data_and_abandon_data_with_neutral(
+    dataset["validation"], run.config["neutral_keep_ratio"]
+)
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+tokenizer = AutoTokenizer.from_pretrained(
+    run.config["base_model"],
+    padding_side="right",
+    clean_up_tokenization_spaces=True,
+    trust_remote_code=True,
+)
 
-lora_config = LoraConfig(
-    lora_alpha=64,
-    lora_dropout=0.2,
-    r=128,
-    bias="none",
+base_model = AutoModelForSequenceClassification.from_pretrained(
+    run.config["base_model"],
+    num_labels=num_emotion_labels,
+    id2label={k: v for k, v in enumerate(emotion_labels)},
+    label2id={v: k for k, v in enumerate(emotion_labels)},
+    use_cache=False,
+    device_map="auto",
+    low_cpu_mem_usage=True,
+    trust_remote_code=True,
+)
+
+peft_config = LoraConfig(
     task_type="SEQ_CLS",
-    use_rslora=True,
+    lora_alpha=run.config["lora_alpha"],
+    lora_dropout=run.config["lora_dropout"],
+    r=run.config["lora_rank"],
+    bias="none",
+    init_lora_weights=run.config["init_lora_weights"],
+    use_rslora=run.config["use_rslora"],
 )
-peft_model = get_peft_model(model, lora_config)
+base_model = get_peft_model(base_model, peft_config)
+
+train_dataset = train_dataset.map(
+    lambda samples: {
+        "input_ids": [
+            tokenizer.encode(sample, padding="max_length", truncation=True)
+            for sample in samples
+        ],
+    },
+    input_columns=["text"],
+    batched=True,
+    num_proc=16,
+)
+train_dataset.set_format("torch")
+validation_dataset = validation_dataset.map(
+    lambda samples: {
+        "input_ids": [
+            tokenizer.encode(sample, padding="max_length", truncation=True)
+            for sample in samples
+        ],
+    },
+    input_columns=["text"],
+    batched=True,
+    num_proc=16,
+)
+validation_dataset.set_format("torch")
 
 
-def compute_metrics(pred):
-    labels = pred.label_ids
-    preds = pred.predictions.argmax(-1)
-    f1 = f1_score(labels, preds, average="weighted")
-    acc = accuracy_score(labels, preds)
-    return {"accuracy": acc, "f1": f1}
+def compute_metrics(prediction) -> dict:
+    sentiment_true: Tensor = torch.tensor(
+        [[label] for label in prediction.label_ids.tolist()]
+    ).flatten()
+    sentiment_pred: Tensor = torch.tensor(
+        [[label] for label in prediction.predictions.argmax(-1).tolist()]
+    ).flatten()
+
+    return {
+        "Accuracy": multiclass_accuracy(
+            sentiment_true, sentiment_pred, num_classes=num_emotion_labels
+        ),
+        "F1-score": multiclass_f1_score(
+            sentiment_true,
+            sentiment_pred,
+            num_classes=num_emotion_labels,
+            average="weighted",
+        ),
+    }
 
 
-batch_size = 8
-logging_steps = len(emotions_encoded["train"]) // batch_size
-
-training_args = TrainingArguments(
+per_device_batch_size: int = 8
+logging_steps: int = len(dataset["train"]) // per_device_batch_size
+trainer_arguments = TrainingArguments(
     output_dir="./checkpoints",
-    num_train_epochs=5,
-    load_best_model_at_end=True,
-    per_device_train_batch_size=batch_size,
-    per_device_eval_batch_size=batch_size,
+    overwrite_output_dir=True,
+    per_device_train_batch_size=8,
+    per_device_eval_batch_size=8,
     gradient_accumulation_steps=1,
-    optim="paged_adamw_32bit",
+    learning_rate=run.config["learning_rate"],
+    lr_scheduler_type="constant",
+    weight_decay=run.config["weight_decay"],
+    max_grad_norm=run.config["max_grad_norm"],
+    num_train_epochs=run.config["num_train_epochs"],
+    warmup_ratio=run.config["warmup_ratio"],
+    max_steps=run.config["max_steps"],
+    logging_steps=logging_steps,
+    log_level="error",
     save_steps=500,
     save_total_limit=2,
     save_strategy="epoch",
-    logging_steps=logging_steps,
-    learning_rate=0.0001,
-    weight_decay=0.1,
-    fp16=False,
+    eval_strategy="epoch",
+    load_best_model_at_end=True,
+    fp16=True,
     bf16=False,
-    max_grad_norm=0.3,
-    max_steps=-1,
-    warmup_ratio=0.03,
+    dataloader_num_workers=12,
+    optim=run.config["optim"],
     group_by_length=True,
-    lr_scheduler_type="constant",
     report_to=["wandb"],
+    hub_model_id=run.config["fine_tuned_model"],
     gradient_checkpointing=True,
     gradient_checkpointing_kwargs={"use_reentrant": True},
-    evaluation_strategy="epoch",
-    log_level="error",
-    overwrite_output_dir=True,
+    auto_find_batch_size=True,
+    torch_compile=False,
+    include_tokens_per_second=True,
+    include_num_input_tokens_seen=True,
 )
-wandb.config["trainer_arguments"] = training_args.to_dict()
 
-trainer = Trainer(
-    model=peft_model,
-    args=training_args,
+tuner = Trainer(
+    model=base_model,
+    args=trainer_arguments,
     compute_metrics=compute_metrics,
-    train_dataset=emotions_encoded["train"],
-    eval_dataset=emotions_encoded["validation"],
+    train_dataset=train_dataset,
+    eval_dataset=validation_dataset,
     tokenizer=tokenizer,
 )
-trainer.train()
-wandb.finish()
 
-trainer.model.save_pretrained(new_model)
+tuner.train()
+
+tuner.model = torch.compile(tuner.model)
+tuner.model = tuner.model.merge_and_unload(progressbar=True)
+tuner.push_to_hub()
+
+wandb.finish()

@@ -1,4 +1,5 @@
 import torch
+from huggingface_hub.hub_mixin import PyTorchModelHubMixin
 from torch import Tensor
 
 from .Attention import diagonal_softmax
@@ -17,7 +18,7 @@ def representation_evolute(
     return torch.tensor(representations[1:], dtype=torch.float, requires_grad=True)
 
 
-class EmotionModel(torch.nn.Module):
+class EmotionModel(torch.nn.Module, PyTorchModelHubMixin):
     def __init__(
         self,
         dropout: float = 0.5,
