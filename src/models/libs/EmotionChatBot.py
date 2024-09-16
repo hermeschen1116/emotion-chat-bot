@@ -14,7 +14,7 @@ from unsloth import FastLanguageModel
 class EmotionChatBot:
     def __init__(self, threshold: float) -> None:
         model, tokenizer = FastLanguageModel.from_pretrained(
-            model_name="Shotaro30678/response_generator_DPO",
+            model_name="hermeschen1116/response_generator_for_emotion_chat_bot",
             attn_implementation="flash_attention_2",
             pretraining_tp=1,
             load_in_4bit=True,
@@ -63,7 +63,7 @@ class EmotionChatBot:
         )
 
         emotion_predictor_model = AutoModelForSequenceClassification.from_pretrained(
-            "Shotaro30678/sentiment_analysis_for_emotion_chat_bot",
+            "Shotaro30678/emotion_predictor_for_emotion_chat_bot",
             quantization_config=BitsAndBytesConfig(
                 load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16
             ),
@@ -72,7 +72,7 @@ class EmotionChatBot:
         )
 
         emotion_predictor_tokenizer = AutoTokenizer.from_pretrained(
-            "Shotaro30678/sentiment_analysis_for_emotion_chat_bot",
+            "Shotaro30678/emotion_predictor_for_emotion_chat_bot",
             trust_remote_code=True,
         )
 
