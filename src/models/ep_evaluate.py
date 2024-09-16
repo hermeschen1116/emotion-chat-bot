@@ -20,12 +20,10 @@ parser = HfArgumentParser((CommonScriptArguments, CommonWanDBArguments))
 args, wandb_args = parser.parse_json_file(config.json_file)
 
 run = wandb.init(
-    name=wandb_args.name,
     job_type=wandb_args.job_type,
     config=wandb_args.config,
     project=wandb_args.project,
     group=wandb_args.group,
-    notes=wandb_args.notes,
 )
 
 dataset = load_dataset(
@@ -95,7 +93,7 @@ dataset = dataset.map(
 dataset = flatten_data_and_abandon_data_with_neutral(dataset, 1)
 
 analyser = pipeline(
-    model="hermeschen1116/emotion_predictor_for_emotion_chat_bot",
+    model=run.config["model"],
     framework="pt",
     task="sentiment-analysis",
     num_workers=16,

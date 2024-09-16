@@ -1,0 +1,9 @@
+{
+	"job_type": "evaluation",
+	"project": "emotion-chat-bot-ncu",
+	"group": "Emotion Predictor",
+	"config": {
+		"dataset": "daily_dialog",
+		"model": "hermeschen1116/emotion_predictor_for_emotion_chat_bot"
+	}
+}
