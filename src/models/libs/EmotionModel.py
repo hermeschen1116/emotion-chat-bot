@@ -1,7 +1,8 @@
 import torch
-from Attention import diagonal_softmax
 from huggingface_hub.hub_mixin import PyTorchModelHubMixin
 from torch import Tensor
+
+from .Attention import diagonal_softmax
 
 
 def representation_evolute(
