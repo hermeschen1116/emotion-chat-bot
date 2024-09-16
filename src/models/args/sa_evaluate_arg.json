@@ -4,8 +4,7 @@
 	"group": "Sentiment Analysis",
 	"notes": "evaluate model on Sentiment Analysis task",
 	"config": {
-		"base_model": "michellejieli/emotion_text_classifier",
-		"fine_tuned_model":"Shotaro30678/sentiment_analysis_for_emotion_chat_bot",
-		"dataset": "benjaminbeilharz/better_daily_dialog"
+		"model":"Shotaro30678/sentiment_analysis_for_emotion_chat_bot",
+		"dataset": "Shotaro30678/daily_dialog_for_SA"
 	}
 }
