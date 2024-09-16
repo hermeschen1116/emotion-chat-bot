@@ -10,7 +10,6 @@ from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_scor
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
-    BitsAndBytesConfig,
     HfArgumentParser,
     Trainer,
     TrainingArguments,
