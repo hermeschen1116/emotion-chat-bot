@@ -58,15 +58,6 @@ dataset = dataset.map(
 
 dataset = dataset.map(
     lambda samples: {
-        "dialog": [sample[:-1] for sample in samples["dialog"]],
-        "response_emotion": [sample[:-1] for sample in samples["response_emotion"]],
-    },
-    batched=True,
-    num_proc=16,
-)
-
-dataset = dataset.map(
-    lambda samples: {
         "rows": [
             [
                 {
@@ -81,15 +72,7 @@ dataset = dataset.map(
     remove_columns=["response_emotion", "dialog"],
     batched=True,
     num_proc=16,
-)
-dataset = dataset.map(
-    lambda samples: {
-        "rows": [sample for sample in samples if len(sample) != 0],
-    },
-    input_columns=["rows"],
-    batched=True,
-    num_proc=16,
-)
+).filter(lambda sample: len(sample) > 0, input_columns=["rows"], num_proc=16)
 
 dataset = flatten_data_and_abandon_data_with_neutral(dataset, 1)
 
