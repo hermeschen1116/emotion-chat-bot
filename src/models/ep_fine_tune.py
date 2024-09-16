@@ -1,8 +1,9 @@
 from argparse import ArgumentParser
 
 import torch
+
 import wandb
-from datasets import load_dataset
+from datasets import load_dataset, Dataset, concatenate_datasets
 from peft import LoraConfig, get_peft_model
 from torch import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
@@ -10,10 +11,10 @@ from transformers import (
     AutoTokenizer,
     HfArgumentParser,
     Trainer,
-    TrainingArguments,
+    TrainingArguments, AutoModelForSequenceClassification
 )
 
-from models.libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
+from libs import CommonScriptArguments, CommonWanDBArguments
 
 config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)
@@ -36,6 +37,9 @@ dataset = load_dataset(
     num_proc=16,
     trust_remote_code=True,
 ).remove_columns(["act"])
+emotion_labels: list = dataset["train"].features["emotion"].feature.names
+emotion_labels[0] = "neutral"
+num_emotion_labels: int = len(emotion_labels)
 
 dataset = dataset.map(
     lambda samples: {
@@ -67,7 +71,7 @@ dataset = dataset.map(
 
 dataset = dataset.map(
     lambda samples: {
-        "row": [
+        "rows": [
             [
                 {
                     "text": dialog,
@@ -82,19 +86,30 @@ dataset = dataset.map(
     batched=True,
     num_proc=16,
 )
-dataset = dataset.flatten().rename_columns({"row.label": "label", "row.text": "text"})
+dataset = dataset.map(
+    lambda samples: {
+        "rows": [sample for sample in samples if len(sample) != 0],
+    },
+    input_columns=["rows"],
+    batched=True,
+    num_proc=16,
+)
 
-emotion_labels: list = dataset["train"].features["label"].feature.names
-emotion_labels[0] = "neutral"
-num_emotion_labels: int = len(emotion_labels)
+def flatten_data_and_abandon_data_with_neutral(source_dataset: Dataset) -> Dataset:
+    dataset_without_neutral = Dataset.from_list([row for sample in source_dataset["rows"] for row in sample if row["label"] != 0])
+    dataset_with_only_neutral = Dataset.from_list(
+        [row for sample in source_dataset["rows"] for row in sample if row["label"] == 0]).shuffle()
+    num_row_with_neutral_to_take: int = int(len(dataset_with_only_neutral) * run.config["neutral_keep_ratio"])
 
-tokenizer = AutoTokenizer.from_pretrained(base_model, trust_remote_code=True)
-tokenizer.padding_side = "right"
-tokenizer.clean_up_tokenization_spaces = True
+    return concatenate_datasets([dataset_without_neutral, dataset_with_only_neutral.take(num_row_with_neutral_to_take)])
 
-base_model = AutoModel.from_pretrained(
+train_dataset = flatten_data_and_abandon_data_with_neutral(dataset["train"])
+validation_dataset = flatten_data_and_abandon_data_with_neutral(dataset["validation"])
+
+tokenizer = AutoTokenizer.from_pretrained(run.config["base_model"], padding_side="right", clean_up_tokenization_spaces=True, trust_remote_code=True)
+
+base_model = AutoModelForSequenceClassification.from_pretrained(
     run.config["base_model"],
-    attn_implementation="flash_attention_2",
     num_labels=num_emotion_labels,
     id2label={k: v for k, v in enumerate(emotion_labels)},
     label2id={v: k for k, v in enumerate(emotion_labels)},
@@ -104,9 +119,9 @@ base_model = AutoModel.from_pretrained(
     trust_remote_code=True,
 )
 
-dataset = dataset.map(
+train_dataset = train_dataset.map(
     lambda samples: {
-        "tokenized_text": [
+        "input_ids": [
             tokenizer.encode(sample, padding="max_length", truncation=True)
             for sample in samples
         ],
@@ -115,14 +130,26 @@ dataset = dataset.map(
     batched=True,
     num_proc=16,
 )
-
+train_dataset.set_format("torch")
+validation_dataset = validation_dataset.map(
+    lambda samples: {
+        "input_ids": [
+            tokenizer.encode(sample, padding="max_length", truncation=True)
+            for sample in samples
+        ],
+    },
+    input_columns=["text"],
+    batched=True,
+    num_proc=16,
+)
+validation_dataset.set_format("torch")
 
 peft_config = LoraConfig(
     task_type="SEQ_CLS",
     lora_alpha=run.config["lora_alpha"],
     lora_dropout=run.config["lora_dropout"],
     r=run.config["lora_rank"],
-    bias=run.config["lora_bias"],
+    bias="none",
     init_lora_weights=run.config["init_lora_weights"],
     use_rslora=run.config["use_rslora"],
 )
@@ -170,11 +197,11 @@ trainer_arguments = TrainingArguments(
     save_steps=500,
     save_total_limit=2,
     save_strategy="epoch",
-    evaluation_strategy="epoch",
+    eval_strategy="epoch",
     load_best_model_at_end=True,
     fp16=True,
     bf16=False,
-    dataloader_num_workers=16,
+    dataloader_num_workers=12,
     optim=run.config["optim"],
     group_by_length=True,
     report_to=["wandb"],
@@ -186,17 +213,18 @@ trainer_arguments = TrainingArguments(
     include_num_input_tokens_seen=True,
 )
 
-tunner = Trainer(
+tuner = Trainer(
     model=base_model,
     args=trainer_arguments,
     compute_metrics=compute_metrics,
-    train_dataset=dataset["train"],
-    eval_dataset=dataset["validation"],
+    train_dataset=train_dataset,
+    eval_dataset=validation_dataset,
     tokenizer=tokenizer,
 )
 
-tunner.train()
+tuner.train()
 
-tunner.push_to_hub(run.config["fine_tuned_model"])
+tuner.model = torch.compile(tuner.model)
+tuner.push_to_hub(run.config["fine_tuned_model"])
 
 wandb.finish()

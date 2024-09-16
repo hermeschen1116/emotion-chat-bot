@@ -5,6 +5,7 @@
 	"config": {
 		"dataset": "daily_dialog",
 		"base_model": "michellejieli/emotion_text_classifier",
+		"neutral_keep_ratio": 0.5,
 		"init_lora_weights": true,
 		"lora_rank": 128,
 		"lora_alpha": 64,
