@@ -56,6 +56,6 @@ def throw_out_partial_row_with_a_label(
     return concatenate_datasets(
         [
             dataset_without_label,
-            dataset_without_label.shuffle().take(num_row_with_label_to_keep),
+            dataset_with_label.shuffle().take(num_row_with_label_to_keep),
         ]
     ).shuffle()
