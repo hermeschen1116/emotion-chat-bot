@@ -8,6 +8,7 @@ from libs import (
     CommonWanDBArguments,
     flatten_data_and_abandon_data_with_neutral,
 )
+from sklearn.metrics import classification_report
 from torch import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from transformers import HfArgumentParser, pipeline
@@ -96,7 +97,7 @@ analyser = pipeline(
     model=run.config["model"],
     framework="pt",
     task="sentiment-analysis",
-    num_workers=16,
+    num_workers=12,
     device_map="auto",
     torch_dtype="auto",
     model_kwargs={
@@ -109,13 +110,13 @@ result = dataset.rename_column("label", "truth_id").add_column(
     "prediction", analyser(dataset["text"])
 )
 
-emotion_label: dict = {index: label for index, label in enumerate(emotion_labels)}
-emotion_id: dict = {label: index for index, label in enumerate(emotion_labels)}
+id_to_label: dict = {index: label for index, label in enumerate(emotion_labels)}
+label_to_id: dict = {label: index for index, label in enumerate(emotion_labels)}
 result = result.map(
     lambda samples: {
-        "label": [emotion_label[emotion] for emotion in samples["truth_id"]],
+        "label": [id_to_label[emotion] for emotion in samples["truth_id"]],
         "prediction_id": [
-            emotion_id[emotion["label"]] for emotion in samples["prediction"]
+            label_to_id[emotion["label"]] for emotion in samples["prediction"]
         ],
     },
     batched=True,
@@ -124,6 +125,14 @@ result = result.map(
 
 sentiment_true: Tensor = torch.tensor([sample for sample in result["truth_id"]])
 sentiment_pred: Tensor = torch.tensor([sample for sample in result["prediction_id"]])
+report = classification_report(
+    sentiment_true.tolist(),
+    sentiment_pred.tolist(),
+    target_names=emotion_labels,
+    zero_division=0,
+)
+print()
+print(report)
 
 wandb.log(
     {
