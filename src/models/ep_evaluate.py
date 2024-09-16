@@ -3,11 +3,7 @@ from argparse import ArgumentParser
 import torch
 import wandb
 from datasets import load_dataset
-from libs import (
-    CommonScriptArguments,
-    CommonWanDBArguments,
-    flatten_data_and_abandon_data_with_neutral,
-)
+from libs import CommonScriptArguments, CommonWanDBArguments, flatten_dataset
 from sklearn.metrics import classification_report
 from torch import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
@@ -74,7 +70,7 @@ dataset = dataset.map(
     num_proc=16,
 ).filter(lambda sample: len(sample) > 0, input_columns=["rows"], num_proc=16)
 
-dataset = flatten_data_and_abandon_data_with_neutral(dataset, 1)
+dataset = flatten_dataset(dataset)
 
 analyser = pipeline(
     model=run.config["model"],

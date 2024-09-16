@@ -6,7 +6,8 @@ from datasets import load_dataset
 from libs import (
     CommonScriptArguments,
     CommonWanDBArguments,
-    flatten_data_and_abandon_data_with_neutral,
+    flatten_dataset,
+    throw_out_partial_row_with_a_label,
 )
 from peft import LoraConfig, get_peft_model
 from torch import Tensor
@@ -81,12 +82,11 @@ dataset = dataset.map(
     num_proc=16,
 ).filter(lambda sample: len(sample) > 0, input_columns=["rows"], num_proc=16)
 
-train_dataset = flatten_data_and_abandon_data_with_neutral(
-    dataset["train"], run.config["neutral_keep_ratio"]
+train_dataset = flatten_dataset(dataset["train"])
+train_dataset = throw_out_partial_row_with_a_label(
+    train_dataset, run.config["neutral_keep_ratio"], 0
 )
-validation_dataset = flatten_data_and_abandon_data_with_neutral(
-    dataset["validation"], 1
-)
+validation_dataset = flatten_dataset(dataset["validation"])
 
 tokenizer = AutoTokenizer.from_pretrained(
     run.config["base_model"],

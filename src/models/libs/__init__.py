@@ -2,9 +2,10 @@ from .Attention import diagonal_indices, diagonal_softmax
 from .CommonConfig import CommonScriptArguments, CommonWanDBArguments
 from .CommonUtils import get_torch_device, value_candidate_check
 from .DataProcess import (
-    flatten_data_and_abandon_data_with_neutral,
+    flatten_dataset,
     generate_dummy_representation,
     get_sentiment_composition,
+    throw_out_partial_row_with_a_label,
 )
 from .EmotionModel import EmotionModel, representation_evolute
 from .ResponseGeneratorPipeline import ResponseGeneratorPipeline
@@ -23,5 +24,6 @@ __all__ = [
     "value_candidate_check",
     "ResponseGeneratorPipeline",
     "SimilarityAnalyser",
-    "flatten_data_and_abandon_data_with_neutral",
+    "flatten_dataset",
+    "throw_out_partial_row_with_a_label",
 ]
