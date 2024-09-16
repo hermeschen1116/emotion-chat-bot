@@ -100,10 +100,10 @@ dataset = dataset.map(
 
 train_dataset = flatten_data_and_abandon_data_with_neutral(
     dataset["train"], run.config["neutral_keep_ratio"]
-)
+).take(10)
 validation_dataset = flatten_data_and_abandon_data_with_neutral(
     dataset["validation"], run.config["neutral_keep_ratio"]
-)
+).take(10)
 
 tokenizer = AutoTokenizer.from_pretrained(
     run.config["base_model"],
@@ -162,11 +162,10 @@ validation_dataset.set_format("torch")
 
 def compute_metrics(prediction) -> dict:
     sentiment_true: Tensor = torch.tensor(
-        [[label] for label in prediction.label_ids.tolist()], requires_grad=True
+        [[label] for label in prediction.label_ids.tolist()]
     ).flatten()
     sentiment_pred: Tensor = torch.tensor(
-        [[label] for label in prediction.predictions.argmax(-1).tolist()],
-        requires_grad=True,
+        [[label] for label in prediction.predictions.argmax(-1).tolist()]
     ).flatten()
 
     return {
@@ -231,6 +230,7 @@ tuner = Trainer(
 tuner.train()
 
 tuner.model = torch.compile(tuner.model)
+tuner.model = tuner.model.merge_and_unload(progressbar=True)
 tuner.push_to_hub()
 
 wandb.finish()
