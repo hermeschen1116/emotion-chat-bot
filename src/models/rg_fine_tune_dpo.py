@@ -39,14 +39,14 @@ run = wandb.init(
     mode=wandb_args.mode,
     resume=wandb_args.resume,
 )
-wandb.config["chat_template"] = chat_template["template"]
-wandb.config["instruction_template"] = chat_template["instruction"]
-wandb.config["response_template"] = chat_template["response"]
-wandb.config["special_tokens"] = chat_template["special_tokens"]
+run.config["chat_template"] = chat_template["template"]
+run.config["instruction_template"] = chat_template["instruction"]
+run.config["response_template"] = chat_template["response"]
+run.config["special_tokens"] = chat_template["special_tokens"]
 
 # Load Dataset
 dataset = load_dataset(
-    wandb.config["dataset"],
+    run.config["dataset"],
     split="train",
     keep_in_memory=True,
     num_proc=16,
@@ -55,7 +55,7 @@ dataset = load_dataset(
 
 # Load Tokenizer
 base_model, tokenizer = FastLanguageModel.from_pretrained(
-    wandb.config["base_model"],
+    run.config["base_model"],
     attn_implementation="flash_attention_2",
     pretraining_tp=1,
     load_in_4bit=True,
@@ -66,18 +66,18 @@ base_model, tokenizer = FastLanguageModel.from_pretrained(
 )
 tokenizer.padding_side = "left"
 tokenizer.clean_up_tokenization_spaces = True
-tokenizer.chat_template = wandb.config["chat_template"]
-tokenizer.add_special_tokens(wandb.config["special_tokens"])
+tokenizer.chat_template = run.config["chat_template"]
+tokenizer.add_special_tokens(run.config["special_tokens"])
 base_model.resize_token_embeddings(len(tokenizer))
 
 model = PeftModel.from_pretrained(
     base_model,
-    wandb.config["adapter"],
+    run.config["adapter"],
     is_trainable=True,
     adapter_name="traingg",
 )
 
-model.load_adapter(wandb.config["adapter"], adapter_name="reference")
+model.load_adapter(run.config["adapter"], adapter_name="reference")
 
 model.print_trainable_parameters()
 

@@ -4,7 +4,7 @@ from typing import Optional
 
 import torch
 import wandb
-from datasets import Dataset, load_from_disk
+from datasets import load_dataset
 from libs import (
     CommonScriptArguments,
     CommonWanDBArguments,
@@ -44,10 +44,14 @@ run = wandb.init(
     resume=wandb_args.resume,
 )
 
-dataset_path = run.use_artifact(wandb.config["dataset"]).download()
-eval_dataset: Dataset = load_from_disk(dataset_path)["test"]
+eval_dataset = load_dataset(
+    run.config["dataset"],
+    split="test",
+    num_proc=16,
+    trust_remote_code=True,
+)
 
-model = EmotionModel.from_pretrained(wandb.config["model"])
+model = EmotionModel.from_pretrained(run.config["model"])
 
 eval_dataset = eval_dataset.map(
     lambda samples: {

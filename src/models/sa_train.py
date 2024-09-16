@@ -76,11 +76,11 @@ def preprocessing(data):
     return data
 
 
-data = load_dataset(wandb.config["dataset"], num_proc=16)
+data = load_dataset(run.config["dataset"], num_proc=16)
 
 data = preprocessing(data)
 
-base_model = wandb.config["base_model"]
+base_model = run.config["base_model"]
 
 tokenizer = AutoTokenizer.from_pretrained(base_model)
 model = AutoModelForSequenceClassification.from_pretrained(
