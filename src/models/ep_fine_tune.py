@@ -184,10 +184,11 @@ validation_dataset.set_format("torch")
 
 def compute_metrics(prediction) -> dict:
     sentiment_true: Tensor = torch.tensor(
-        [[label] for label in prediction.label_ids.tolist()]
+        [[label] for label in prediction.label_ids.tolist()], requires_grad=True
     ).flatten()
     sentiment_pred: Tensor = torch.tensor(
-        [[label] for label in prediction.predictions.argmax(-1).tolist()]
+        [[label] for label in prediction.predictions.argmax(-1).tolist()],
+        requires_grad=True,
     ).flatten()
 
     return {
