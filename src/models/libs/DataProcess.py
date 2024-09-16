@@ -1,3 +1,5 @@
+from typing import Any
+
 import torch
 from datasets import Dataset, concatenate_datasets
 from torch import Tensor
@@ -34,24 +36,26 @@ def get_sentiment_composition(analysis_result: list) -> Tensor:
     )
 
 
-def flatten_data_and_abandon_data_with_neutral(
-    source_dataset: Dataset, keep_ratio: float
-) -> Dataset:
-    flattened_dataset = Dataset.from_list(
-        [row for sample in source_dataset["rows"] for row in sample]
+def flatten_dataset(dataset: Dataset, target_column_name: str = "rows") -> Dataset:
+    return Dataset.from_list(
+        [row for sample in dataset[target_column_name] for row in sample]
     )
 
-    dataset_without_neutral = flattened_dataset.filter(
-        lambda sample: sample != 0, input_columns=["label"], num_proc=16
+
+def throw_out_partial_row_with_a_label(
+    dataset: Dataset, keep_ratio: float, filter_value: Any, label_name: str = "label"
+) -> Dataset:
+    dataset_without_label = dataset.filter(
+        lambda sample: sample != filter_value, input_columns=[label_name], num_proc=16
     )
-    dataset_with_only_neutral = flattened_dataset.filter(
-        lambda sample: sample == 0, input_columns=["label"], num_proc=16
+    dataset_with_label = dataset.filter(
+        lambda sample: sample == filter_value, input_columns=[label_name], num_proc=16
     )
-    num_row_with_neutral_to_take: int = int(len(dataset_with_only_neutral) * keep_ratio)
+    num_row_with_label_to_keep: int = int(len(dataset_with_label) * keep_ratio)
 
     return concatenate_datasets(
         [
-            dataset_without_neutral,
-            dataset_with_only_neutral.shuffle().take(num_row_with_neutral_to_take),
+            dataset_without_label,
+            dataset_without_label.shuffle().take(num_row_with_label_to_keep),
         ]
-    )
+    ).shuffle()
