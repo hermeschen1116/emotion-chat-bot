@@ -40,14 +40,14 @@ run = wandb.init(
     mode=wandb_args.mode,
     resume=wandb_args.resume,
 )
-wandb.config["chat_template"] = chat_template["template"]
-wandb.config["instruction_template"] = chat_template["instruction"]
-wandb.config["response_template"] = chat_template["response"]
-wandb.config["special_tokens"] = chat_template["special_tokens"]
+run.config["chat_template"] = chat_template["template"]
+run.config["instruction_template"] = chat_template["instruction"]
+run.config["response_template"] = chat_template["response"]
+run.config["special_tokens"] = chat_template["special_tokens"]
 
 # Load Dataset
 dataset = load_dataset(
-    wandb.config["dataset"],
+    run.config["dataset"],
     split="train+validation",
     keep_in_memory=True,
     num_proc=16,
@@ -55,7 +55,7 @@ dataset = load_dataset(
 )
 
 # dataset filtering
-history_length: int = 2 * wandb.config["num_turns_history"]
+history_length: int = 2 * run.config["num_turns_history"]
 dataset = dataset.filter(
     lambda sample: len(sample) >= (2 + history_length),
     input_columns="prompt",
@@ -80,7 +80,7 @@ dataset = dataset.map(
 system_prompt: list = [
     {
         "role": "system",
-        "content": {"emotion": "", "dialog": wandb.config["system_prompt"]},
+        "content": {"emotion": "", "dialog": run.config["system_prompt"]},
     }
 ]
 
@@ -124,11 +124,11 @@ dataset = dataset.map(
 )
 
 # Target difference of chosen and rejected
-target_score_range = wandb.config["target_score_range"]
+target_score_range = run.config["target_score_range"]
 
 # Load Tokenizer
 base_model, tokenizer = FastLanguageModel.from_pretrained(
-    wandb.config["base_model"],
+    run.config["base_model"],
     attn_implementation="flash_attention_2",
     pretraining_tp=1,
     load_in_4bit=True,
@@ -139,11 +139,11 @@ base_model, tokenizer = FastLanguageModel.from_pretrained(
 )
 tokenizer.padding_side = "left"
 tokenizer.clean_up_tokenization_spaces = True
-tokenizer.chat_template = wandb.config["chat_template"]
-tokenizer.add_special_tokens(wandb.config["special_tokens"])
+tokenizer.chat_template = run.config["chat_template"]
+tokenizer.add_special_tokens(run.config["special_tokens"])
 base_model.resize_token_embeddings(len(tokenizer))
 
-base_model_with_adapter = PeftModel.from_pretrained(base_model, wandb.config["adapter"])
+base_model_with_adapter = PeftModel.from_pretrained(base_model, run.config["adapter"])
 base_model_with_adapter.print_trainable_parameters()
 FastLanguageModel.for_inference(base_model_with_adapter)
 
@@ -155,7 +155,7 @@ dataset = dataset.map(
             sample,
             tokenize=True,
             padding="max_length",
-            max_length=wandb.config["max_input_tokens"],
+            max_length=run.config["max_input_tokens"],
             add_generation_prompt=True,
             return_tensors="pt",
         )
@@ -191,8 +191,8 @@ emotion_labels: list = [
 
 # Sentiment Analysis
 sentiment_analyser = pipeline(
-    model=wandb.config["sentiment_analysis_model"],
-    tokenizer=wandb.config["sentiment_analysis_model"],
+    model=run.config["sentiment_analysis_model"],
+    tokenizer=run.config["sentiment_analysis_model"],
     max_length=512,
     framework="pt",
     task="sentiment-analysis",
@@ -209,8 +209,8 @@ sentiment_analyser = pipeline(
 
 # Detect gibberish
 gibberish_analyser = pipeline(
-    model=wandb.config["gibberish_detector_model"],
-    tokenizer=wandb.config["gibberish_detector_model"],
+    model=run.config["gibberish_detector_model"],
+    tokenizer=run.config["gibberish_detector_model"],
     max_length=512,
     framework="pt",
     task="text-classification",
@@ -271,8 +271,8 @@ def reward(batch: dict) -> list:
     # print("\ngibberish_scores: ",gibberish_scores)
     # print("\nlength_scores: ",length_scores)
 
-    reward_weight = tensor(wandb.config["reward_weights"], dtype=torch.float)
-    reward_bias = tensor(wandb.config["reward_bias"], dtype=torch.float)
+    reward_weight = tensor(run.config["reward_weights"], dtype=torch.float)
+    reward_bias = tensor(run.config["reward_bias"], dtype=torch.float)
     return [
         reward_weight.dot(tensor(reward_score, dtype=torch.float)) + reward_bias
         for reward_score in zip(emotion_scores, length_scores, gibberish_scores)
@@ -284,9 +284,9 @@ streamer = TextStreamer(
 )
 
 gen_kwargs = {
-    "max_new_tokens": wandb.config["max_new_tokens"],
-    "min_new_tokens": wandb.config["min_new_tokens"],
-    "repetition_penalty": wandb.config["repetition_penalty"],
+    "max_new_tokens": run.config["max_new_tokens"],
+    "min_new_tokens": run.config["min_new_tokens"],
+    "repetition_penalty": run.config["repetition_penalty"],
     "top_k": 5,
     "top_p": 1.0,
     "temperature": 2.0,
@@ -296,7 +296,7 @@ gen_kwargs = {
 }
 
 # set best_of candidates amount
-N_BEST_OF = wandb.config["n_best_of"]
+N_BEST_OF = run.config["n_best_of"]
 
 # :: [Resp]
 response_tensors_ref, response_tensors = [], []

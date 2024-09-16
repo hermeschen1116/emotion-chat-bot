@@ -47,24 +47,24 @@ run = wandb.init(
 
 # Load Dataset
 dataset = load_dataset(
-    wandb.config["dataset"],
+    run.config["dataset"],
     num_proc=16,
     trust_remote_code=True,
 )
 
 model = EmotionModel(
-    dropout=wandb.config["dropout"],
-    bias=wandb.config["bias"],
+    dropout=run.config["dropout"],
+    bias=run.config["bias"],
     dtype=dtype,
     device=args.device,
 )
 
 loss_function = torch.nn.CrossEntropyLoss()
-optimizer = torch.optim.Adagrad(model.parameters(), lr=wandb.config["learning_rate"])
+optimizer = torch.optim.Adagrad(model.parameters(), lr=run.config["learning_rate"])
 
 train_dataloader = DataLoader(dataset["train"])
 validation_dataloader = DataLoader(dataset["validation"])
-for i in range(wandb.config["num_epochs"]):
+for i in range(run.config["num_epochs"]):
     running_loss: float = 0
     model.train()
     for sample in tqdm(train_dataloader, colour="green"):
@@ -85,7 +85,7 @@ for i in range(wandb.config["num_epochs"]):
         loss.backward()
         optimizer.step()
 
-    if i + 1 == wandb.config["num_epochs"]:
+    if i + 1 == run.config["num_epochs"]:
         wandb.log({"train/train_loss": running_loss / len(train_dataloader)})
 
     running_loss = 0
