@@ -134,24 +134,27 @@ tokenizer = AutoTokenizer.from_pretrained(
     trust_remote_code=True,
 )
 
-quantization_config = BitsAndBytesConfig(
-   load_in_4bit=True,
-   bnb_4bit_quant_type="nf4",
-   bnb_4bit_use_double_quant=True,
-   bnb_4bit_compute_dtype=torch.bfloat16
-)
-
 base_model = AutoModelForSequenceClassification.from_pretrained(
     run.config["base_model"],
     num_labels=num_emotion_labels,
     id2label={k: v for k, v in enumerate(emotion_labels)},
     label2id={v: k for k, v in enumerate(emotion_labels)},
-    quantization_config=quantization_config,
     use_cache=False,
     device_map="auto",
     low_cpu_mem_usage=True,
     trust_remote_code=True,
 )
+
+peft_config = LoraConfig(
+    task_type="SEQ_CLS",
+    lora_alpha=run.config["lora_alpha"],
+    lora_dropout=run.config["lora_dropout"],
+    r=run.config["lora_rank"],
+    bias="none",
+    init_lora_weights=run.config["init_lora_weights"],
+    use_rslora=run.config["use_rslora"],
+)
+base_model = get_peft_model(base_model, peft_config)
 
 train_dataset = train_dataset.map(
     lambda samples: {
@@ -177,17 +180,6 @@ validation_dataset = validation_dataset.map(
     num_proc=16,
 )
 validation_dataset.set_format("torch")
-
-peft_config = LoraConfig(
-    task_type="SEQ_CLS",
-    lora_alpha=run.config["lora_alpha"],
-    lora_dropout=run.config["lora_dropout"],
-    r=run.config["lora_rank"],
-    bias="none",
-    init_lora_weights=run.config["init_lora_weights"],
-    use_rslora=run.config["use_rslora"],
-)
-base_model = get_peft_model(base_model, peft_config)
 
 
 def compute_metrics(prediction) -> dict:
