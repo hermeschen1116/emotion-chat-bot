@@ -1,0 +1,24 @@
+{
+	"job_type": "fine_tune",
+	"project": "emotion-chat-bot-ncu-sa",
+	"group": "Sentiment Analysis",
+	"notes": "fine tune model on Sentiment Analysis task",
+	"config": {
+		"dataset": "Shotaro30678/daily_dialog_for_SA",
+		"base_model": "michellejieli/emotion_text_classifier",
+		"neutral_keep_ratio": 0.5,
+		"init_lora_weights": true,
+		"lora_rank": 128,
+		"lora_alpha": 64,
+		"lora_dropout": 0.2,
+		"use_rslora": true,
+		"num_train_epochs": 5,
+		"learning_rate": 1e-4,
+		"weight_decay": 0.1,
+		"max_grad_norm": 0.3,
+		"warmup_ratio": 0.03,
+		"max_steps": -1,
+		"optim": "paged_adamw_32bit",
+		"fine_tuned_model": "sentiment_analysis_for_emotion_chat_bot"
+	}
+}

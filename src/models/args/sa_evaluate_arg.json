@@ -1,0 +1,10 @@
+{
+	"job_type": "fine_tune",
+	"project": "emotion-chat-bot-ncu-sa",
+	"group": "Sentiment Analysis",
+	"notes": "evaluate model on Sentiment Analysis task",
+	"config": {
+		"model":"Shotaro30678/sentiment_analysis_for_emotion_chat_bot",
+		"dataset": "Shotaro30678/daily_dialog_for_SA"
+	}
+}
