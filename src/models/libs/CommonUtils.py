@@ -5,7 +5,7 @@ import torch
 
 def value_candidate_check(
     input_value: Any,
-    possible_values: List,
+    possible_values: List[Any],
     use_default_value: bool,
     default_value: Optional[Any],
 ) -> Any:
