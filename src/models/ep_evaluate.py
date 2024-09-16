@@ -113,13 +113,9 @@ emotion_label: dict = {index: label for index, label in enumerate(emotion_labels
 emotion_id: dict = {label: index for index, label in enumerate(emotion_labels)}
 result = result.map(
     lambda samples: {
-        "label": [
-            emotion_label[emotion]
-            for emotion in samples["truth_id"]
-        ],
+        "label": [emotion_label[emotion] for emotion in samples["truth_id"]],
         "prediction_id": [
-            emotion_id[emotion["label"]]
-            for emotion in samples["prediction"]
+            emotion_id[emotion["label"]] for emotion in samples["prediction"]
         ],
     },
     batched=True,
