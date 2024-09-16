@@ -100,10 +100,10 @@ dataset = dataset.map(
 
 train_dataset = flatten_data_and_abandon_data_with_neutral(
     dataset["train"], run.config["neutral_keep_ratio"]
-).take(10)
+)
 validation_dataset = flatten_data_and_abandon_data_with_neutral(
     dataset["validation"], run.config["neutral_keep_ratio"]
-).take(10)
+)
 
 tokenizer = AutoTokenizer.from_pretrained(
     run.config["base_model"],
