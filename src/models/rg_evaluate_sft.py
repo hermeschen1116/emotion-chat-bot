@@ -44,10 +44,10 @@ run = wandb.init(
     mode=wandb_args.mode,
     resume=wandb_args.resume,
 )
-wandb.config["chat_template"] = chat_template["template"]
-wandb.config["instruction_template"] = chat_template["instruction"]
-wandb.config["response_template"] = chat_template["response"]
-wandb.config["special_tokens"] = chat_template["special_tokens"]
+run.config["chat_template"] = chat_template["template"]
+run.config["instruction_template"] = chat_template["instruction"]
+run.config["response_template"] = chat_template["response"]
+run.config["special_tokens"] = chat_template["special_tokens"]
 
 
 # Load and Process Dataset
@@ -89,7 +89,7 @@ dataset = dataset.map(
 system_prompt: list = [
     {
         "role": "system",
-        "content": {"emotion": "", "dialog": wandb.config["system_prompt"]},
+        "content": {"emotion": "", "dialog": run.config["system_prompt"]},
     }
 ]
 
@@ -117,7 +117,7 @@ dataset = dataset.map(
 
 # Load Tokenizer
 base_model, tokenizer = FastLanguageModel.from_pretrained(
-    wandb.config["base_model"],
+    run.config["base_model"],
     attn_implementation="flash_attention_2",
     pretraining_tp=1,
     load_in_4bit=True,
@@ -127,16 +127,16 @@ base_model, tokenizer = FastLanguageModel.from_pretrained(
 )
 tokenizer.padding_side = "left"
 tokenizer.clean_up_tokenization_spaces = True
-tokenizer.chat_template = wandb.config["chat_template"]
-tokenizer.add_special_tokens(wandb.config["special_tokens"])
+tokenizer.chat_template = run.config["chat_template"]
+tokenizer.add_special_tokens(run.config["special_tokens"])
 base_model.resize_token_embeddings(len(tokenizer))
 
-wandb.config["example_prompt"] = tokenizer.apply_chat_template(
+run.config["example_prompt"] = tokenizer.apply_chat_template(
     dataset[0]["prompt"], tokenize=False
 )
 
 model = PeftModel.from_pretrained(
-    base_model, run.use_model(wandb.config["fine_tuned_model"])
+    base_model, run.use_model(run.config["fine_tuned_model"])
 )
 model = torch.compile(model)
 FastLanguageModel.for_inference(model)

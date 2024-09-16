@@ -38,10 +38,10 @@ run = wandb.init(
     mode=wandb_args.mode,
     resume=wandb_args.resume,
 )
-wandb.config["chat_template"] = chat_template["template"]
-wandb.config["instruction_template"] = chat_template["instruction"]
-wandb.config["response_template"] = chat_template["response"]
-wandb.config["special_tokens"] = chat_template["special_tokens"]
+run.config["chat_template"] = chat_template["template"]
+run.config["instruction_template"] = chat_template["instruction"]
+run.config["response_template"] = chat_template["response"]
+run.config["special_tokens"] = chat_template["special_tokens"]
 
 # Load Dataset
 dataset = load_dataset(
@@ -55,7 +55,7 @@ dataset = load_dataset(
 system_prompt: list = [
     {
         "role": "system",
-        "content": {"emotion": "", "dialog": wandb.config["system_prompt"]},
+        "content": {"emotion": "", "dialog": run.config["system_prompt"]},
     }
 ]
 
@@ -68,10 +68,10 @@ dataset = dataset.map(
 
 # Load Tokenizer
 base_model, tokenizer = FastLanguageModel.from_pretrained(
-    wandb.config["tokenizer"],
+    run.config["tokenizer"],
     attn_implementation="flash_attention_2",
     pretraining_tp=1,
-    load_in_4bit=(wandb.config["init_lora_weights"] != "loftq"),
+    load_in_4bit=(run.config["init_lora_weights"] != "loftq"),
     use_cache=False,
     device_map="auto",
     low_cpu_mem_usage=True,
@@ -79,12 +79,12 @@ base_model, tokenizer = FastLanguageModel.from_pretrained(
 )
 tokenizer.padding_side = "right"
 tokenizer.clean_up_tokenization_spaces = True
-tokenizer.chat_template = wandb.config["chat_template"]
-tokenizer.add_special_tokens(wandb.config["special_tokens"])
+tokenizer.chat_template = run.config["chat_template"]
+tokenizer.add_special_tokens(run.config["special_tokens"])
 base_model.resize_token_embeddings(len(tokenizer))
 
 base_model = PeftModel.from_pretrained(
-    base_model, run.use_model(wandb.config["base_model"])
+    base_model, run.use_model(run.config["base_model"])
 )
 base_model.print_trainable_parameters()
 FastLanguageModel.for_training(base_model)
@@ -99,14 +99,14 @@ dataset = dataset.map(
     batched=True,
     num_proc=16,
 )
-wandb.config["example_prompt"] = dataset[0]["prompt"]
+run.config["example_prompt"] = dataset[0]["prompt"]
 
 special_tokens_map: dict = dict(
     zip(tokenizer.all_special_tokens, [[ids] for ids in tokenizer.all_special_ids])
 )
 data_collator = DataCollatorForCompletionOnlyLM(
-    special_tokens_map[wandb.config["response_template"]],
-    instruction_template=special_tokens_map[wandb.config["instruction_template"]],
+    special_tokens_map[run.config["response_template"]],
+    instruction_template=special_tokens_map[run.config["instruction_template"]],
     tokenizer=tokenizer,
 )
 
@@ -115,20 +115,20 @@ trainer_arguments = TrainingArguments(
     overwrite_output_dir=True,
     per_device_train_batch_size=4,
     gradient_accumulation_steps=1,
-    learning_rate=wandb.config["learning_rate"],
-    weight_decay=wandb.config["weight_decay"],
-    max_grad_norm=wandb.config["max_grad_norm"],
-    num_train_epochs=wandb.config["num_epochs"],
+    learning_rate=run.config["learning_rate"],
+    weight_decay=run.config["weight_decay"],
+    max_grad_norm=run.config["max_grad_norm"],
+    num_train_epochs=run.config["num_epochs"],
     lr_scheduler_type="constant",
-    warmup_ratio=wandb.config["warmup_ratio"],
-    max_steps=wandb.config["max_steps"],
+    warmup_ratio=run.config["warmup_ratio"],
+    max_steps=run.config["max_steps"],
     logging_steps=25,
     save_steps=25,
     save_total_limit=5,
     bf16=True,
     fp16=False,
     dataloader_num_workers=12,
-    optim=wandb.config["optim"],
+    optim=run.config["optim"],
     group_by_length=True,
     report_to=["wandb"],
     push_to_hub=True,
@@ -139,7 +139,7 @@ trainer_arguments = TrainingArguments(
     torch_compile=False,
     include_tokens_per_second=True,
     include_num_input_tokens_seen=True,
-    neftune_noise_alpha=wandb.config["neftune_noise_alpha"],
+    neftune_noise_alpha=run.config["neftune_noise_alpha"],
 )
 
 # Setup Tuner
