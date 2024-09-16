@@ -1,9 +1,16 @@
-from sklearn.metrics import (
-    accuracy_score,
-    classification_report,
-    f1_score,
+from argparse import ArgumentParser
+
+import torch
+import wandb
+from datasets import load_dataset
+from libs import (
+    CommonScriptArguments,
+    CommonWanDBArguments,
+    flatten_data_and_abandon_data_with_neutral,
 )
-from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
+from torch import Tensor
+from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
+from transformers import HfArgumentParser, pipeline
 
 config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)
@@ -12,67 +19,132 @@ config = config_getter.parse_args()
 parser = HfArgumentParser((CommonScriptArguments, CommonWanDBArguments))
 args, wandb_args = parser.parse_json_file(config.json_file)
 
-
-def create_classifier_pipeline(model_name, num_labels, id2label, label2id, tokenizer):
-    classifier_model = AutoModelForSequenceClassification.from_pretrained(
-        model_name, num_labels=num_labels, id2label=id2label, label2id=label2id
-    )
-    classifier = pipeline(
-        "sentiment-analysis", model=classifier_model, tokenizer=tokenizer, device=0
-    )
-    return classifier
-
-
-def evaluate(predictions):
-    true_labels = [p["true_label"] for p in predictions]
-    predicted_labels = [p["predicted_label"] for p in predictions]
-    print(
-        classification_report(
-            true_labels,
-            predicted_labels,
-            target_names=[id2label[i] for i in range(num_labels)],
-            digits=4,
-        )
-    )
-    first10 = predicted_labels[0:9]
-    f1 = f1_score(true_labels, predicted_labels, average="weighted")
-    acc = accuracy_score(true_labels, predicted_labels)
-    return first10, f1, acc
-
-
-# full dataset 10 epoches
-classifier = create_classifier_pipeline(
-    new_model, num_labels, id2label, label2id, tokenizer
+run = wandb.init(
+    name=wandb_args.name,
+    job_type=wandb_args.job_type,
+    config=wandb_args.config,
+    project=wandb_args.project,
+    group=wandb_args.group,
+    notes=wandb_args.notes,
 )
-predictions = data.map(lambda row: predict(row, classifier, label2id))
-print("Fine-tuned:")
-ft_10, f1_ft, accuracy_ft = evaluate(predictions)
 
-# half dataset 5 epoches
-classifier = create_classifier_pipeline(
-    new_model_half, num_labels, id2label, label2id, tokenizer
-)
-predictions = data.map(lambda row: predict(row, classifier, label2id))
-print("\nFine-tuned-half:")
-ft_half_10, f1_ft_half, accuracy_ft_half = evaluate(predictions)
+dataset = load_dataset(
+    run.config["dataset"],
+    split="test",
+    num_proc=16,
+    trust_remote_code=True,
+).remove_columns(["act"])
+emotion_labels: list = dataset.features["emotion"].feature.names
+emotion_labels[0] = "neutral"
+num_emotion_labels: int = len(emotion_labels)
 
-# untrained
-classifier_model = AutoModelForSequenceClassification.from_pretrained(base_model)
-classifier = pipeline(
-    "sentiment-analysis", model=classifier_model, tokenizer=tokenizer, device=0
+dataset = dataset.map(
+    lambda samples: {
+        "response_emotion": [sample[1:] + [sample[0]] for sample in samples]
+    },
+    input_columns=["emotion"],
+    remove_columns=["emotion"],
+    batched=True,
+    num_proc=16,
 )
-predictions = data.map(lambda row: predict(row, classifier, og_label2id))
-print("\nOriginal:")
-og_10, f1, accuracy = evaluate(predictions)
 
-print(
-    "\ntrue:",
-    data[0:9]["label"],
-    "\nfine-tuned:",
-    ft_10,
-    "\nfine-tuned-half:",
-    ft_half_10,
-    "\noriginal:",
-    og_10,
+dataset = dataset.map(
+    lambda samples: {
+        "dialog": [sample[:-1] for sample in samples["dialog"]],
+        "response_emotion": [sample[:-1] for sample in samples["response_emotion"]],
+    },
+    batched=True,
+    num_proc=16,
 )
-# print("\ntrue:", data[0:9]['label'], "\nfine-tuned:", ft_10, "\noriginal:", og_10)
+
+dataset = dataset.map(
+    lambda samples: {
+        "dialog": [sample[:-1] for sample in samples["dialog"]],
+        "response_emotion": [sample[:-1] for sample in samples["response_emotion"]],
+    },
+    batched=True,
+    num_proc=16,
+)
+
+dataset = dataset.map(
+    lambda samples: {
+        "rows": [
+            [
+                {
+                    "text": dialog,
+                    "label": emotion,
+                }
+                for i, (emotion, dialog) in enumerate(zip(sample[0], sample[1]))
+            ]
+            for sample in zip(samples["response_emotion"], samples["dialog"])
+        ]
+    },
+    remove_columns=["response_emotion", "dialog"],
+    batched=True,
+    num_proc=16,
+)
+dataset = dataset.map(
+    lambda samples: {
+        "rows": [sample for sample in samples if len(sample) != 0],
+    },
+    input_columns=["rows"],
+    batched=True,
+    num_proc=16,
+)
+
+dataset = flatten_data_and_abandon_data_with_neutral(dataset, 1)
+
+analyser = pipeline(
+    model="hermeschen1116/emotion_predictor_for_emotion_chat_bot",
+    framework="pt",
+    task="sentiment-analysis",
+    num_workers=16,
+    device_map="auto",
+    torch_dtype="auto",
+    model_kwargs={
+        "low_cpu_mem_usage": True,
+    },
+    trust_remote_code=True,
+)
+
+result = dataset.rename_column("label", "truth_id").add_column(
+    "prediction_id", analyser(dataset["text"])
+)
+
+emotion_label: dict = {index: label for index, label in enumerate(emotion_labels)}
+result = result.map(
+    lambda samples: {
+        "label": [
+            emotion_label[emotion_id]
+            for sample in samples["truth_id"]
+            for emotion_id in sample
+        ],
+        "prediction": [
+            emotion_label[emotion_id]
+            for sample in samples["prediction_id"]
+            for emotion_id in sample
+        ],
+    },
+    batched=True,
+    num_proc=16,
+)
+
+sentiment_true: Tensor = torch.tensor([sample for sample in result["truth_id"]])
+sentiment_pred: Tensor = torch.tensor([sample for sample in result["prediction_id"]])
+
+wandb.log(
+    {
+        "F1-score": multiclass_f1_score(
+            sentiment_true,
+            sentiment_pred,
+            num_classes=num_emotion_labels,
+            average="weighted",
+        ),
+        "Accuracy": multiclass_accuracy(
+            sentiment_true, sentiment_pred, num_classes=num_emotion_labels
+        ),
+    }
+)
+wandb.log({"evaluation_result": wandb.Table(dataframe=result.to_pandas())})
+
+wandb.finish()
