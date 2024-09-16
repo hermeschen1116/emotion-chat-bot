@@ -3,13 +3,12 @@ from argparse import ArgumentParser
 import torch
 import wandb
 from datasets import load_dataset
-from sklearn.metrics import classification_report
-
 from libs import (
     CommonScriptArguments,
     CommonWanDBArguments,
     flatten_data_and_abandon_data_with_neutral,
 )
+from sklearn.metrics import classification_report
 from torch import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from transformers import HfArgumentParser, pipeline
@@ -126,7 +125,12 @@ result = result.map(
 
 sentiment_true: Tensor = torch.tensor([sample for sample in result["truth_id"]])
 sentiment_pred: Tensor = torch.tensor([sample for sample in result["prediction_id"]])
-report = classification_report(sentiment_true.tolist(), sentiment_pred.tolist(), target_names=emotion_labels, zero_division=0)
+report = classification_report(
+    sentiment_true.tolist(),
+    sentiment_pred.tolist(),
+    target_names=emotion_labels,
+    zero_division=0,
+)
 print()
 print(report)
 
@@ -140,7 +144,7 @@ wandb.log(
         ),
         "Accuracy": multiclass_accuracy(
             sentiment_pred, sentiment_true, num_classes=num_emotion_labels
-        )
+        ),
     }
 )
 wandb.log({"evaluation_result": wandb.Table(dataframe=result.to_pandas())})
