@@ -24,10 +24,7 @@ run = wandb.init(
 )
 
 dataset = load_dataset(
-    run.config["dataset"],
-    num_proc=16,
-    trust_remote_code=True,
-    split="test"
+    run.config["dataset"], num_proc=16, trust_remote_code=True, split="test"
 )
 
 emotion_labels: list = dataset.features["label"].names

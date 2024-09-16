@@ -6,7 +6,7 @@ from datasets import load_dataset
 from libs import (
     CommonScriptArguments,
     CommonWanDBArguments,
-    throw_out_partial_row_with_a_label
+    throw_out_partial_row_with_a_label,
 )
 from peft import LoraConfig, get_peft_model
 from torch import Tensor
@@ -46,7 +46,7 @@ num_emotion_labels: int = len(emotion_labels)
 train_dataset = throw_out_partial_row_with_a_label(
     dataset["train"], run.config["neutral_keep_ratio"], 0
 )
-validation_dataset = dataset['validation']
+validation_dataset = dataset["validation"]
 
 tokenizer = AutoTokenizer.from_pretrained(
     run.config["base_model"],

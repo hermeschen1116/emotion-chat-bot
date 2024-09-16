@@ -51,7 +51,6 @@ class EmotionChatBot:
             trust_remote_code=True,
         )
 
-        sentiment_analysis_model = torch.compile(sentiment_analysis_model)
         self.__sentiment_analyzer = pipeline(
             "sentiment-analysis",
             model=sentiment_analysis_model,
@@ -61,6 +60,8 @@ class EmotionChatBot:
             device_map="auto",
             trust_remote_code=True,
         )
+
+        sentiment_analysis_model = torch.compile(sentiment_analysis_model)
 
         emotion_predictor_model = AutoModelForSequenceClassification.from_pretrained(
             "Shotaro30678/emotion_predictor_for_emotion_chat_bot",
@@ -76,7 +77,6 @@ class EmotionChatBot:
             trust_remote_code=True,
         )
 
-        emotion_predictor_model = torch.compile(sentiment_analysis_model)
         self.__emotion_predictor = pipeline(
             "sentiment-analysis",
             model=emotion_predictor_model,
@@ -86,7 +86,20 @@ class EmotionChatBot:
             device_map="auto",
             trust_remote_code=True,
         )
+        emotion_predictor_model = torch.compile(sentiment_analysis_model)
+
         self.__emotion_model = EmotionModel.from_pretrained(
             "hermeschen1116/emotion_model_for_emotion_chat_bot"
         )
         self.__similarity_analyzer = SimilarityAnalyser(threshold=threshold)
+
+	def __call__():
+
+
+	def __preprocess():
+
+
+	def __forward():
+
+
+	def __postprocess():
