@@ -1,6 +1,3 @@
-import torch
-from datasets import Dataset, load_dataset
-from dotenv import load_dotenv
 from sklearn.metrics import (
     accuracy_score,
     classification_report,
@@ -8,7 +5,12 @@ from sklearn.metrics import (
 )
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, pipeline
 
-load_dotenv()
+config_getter = ArgumentParser()
+config_getter.add_argument("--json_file", required=True, type=str)
+config = config_getter.parse_args()
+
+parser = HfArgumentParser((CommonScriptArguments, CommonWanDBArguments))
+args, wandb_args = parser.parse_json_file(config.json_file)
 
 
 def create_classifier_pipeline(model_name, num_labels, id2label, label2id, tokenizer):

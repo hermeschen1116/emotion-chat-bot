@@ -2,8 +2,12 @@ from argparse import ArgumentParser
 
 import torch
 import wandb
-from datasets import Dataset, concatenate_datasets, load_dataset
-from libs import CommonScriptArguments, CommonWanDBArguments
+from datasets import load_dataset
+from libs import (
+    CommonScriptArguments,
+    CommonWanDBArguments,
+    flatten_data_and_abandon_data_with_neutral,
+)
 from peft import LoraConfig, get_peft_model
 from torch import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
@@ -94,38 +98,12 @@ dataset = dataset.map(
     num_proc=16,
 )
 
-
-def flatten_data_and_abandon_data_with_neutral(source_dataset: Dataset) -> Dataset:
-    dataset_without_neutral = Dataset.from_list(
-        [
-            row
-            for sample in source_dataset["rows"]
-            for row in sample
-            if row["label"] != 0
-        ]
-    )
-    dataset_with_only_neutral = Dataset.from_list(
-        [
-            row
-            for sample in source_dataset["rows"]
-            for row in sample
-            if row["label"] == 0
-        ]
-    ).shuffle()
-    num_row_with_neutral_to_take: int = int(
-        len(dataset_with_only_neutral) * run.config["neutral_keep_ratio"]
-    )
-
-    return concatenate_datasets(
-        [
-            dataset_without_neutral,
-            dataset_with_only_neutral.take(num_row_with_neutral_to_take),
-        ]
-    )
-
-
-train_dataset = flatten_data_and_abandon_data_with_neutral(dataset["train"])
-validation_dataset = flatten_data_and_abandon_data_with_neutral(dataset["validation"])
+train_dataset = flatten_data_and_abandon_data_with_neutral(
+    dataset["train"], run.config["neutral_keep_ratio"]
+)
+validation_dataset = flatten_data_and_abandon_data_with_neutral(
+    dataset["validation"], run.config["neutral_keep_ratio"]
+)
 
 tokenizer = AutoTokenizer.from_pretrained(
     run.config["base_model"],
