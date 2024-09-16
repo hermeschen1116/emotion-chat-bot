@@ -12,7 +12,7 @@ from transformers import (
     AutoTokenizer,
     HfArgumentParser,
     Trainer,
-    TrainingArguments,
+    TrainingArguments, BitsAndBytesConfig,
 )
 
 config_getter = ArgumentParser()
@@ -134,11 +134,19 @@ tokenizer = AutoTokenizer.from_pretrained(
     trust_remote_code=True,
 )
 
+quantization_config = BitsAndBytesConfig(
+   load_in_4bit=True,
+   bnb_4bit_quant_type="nf4",
+   bnb_4bit_use_double_quant=True,
+   bnb_4bit_compute_dtype=torch.bfloat16
+)
+
 base_model = AutoModelForSequenceClassification.from_pretrained(
     run.config["base_model"],
     num_labels=num_emotion_labels,
     id2label={k: v for k, v in enumerate(emotion_labels)},
     label2id={v: k for k, v in enumerate(emotion_labels)},
+    quantization_config=quantization_config,
     use_cache=False,
     device_map="auto",
     low_cpu_mem_usage=True,
