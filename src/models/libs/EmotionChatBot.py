@@ -1,10 +1,9 @@
 import torch
+from EmotionModel import EmotionModel
+from ResponseGeneratorPipeline import ResponseGeneratorPipeline
+from SimilarityAnalyser import SimilarityAnalyser
 from transformers import BitsAndBytesConfig
 from transformers.pipelines.text_classification import TextClassificationPipeline
-
-from models.libs.EmotionModel import EmotionModel
-from models.libs.ResponseGeneratorPipeline import ResponseGeneratorPipeline
-from models.libs.SimilarityAnalyser import SimilarityAnalyser
 
 
 class EmotionChatBot:

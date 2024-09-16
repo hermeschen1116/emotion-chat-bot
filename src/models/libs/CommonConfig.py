@@ -7,10 +7,9 @@ import huggingface_hub
 import numpy as np
 import torch.cuda
 import wandb
+from CommonUtils import value_candidate_check
 from dotenv import load_dotenv
 from transformers.hf_argparser import HfArg
-
-from .CommonUtils import value_candidate_check
 
 
 @dataclass
