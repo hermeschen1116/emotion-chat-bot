@@ -11,7 +11,7 @@ class EmotionPresentationSimilarityAnalyser:
 		self.__threshold: float = threshold
 		self.__ideal_emotion_representation: Tensor = ideal_emotion_representation
 		self.__length_of_ideal_emotion_representation: Tensor = None
-		if self.__ideal_emotion_representation is not None:
+		if ideal_emotion_representation is not None:
 			self.__length_of_ideal_emotion_representation = torch.norm(ideal_emotion_representation)
 
 	@property
@@ -31,14 +31,14 @@ class EmotionPresentationSimilarityAnalyser:
 		if self.__ideal_emotion_representation is None:
 			raise ValueError("ideal_emotion_representation is not set")
 
-		length_of_representations: Tensor = torch.norm(representations, dim=1)
+		length_of_representations: Tensor = torch.norm(representations, dim=1).to(representations.device)
 
 		length_ratio_between_representations: Tensor = (
 			length_of_representations / self.__length_of_ideal_emotion_representation
 		)
 
 		similarity_between_representations: Tensor = torch.cosine_similarity(
-			representations, self.__ideal_emotion_representation
+			representations, self.__ideal_emotion_representation.to(representations.device)
 		)
 
 		return similarity_between_representations * length_ratio_between_representations

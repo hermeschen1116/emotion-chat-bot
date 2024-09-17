@@ -9,6 +9,7 @@ from .DataProcess import (
 )
 from .EmotionModel import EmotionModel, representation_evolute
 from .ResponseGeneratorPipeline import ResponseGeneratorPipeline
+from .EmotionRepresentationSimilarityAnalyser import EmotionPresentationSimilarityAnalyser
 
 __all__ = [
 	"diagonal_indices",
