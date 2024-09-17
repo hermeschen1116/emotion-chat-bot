@@ -3,7 +3,7 @@
 	"project": "emotion-chat-bot-ncu",
 	"group": "Emotion Predictor",
 	"config": {
-		"dataset": "daily_dialog",
-		"model": "hermeschen1116/emotion_predictor_for_emotion_chat_bot"
+		"dataset": "Shotaro30678/daily_dialog_for_EP",
+		"model": "Shotaro30678/emotion_predictor_for_emotion_chat_bot"
 	}
 }

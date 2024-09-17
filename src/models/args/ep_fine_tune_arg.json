@@ -1,9 +1,9 @@
 {
 	"job_type": "fine_tune",
-	"project": "emotion-chat-bot-ncu",
+	"project": "emotion-chat-bot-ncu-ep",
 	"group": "Emotion Predictor",
 	"config": {
-		"dataset": "daily_dialog",
+		"dataset": "Shotaro30678/daily_dialog_for_EP",
 		"base_model": "michellejieli/emotion_text_classifier",
 		"neutral_keep_ratio": 0.5,
 		"init_lora_weights": true,
