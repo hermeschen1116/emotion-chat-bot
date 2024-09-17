@@ -17,11 +17,14 @@ class ChatMessage:
         ]
 
     def append_message(
-        self, dialog: Optional[str] = "", emotion: Optional[str] = "", inplace: bool = True
+        self,
+        dialog: Optional[str] = "",
+        emotion: Optional[str] = "",
+        inplace: bool = True,
     ) -> Self | None:
-    	messages: List[Dict[str, Any]] = self.__messages
+        messages: List[Dict[str, Any]] = self.__messages
 
-      	if len(messages) == self.queue_size:
+        if len(messages) == self.queue_size:
             messages.pop(1)
 
         messages.append(
@@ -32,9 +35,9 @@ class ChatMessage:
         )
 
         if inplace:
-        	self.__messages = messages
+            self.__messages = messages
         else:
-        	return messages
+            return messages
 
     def get_message(self, index: int) -> Dict[str, Any]:
         return self.__messages[index]
@@ -62,8 +65,7 @@ def create_candidates_buffer(messages: ChatMessage) -> List[ChatMessage]:
     ]
 
     candidates_buffer: list = [
-        messages.append_message("", emotion, inplace=False)
-        for emotion in emotions
+        messages.append_message("", emotion, inplace=False) for emotion in emotions
     ]
 
     return candidates_buffer
@@ -75,8 +77,8 @@ def get_possible_response_emotion_representation(
     possible_user_response_emotion: dict = {}
     for candidate in candidates_buffer:
         emotion: list = emotion_predictor(candidate[-1]["content"]["dialog"])
-        possible_user_response_emotion[candidate[-1]["content"]["emotion"]] = (
-            get_sentiment_composition(emotion)
-        )
+        possible_user_response_emotion[
+            candidate[-1]["content"]["emotion"]
+        ] = get_sentiment_composition(emotion)
 
     return possible_user_response_emotion
