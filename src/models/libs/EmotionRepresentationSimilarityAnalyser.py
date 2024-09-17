@@ -5,7 +5,7 @@ from torch import Tensor
 
 
 class EmotionPresentationSimilarityAnalyser:
-	def __init__(self, ideal_emotion_representation: Optional[Tensor], threshold: float = 0.5) -> None:
+	def __init__(self, ideal_emotion_representation: Optional[Tensor], threshold: float = 0.7) -> None:
 		if not (0 < threshold < 1):
 			raise ValueError("threshold must between 0 and 1 (exclusive)")
 		self.__threshold: float = threshold
@@ -41,4 +41,11 @@ class EmotionPresentationSimilarityAnalyser:
 			representations, self.__ideal_emotion_representation.to(representations.device)
 		)
 
-		return similarity_between_representations * length_ratio_between_representations
+		similarity_scores: Tensor = similarity_between_representations * length_ratio_between_representations
+		similarity_scores = torch.clamp(similarity_scores, min=0, max=1)
+		
+		score_filter: Tensor = similarity_scores <= self.__threshold
+		similarity_scores = similarity_scores * score_filter
+		
+		return similarity_scores
+		
