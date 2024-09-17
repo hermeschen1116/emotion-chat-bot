@@ -53,8 +53,6 @@ dataset = load_dataset(
 model = EmotionModel(
 	dropout=run.config["dropout"],
 	bias=run.config["bias"],
-	dtype=dtype,
-	device=args.device,
 )
 
 loss_function = torch.nn.CrossEntropyLoss()

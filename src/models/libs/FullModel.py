@@ -5,7 +5,7 @@ from uuid import UUID
 
 
 def get_top_emotion(input_text_emotion: list) -> str:
-	label2score: dict = {emotion["label"]: emotion["score"] for emotion in input_text_emotion[0]}
+	label2score: dict = {emotion["label"]: emotion["score"] for emotion in input_text_emotion}
 	return max(label2score, key=label2score.get)
 
 
