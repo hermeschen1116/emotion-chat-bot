@@ -37,7 +37,7 @@ class ResponseGeneratorPipeline(TextGenerationPipeline):
                         )
                     )
 
-                all_text = text[prompt_length:]
+                all_text = text[prompt_length:].strip()
                 if return_type == ReturnType.FULL_TEXT:
                     if isinstance(prompt_text, str):
                         all_text = prompt_text + all_text
@@ -45,6 +45,6 @@ class ResponseGeneratorPipeline(TextGenerationPipeline):
                         # Explicit list parsing is necessary for parsing chat datasets
                         prompt_text.messages[-1]["content"]["dialog"] = all_text
                         all_text = list(prompt_text.messages)
-                record = {"generated_text": all_text}
+                record = all_text
             records.append(record)
         return records

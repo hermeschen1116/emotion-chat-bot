@@ -26,4 +26,5 @@ __all__ = [
     "SimilarityAnalyser",
     "flatten_dataset",
     "throw_out_partial_row_with_a_label",
+    "FullModel",
 ]
