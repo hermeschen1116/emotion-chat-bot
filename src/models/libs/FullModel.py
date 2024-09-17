@@ -29,6 +29,6 @@ def create_candidates_buffer(
 	return candidates_buffer
 
 
-def write_log_file(uuid: UUID, content: Any) -> None:
-	with open(f"logs/{uuid}.log", "w", encoding="utf-8") as log_file:
+def write_log_file(run_uuid: UUID, content: Any) -> None:
+	with open(f"logs/{run_uuid}.log", "w", encoding="utf-8") as log_file:
 		log_file.write(json.dumps({"timestamp": str(datetime.now()), "content": content}))
