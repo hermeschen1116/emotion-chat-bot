@@ -1,4 +1,7 @@
+import json
+from datetime import datetime
 from typing import Any, Dict, List
+from uuid import UUID
 
 
 def get_top_emotion(input_text_emotion: list) -> str:
@@ -24,3 +27,7 @@ def create_candidates_buffer(
 	]
 
 	return candidates_buffer
+
+def write_log_file(uuid: UUID, content: Any) -> None:
+	with open(f"logs/{uuid}.log", "w", encoding="utf-8") as log_file:
+		log_file.write(json.dumps({"timestamp": str(datetime.datetime.now()), "content": content}))
