@@ -2,6 +2,7 @@
 	"job_type": "evaluation",
 	"project": "emotion-chat-bot-ncu",
 	"group": "Emotion Predictor",
+	"notes": "evaluate model on Emotion Predictor task",
 	"config": {
 		"dataset": "Shotaro30678/daily_dialog_for_EP",
 		"model": "Shotaro30678/emotion_predictor_for_emotion_chat_bot"
