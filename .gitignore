@@ -183,3 +183,5 @@ pyrightconfig.json
 **/**/artifacts/
 
 uv.lock
+
+**/**/logs/
