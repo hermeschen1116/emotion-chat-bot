@@ -22,7 +22,7 @@ class EmotionModel(torch.nn.Module, PyTorchModelHubMixin):
 		dtype: torch.dtype = torch.float32,
 	):
 		super(EmotionModel, self).__init__()
-		
+
 		self.device = nn.Parameter(torch.empty(0)).device
 		self.dtype = dtype
 		self.__weight_Q = torch.nn.Linear(7, 7, bias=False, device=self.device, dtype=self.dtype)
@@ -33,7 +33,7 @@ class EmotionModel(torch.nn.Module, PyTorchModelHubMixin):
 	def forward(self, representation: Tensor, input_emotion: Tensor) -> Tensor:
 		representation = representation.to(device=self.device, dtype=self.dtype)
 		input_emotion = input_emotion.to(device=self.device, dtype=self.dtype)
-		
+
 		decomposed_representation: Tensor = representation.diag()
 
 		q: Tensor = self.__weight_Q(input_emotion)
