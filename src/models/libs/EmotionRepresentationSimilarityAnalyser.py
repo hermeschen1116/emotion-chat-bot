@@ -43,9 +43,8 @@ class EmotionPresentationSimilarityAnalyser:
 
 		similarity_scores: Tensor = similarity_between_representations * length_ratio_between_representations
 		similarity_scores = torch.clamp(similarity_scores, min=0, max=1)
-		
+
 		score_filter: Tensor = similarity_scores <= self.__threshold
 		similarity_scores = similarity_scores * score_filter
-		
+
 		return similarity_scores
-		
