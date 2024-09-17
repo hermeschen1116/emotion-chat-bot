@@ -1,27 +1,26 @@
-from typing import Any, Optional, Union
+from typing import Optional
 
 import torch
-from torch import Tensor, float32
-
+from torch import Tensor
 
 
 class EmotionPresentationSimilarityAnalyser:
-    def __init__(
-        self,
-        ideal_emotion_representation: Optional[Tensor],
-        threshold: float = 0.5
-    ) -> None:
-        if not (0 < threshold < 1):
-            raise ValueError("threshold must between 0 and 1 (exclusive)")
-        self.__threshold: float = threshold
-        self.__ideal_emotion_representation: Tensor = ideal_emotion_representation
-        self.__length_of_ideal_emotion_representation: Tensor = None
-        if self.__ideal_emotion_representation is not None:
-        	self.__length_of_ideal_emotion_representation = torch.norm(ideal_emotion_representation)
+	def __init__(
+		self,
+		ideal_emotion_representation: Optional[Tensor],
+		threshold: float = 0.5
+	) -> None:
+		if not (0 < threshold < 1):
+			raise ValueError("threshold must between 0 and 1 (exclusive)")
+		self.__threshold: float = threshold
+		self.__ideal_emotion_representation: Tensor = ideal_emotion_representation
+		self.__length_of_ideal_emotion_representation: Tensor = None
+		if self.__ideal_emotion_representation is not None:
+			self.__length_of_ideal_emotion_representation = torch.norm(ideal_emotion_representation)
 
-    @property
-    def threshold(self) -> float:
-    	return self.__threshold
+	@property
+	def threshold(self) -> float:
+		return self.__threshold
 
 	@property
 	def ideal_emotion_representation(self) -> Tensor:
@@ -32,16 +31,16 @@ class EmotionPresentationSimilarityAnalyser:
 		self.__ideal_emotion_representation = ideal_emotion_representation
 		self.__length_of_ideal_emotion_representation = torch.norm(ideal_emotion_representation)
 
-    def __call__(self, representations: Tensor) -> Tensor:
-    	if self.__ideal_emotion_representation is None:
-     		raise ValueError("ideal_emotion_representation is not set")
+	def __call__(self, representations: Tensor) -> Tensor:
+		if self.__ideal_emotion_representation is None:
+			raise ValueError("ideal_emotion_representation is not set")
 
-	   	length_of_representations: Tensor = torch.norm(representations, dim=1)
+		length_of_representations: Tensor = torch.norm(representations, dim=1)
 
 		length_ratio_between_representations: Tensor = length_of_representations / self.__length_of_ideal_emotion_representation
 
-        similarity_between_representations: Tensor = torch.cosine_similarity(
-            representations, self.__ideal_emotion_representation
-        )
+		similarity_between_representations: Tensor = torch.cosine_similarity(
+			representations, self.__ideal_emotion_representation
+		)
 
-        return similarity_between_representations * length_ratio_between_representations
+		return similarity_between_representations * length_ratio_between_representations
