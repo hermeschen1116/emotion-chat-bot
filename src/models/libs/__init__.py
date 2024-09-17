@@ -8,9 +8,6 @@ from .DataProcess import (
 	throw_out_partial_row_with_a_label,
 )
 from .EmotionModel import EmotionModel, representation_evolute
-from .EmotionRepresentationSimilarityAnalyser import (
-	EmotionPresentationSimilarityAnalyser,
-)
 from .ResponseGeneratorPipeline import ResponseGeneratorPipeline
 
 __all__ = [
