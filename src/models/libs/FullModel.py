@@ -9,7 +9,7 @@ def get_top_emotion(input_text_emotion: list) -> str:
 
 
 def create_candidates_buffer(
-    messages: List[Dict[str, Any]]
+    messages: List[Dict[str, Any]],
 ) -> List[List[Dict[str, Any]]]:
     emotions: List[str] = [
         "neutral",
