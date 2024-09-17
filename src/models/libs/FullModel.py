@@ -77,8 +77,8 @@ def get_possible_response_emotion_representation(
     possible_user_response_emotion: dict = {}
     for candidate in candidates_buffer:
         emotion: list = emotion_predictor(candidate[-1]["content"]["dialog"])
-        possible_user_response_emotion[
-            candidate[-1]["content"]["emotion"]
-        ] = get_sentiment_composition(emotion)
+        possible_user_response_emotion[candidate[-1]["content"]["emotion"]] = (
+            get_sentiment_composition(emotion)
+        )
 
     return possible_user_response_emotion
