@@ -64,9 +64,9 @@ class SimilarityAnalyser:
         cosine_similarity: Tensor = torch.cosine_similarity(
             self.__cached_representations, self.__cached_ideal_representation
         )
-        ratio_of_representations: (
-            Tensor
-        ) = self.__calculate_ratio_of_length_of_representation()
+        ratio_of_representations: Tensor = (
+            self.__calculate_ratio_of_length_of_representation()
+        )
         self.__cached_similarity = torch.clamp(
             cosine_similarity * ratio_of_representations, 0, 1
         )
@@ -92,10 +92,10 @@ class SimilarityAnalyser:
         return torch.max(valid_similarity).unique().item()
 
     def get_representation_with_max_similarity(self, max_similarity: float) -> list:
-        representation_with_max_similarity_indices: (
-            Tensor
-        ) = self.__get_indices_of_filtered_tensor(
-            self.__cached_similarity, lambda x: x == max_similarity
+        representation_with_max_similarity_indices: Tensor = (
+            self.__get_indices_of_filtered_tensor(
+                self.__cached_similarity, lambda x: x == max_similarity
+            )
         )
 
         return (
@@ -106,9 +106,9 @@ class SimilarityAnalyser:
 
     def get_most_similar_representation(self) -> dict[Tensor, float]:
         max_similarity: float = self.get_max_similarity()
-        representations_with_max_similarity: (
-            list
-        ) = self.get_representation_with_max_similarity(max_similarity)
+        representations_with_max_similarity: list = (
+            self.get_representation_with_max_similarity(max_similarity)
+        )
 
         return {
             "representations": representations_with_max_similarity,
