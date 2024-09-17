@@ -1,31 +1,19 @@
-from dataclasses import dataclass
-from typing import Annotated, Any, Callable, Optional, Union
+from typing import Any, Callable, Optional, Union
 
 import torch
 from torch import Tensor, float32
 
 
-@dataclass
-class ValueRange:
-    min_value: float
-    max_value: float
-
-    def validate(self, x: float) -> float:
-        if not (self.min_value <= x <= self.max_value):
-            raise ValueError(
-                f"{x} must be in range [{self.min_value}, {self.max_value}]"
-            )
-        return x
-
-
 class SimilarityAnalyser:
     def __init__(
         self,
-        threshold: Annotated[float, ValueRange(0, 1)],
+        threshold: float = 0.5,
         dtype: Optional[Any] = float32,
         device: str = "cpu",
     ) -> None:
-        self.__threshold: float = ValueRange(0, 1).validate(threshold)
+        if not (0 < threshold < 1):
+            raise ValueError("threshold must between 0 and 1 (exclusive)")
+        self.__threshold: float = threshold
         self.__dtype: Any = dtype
         self.__device: str = device
         self.__cached_representations: Optional[Tensor] = None
@@ -37,8 +25,10 @@ class SimilarityAnalyser:
         return self.__threshold
 
     @threshold.setter
-    def threshold(self, new_threshold: Annotated[float, ValueRange(0, 1)]) -> Tensor:
-        self.__threshold = ValueRange(0, 1).validate(new_threshold)
+    def threshold(self, new_threshold: float = 0.5):
+        if not (0 < new_threshold < 1):
+            raise ValueError("threshold must between 0 and 1 (exclusive)")
+        self.__threshold = new_threshold
         self.__call__(self.__cached_representations, self.__cached_ideal_representation)
 
     def __calculate_ratio_of_length_of_representation(self) -> Tensor:
@@ -74,9 +64,9 @@ class SimilarityAnalyser:
         cosine_similarity: Tensor = torch.cosine_similarity(
             self.__cached_representations, self.__cached_ideal_representation
         )
-        ratio_of_representations: Tensor = (
-            self.__calculate_ratio_of_length_of_representation()
-        )
+        ratio_of_representations: (
+            Tensor
+        ) = self.__calculate_ratio_of_length_of_representation()
         self.__cached_similarity = torch.clamp(
             cosine_similarity * ratio_of_representations, 0, 1
         )
@@ -102,10 +92,10 @@ class SimilarityAnalyser:
         return torch.max(valid_similarity).unique().item()
 
     def get_representation_with_max_similarity(self, max_similarity: float) -> list:
-        representation_with_max_similarity_indices: Tensor = (
-            self.__get_indices_of_filtered_tensor(
-                self.__cached_similarity, lambda x: x == max_similarity
-            )
+        representation_with_max_similarity_indices: (
+            Tensor
+        ) = self.__get_indices_of_filtered_tensor(
+            self.__cached_similarity, lambda x: x == max_similarity
         )
 
         return (
@@ -116,9 +106,9 @@ class SimilarityAnalyser:
 
     def get_most_similar_representation(self) -> dict[Tensor, float]:
         max_similarity: float = self.get_max_similarity()
-        representations_with_max_similarity: list = (
-            self.get_representation_with_max_similarity(max_similarity)
-        )
+        representations_with_max_similarity: (
+            list
+        ) = self.get_representation_with_max_similarity(max_similarity)
 
         return {
             "representations": representations_with_max_similarity,
