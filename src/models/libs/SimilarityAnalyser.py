@@ -16,9 +16,6 @@ class SimilarityAnalyser:
         self.__threshold: float = threshold
         self.__dtype: Any = dtype
         self.__device: str = device
-        self.__cached_representations: Optional[Tensor] = None
-        self.__cached_ideal_representation: Optional[Tensor] = None
-        self.__cached_similarity: Optional[Tensor] = None
 
     @property
     def threshold(self) -> float:
@@ -64,9 +61,9 @@ class SimilarityAnalyser:
         cosine_similarity: Tensor = torch.cosine_similarity(
             self.__cached_representations, self.__cached_ideal_representation
         )
-        ratio_of_representations: Tensor = (
-            self.__calculate_ratio_of_length_of_representation()
-        )
+        ratio_of_representations: (
+            Tensor
+        ) = self.__calculate_ratio_of_length_of_representation()
         self.__cached_similarity = torch.clamp(
             cosine_similarity * ratio_of_representations, 0, 1
         )
