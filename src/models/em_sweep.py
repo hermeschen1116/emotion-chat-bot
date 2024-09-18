@@ -34,8 +34,8 @@ def sweep_function(config: dict = None) -> None:
 	loss_function = torch.nn.CrossEntropyLoss()
 	optimizer = eval(f"torch.optim.{run.config['optimizer']}")(model.parameters(), lr=run.config["learning_rate"])
 
-	train_dataloader = DataLoader(dataset["train"])
-	validation_dataloader = DataLoader(dataset["validation"])
+	train_dataloader = DataLoader(dataset["train"].to_iterable_dataset(), num_workers=12, pin_memory=True)
+	validation_dataloader = DataLoader(dataset["validation"].to_iterable_dataset(), num_workers=12, pin_memory=True)
 	for i in range(run.config["num_epochs"]):
 		running_loss: float = 0
 		model.train()

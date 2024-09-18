@@ -41,7 +41,7 @@ class DotProductAttention(torch.nn.Module):
 
 		raw_attention: Tensor = torch.sum(query * keys, dim=1)
 
-		return diagonal_softmax(raw_attention.diag())
+		return diagonal_softmax(raw_attention.unsqueeze().diag())
 
 
 class ScaledDotProductAttention(torch.nn.Module):
@@ -55,11 +55,11 @@ class ScaledDotProductAttention(torch.nn.Module):
 		query = query.to(dtype=self.__dtype, device=self.__device)
 		keys = keys.to(dtype=self.__dtype, device=self.__device)
 
-		scaler: Tensor = torch.tensor(query.shape[-1])
+		scaler: Tensor = torch.tensor(query.shape[-1]).to(dtype=self.__dtype, device=self.__device)
 
 		raw_attention: Tensor = torch.sum(query * keys / torch.sqrt_(scaler), dim=1)
 
-		return diagonal_softmax(raw_attention.diag())
+		return diagonal_softmax(raw_attention.squeeze().diag())
 
 
 class AdditiveAttention(torch.nn.Module):
@@ -83,7 +83,7 @@ class AdditiveAttention(torch.nn.Module):
 		v: Tensor = self.__weight_V(torch.tanh(q + k))
 		raw_attention: Tensor = torch.sum(v, dim=1)
 
-		return diagonal_softmax(raw_attention.diag())
+		return diagonal_softmax(raw_attention.squeeze().diag())
 
 
 class DualLinearAttention(torch.nn.Module):
@@ -105,4 +105,4 @@ class DualLinearAttention(torch.nn.Module):
 
 		raw_attention: Tensor = torch.sum(q * k, dim=1)
 
-		return diagonal_softmax(raw_attention.diag())
+		return diagonal_softmax(raw_attention.squeeze().diag())
