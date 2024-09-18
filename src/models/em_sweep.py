@@ -27,10 +27,7 @@ def sweep_function(config: dict = None) -> None:
 	dataset.set_format("torch")
 
 	model = EmotionModel(
-		attention=run.config["attention"],
-		dropout=run.config["dropout"],
-		bias=run.config["bias"],
-		dtype=dtype
+		attention=run.config["attention"], dropout=run.config["dropout"], bias=run.config["bias"], dtype=dtype
 	).to(device)
 
 	loss_function = torch.nn.CrossEntropyLoss()
@@ -47,12 +44,16 @@ def sweep_function(config: dict = None) -> None:
 		model.train()
 		for sample in tqdm(train_dataloader, colour="green"):
 			representations: list = [sample["bot_initial_emotion_representation"][0].to(device)]
-			compositions: list = [emotion.transpose(1, 0) for emotion in sample["user_emotion_compositions"][0].to(device)]
+			compositions: list = [
+				emotion.transpose(1, 0) for emotion in sample["user_emotion_compositions"][0].to(device)
+			]
 			labels: Tensor = f.one_hot(sample["bot_emotion"][0], 7).to(device)
 
 			optimizer.zero_grad()
 
-			output: Tensor = torch.tensor(representation_evolute(model, representations, compositions)).argmax(1).to(device)
+			output: Tensor = (
+				torch.tensor(representation_evolute(model, representations, compositions)).argmax(1).to(device)
+			)
 
 			loss = loss_function(output, labels)
 			wandb.log({"train/loss": loss.item()})
@@ -71,10 +72,14 @@ def sweep_function(config: dict = None) -> None:
 		with torch.no_grad():
 			for sample in tqdm(validation_dataloader, colour="blue"):
 				representations: list = [sample["bot_initial_emotion_representation"][0].to(device)]
-				compositions: list = [emotion.transpose(1, 0) for emotion in sample["user_emotion_compositions"][0].to(device)]
+				compositions: list = [
+					emotion.transpose(1, 0) for emotion in sample["user_emotion_compositions"][0].to(device)
+				]
 				labels: Tensor = f.one_hot(sample["bot_emotion"][0], 7).to(device)
 
-				output: Tensor = torch.tensor(representation_evolute(model, representations, compositions)).argmax(1).to(device)
+				output: Tensor = (
+					torch.tensor(representation_evolute(model, representations, compositions)).argmax(1).to(device)
+				)
 
 				loss = loss_function(output, labels)
 				wandb.log({"val/loss": loss.item()})
@@ -93,7 +98,9 @@ def sweep_function(config: dict = None) -> None:
 	eval_dataset = dataset["test"].map(
 		lambda samples: {
 			"bot_emotion_representations": [
-				representation_evolute(model, [sample[0][0].to(device)], [emotion.transpose(1, 0) for emotion in sample[1][0].to(device)])
+				representation_evolute(
+					model, [sample[0][0].to(device)], [emotion.transpose(1, 0) for emotion in sample[1][0].to(device)]
+				)
 				for sample in zip(
 					samples["bot_initial_emotion_representation"],
 					samples["user_emotion_compositions"],
