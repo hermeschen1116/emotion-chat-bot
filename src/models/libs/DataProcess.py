@@ -12,7 +12,7 @@ def generate_dummy_representation(target_emotion: int) -> Tensor:
 			return dummy
 
 
-def get_sentiment_composition(analysis_result: list) -> Tensor:
+def get_emotion_composition(analysis_result: list) -> Tensor:
 	sentiment_possibility: dict = {}
 	for emotion_score in analysis_result:
 		values: list = list(emotion_score.values())

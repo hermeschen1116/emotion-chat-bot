@@ -4,7 +4,7 @@ from .CommonUtils import calculate_evaluation_result, get_torch_device, login_to
 from .DataProcess import (
 	flatten_dataset,
 	generate_dummy_representation,
-	get_sentiment_composition,
+	get_emotion_composition,
 	throw_out_partial_row_with_a_label,
 )
 from .EmotionModel import EmotionModel, representation_evolute
@@ -15,7 +15,7 @@ __all__ = [
 	"diagonal_indices",
 	"diagonal_softmax",
 	"generate_dummy_representation",
-	"get_sentiment_composition",
+	"get_emotion_composition",
 	"representation_evolute",
 	"EmotionModel",
 	"CommonScriptArguments",

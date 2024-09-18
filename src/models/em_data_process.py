@@ -1,15 +1,14 @@
 from argparse import ArgumentParser
-from dataclasses import Field, dataclass
-from typing import Optional
+from pprint import pprint
 
 import torch
 import wandb
-from datasets import load_dataset
+from datasets import load_dataset, Features, Array2D, Sequence, ClassLabel, Value
 from libs import (
 	CommonScriptArguments,
 	CommonWanDBArguments,
 	generate_dummy_representation,
-	get_sentiment_composition,
+	get_emotion_composition,
 )
 from transformers import (
 	AutoModelForSequenceClassification,
@@ -18,7 +17,6 @@ from transformers import (
 	HfArgumentParser,
 	pipeline,
 )
-from transformers.hf_argparser import HfArg
 
 config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)
@@ -38,6 +36,8 @@ run = wandb.init(
 )
 
 dataset = load_dataset("daily_dialog", num_proc=16, trust_remote_code=True).remove_columns(["act"])
+emotion_labels: list = dataset["train"].features["emotion"].feature.names
+emotion_labels[0] = "neutral"
 
 dataset = dataset.map(
 	lambda samples: {"dialog": [[dialog.strip() for dialog in sample] for sample in samples]},
@@ -59,7 +59,7 @@ dataset = dataset.filter(lambda sample: (len(sample["dialog"]) > 2) and (len(sam
 
 dataset = dataset.map(
 	lambda samples: {
-		"bot_representation": [[generate_dummy_representation(sample[0])] for sample in samples["emotion"]],
+		"bot_initial_emotion_representation": [generate_dummy_representation(sample[0]).unsqueeze(0) for sample in samples["emotion"]],
 		"bot_emotion": [
 			[emotion for i, emotion in enumerate(sample[1:]) if i % 2 == 1] for sample in samples["emotion"]
 		],
@@ -72,6 +72,12 @@ dataset = dataset.map(
 	batched=True,
 	num_proc=16,
 )
+
+dataset_features: Features = dataset["train"].features.copy()
+dataset_features["bot_initial_emotion_representation"] = Array2D((1, 7), "float32")
+dataset_features["bot_emotion"] = Sequence(ClassLabel(num_classes=7, names=emotion_labels))
+dataset = dataset.cast(dataset_features)
+
 
 sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(
 	run.config["sentiment_analysis_model"],
@@ -98,10 +104,15 @@ sentiment_analysis_model = torch.compile(sentiment_analysis_model)
 
 
 dataset = dataset.map(
-	lambda sample: {"user_emotion_composition": [get_sentiment_composition(analyser(dialog)[0]) for dialog in sample]},
+	lambda sample: {"user_emotion_compositions": [[dialog.unsqueeze(0) for dialog in get_emotion_composition(analyser(dialogs)[0])] for dialogs in sample]},
 	input_columns="user_dialog",
 )
 
-dataset.push_to_hub("emotion_transition_from_dialog")
+dataset_features = dataset["train"].features.copy()
+dataset_features["user_emotion_compositions"] = Sequence(Array2D((1, 7), "float32"))
+dataset = dataset.cast(dataset_features)
+
+
+dataset.push_to_hub("emotion_transition_from_dialog", num_shards={"train": 16, "validation": 16, "test": 16})
 
 wandb.finish()
