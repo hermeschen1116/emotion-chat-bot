@@ -2,7 +2,7 @@ from argparse import ArgumentParser
 
 import torch
 import wandb
-from datasets import load_dataset, Array2D, Sequence, ClassLabel
+from datasets import Array2D, ClassLabel, Sequence, load_dataset
 from libs import (
 	CommonScriptArguments,
 	CommonWanDBArguments,
@@ -58,7 +58,9 @@ dataset = dataset.filter(lambda sample: (len(sample["dialog"]) > 2) and (len(sam
 
 dataset = dataset.map(
 	lambda samples: {
-		"bot_initial_emotion_representation": [generate_dummy_representation(sample[0]).unsqueeze(0) for sample in samples["emotion"]],
+		"bot_initial_emotion_representation": [
+			generate_dummy_representation(sample[0]).unsqueeze(0) for sample in samples["emotion"]
+		],
 		"bot_emotion": [
 			[emotion for i, emotion in enumerate(sample[1:]) if i % 2 == 1] for sample in samples["emotion"]
 		],
@@ -101,7 +103,11 @@ sentiment_analysis_model = torch.compile(sentiment_analysis_model)
 
 
 dataset = dataset.map(
-	lambda sample: {"user_emotion_compositions": [[dialog.unsqueeze(0) for dialog in get_emotion_composition(analyser(dialogs)[0])] for dialogs in sample]},
+	lambda sample: {
+		"user_emotion_compositions": [
+			[dialog.unsqueeze(0) for dialog in get_emotion_composition(analyser(dialogs)[0])] for dialogs in sample
+		]
+	},
 	input_columns="user_dialog",
 )
 

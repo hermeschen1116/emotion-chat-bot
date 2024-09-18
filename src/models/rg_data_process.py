@@ -3,7 +3,7 @@ from dataclasses import Field, dataclass
 from typing import Optional
 
 import wandb
-from datasets import load_dataset, Sequence, ClassLabel, Value
+from datasets import ClassLabel, Sequence, Value, load_dataset
 from libs import CommonScriptArguments, CommonWanDBArguments
 from transformers import HfArgumentParser
 from transformers.hf_argparser import HfArg
@@ -73,10 +73,15 @@ dataset = dataset.map(
 	batched=True,
 	num_proc=16,
 )
-dataset = dataset.cast_column("prompt", Sequence({"role": ClassLabel(num_classes=3, names=["system", "user", "bot"]), "content": {
-	"emotion": ClassLabel(num_classes=7, names=emotion_labels),
-	"dialog": Value(dtype="string")
-}}))
+dataset = dataset.cast_column(
+	"prompt",
+	Sequence(
+		{
+			"role": ClassLabel(num_classes=3, names=["system", "user", "bot"]),
+			"content": {"emotion": ClassLabel(num_classes=7, names=emotion_labels), "dialog": Value(dtype="string")},
+		}
+	),
+)
 
 dataset.push_to_hub("daily_dialog_for_RG", num_shards={"train": 16, "validation": 16, "test": 16})
 
