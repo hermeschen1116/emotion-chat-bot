@@ -1,9 +1,8 @@
 from argparse import ArgumentParser
-from pprint import pprint
 
 import torch
 import wandb
-from datasets import load_dataset, Features, Array2D, Sequence, ClassLabel, Value
+from datasets import load_dataset, Features, Array2D, Sequence, ClassLabel
 from libs import (
 	CommonScriptArguments,
 	CommonWanDBArguments,
