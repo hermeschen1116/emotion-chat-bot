@@ -12,33 +12,31 @@ from libs import (
 	EmotionModel,
 	representation_evolute,
 )
+from pyarrow import Tensor
 from torch.utils.data import DataLoader
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
+from torcheval.metrics.functional.classification import accuracy, f1_score
 from tqdm.auto import tqdm
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
 
 @dataclass
 class ScriptArguments(CommonScriptArguments):
-	dtype: Field[Optional[str]] = HfArg(aliases="--dtype", default="torch.float32")
+	dtype: Field[Optional[str]] = HfArg(aliases="--dtype")
+	bias: Field[Optional[bool]] = HfArg(aliases="--bias")
+	dropout: Field[Optional[float]] = HfArg(aliases="--dropout")
+	learning_rate: Field[Optional[float]] = HfArg(aliases="--learning_rate")
+	num_epochs: Field[Optional[int]] = HfArg(aliases="--num_epochs")
 
-
-config_getter = ArgumentParser()
-config_getter.add_argument("--json_file", required=True, type=str)
-config = config_getter.parse_args()
 
 parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
-args, wandb_args = parser.parse_json_file(config.json_file)
+args, wandb_args = parser.parse_args()
 dtype: torch.dtype = eval(args.dtype)
 
 run = wandb.init(
-	job_type=wandb_args.job_type,
-	config=wandb_args.config,
-	project=wandb_args.project,
-	group=wandb_args.group,
-	notes=wandb_args.notes,
-	mode=wandb_args.mode,
-	resume=wandb_args.resume,
+	job_type="Sweep",
+	project="emotion-chat-bot-ncu",
+	group="Emotion Model",
 )
 
 # Load Dataset
@@ -100,17 +98,20 @@ for i in range(run.config["num_epochs"]):
 			predicted_labels.append(torch.argmax(output, dim=1))
 
 		wandb.log({"val/val_loss": running_loss / len(validation_dataloader)})
+		f1_score: Tensor = multiclass_f1_score(
+			torch.cat(true_labels),
+			torch.cat(predicted_labels),
+			num_classes=7,
+			average="weighted",
+		)
+		accuracy = multiclass_accuracy(torch.cat(true_labels), torch.cat(predicted_labels), num_classes=7)
 		wandb.log(
 			{
-				"val/f1_score": multiclass_f1_score(
-					torch.cat(true_labels),
-					torch.cat(predicted_labels),
-					num_classes=7,
-					average="weighted",
-				),
-				"val/accuracy": multiclass_accuracy(torch.cat(true_labels), torch.cat(predicted_labels), num_classes=7),
+				"val/f1_score": accuracy,
+				"val/accuracy": f1_score,
 			}
 		)
+		wandb.log({"val/optimize_metric": f1_score * 0.5 + accuracy * 0.5})
 
 model = torch.compile(model)
 model.push_to_hub("emotion_model_for_emotion_chat_bot")

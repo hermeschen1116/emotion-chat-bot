@@ -98,9 +98,7 @@ sentiment_analysis_model = torch.compile(sentiment_analysis_model)
 
 
 dataset = dataset.map(
-	lambda sample: {
-		"user_emotion_composition": [get_sentiment_composition(analyser(dialog)[0]) for dialog in sample]
-	},
+	lambda sample: {"user_emotion_composition": [get_sentiment_composition(analyser(dialog)[0]) for dialog in sample]},
 	input_columns="user_dialog",
 )
 
