@@ -1,3 +1,5 @@
+import math
+
 import torch
 from torch import Tensor
 
@@ -24,7 +26,7 @@ class ScaledDotProductAttention(torch.nn.Module):
 		query = query.to(dtype=self.__dtype)
 		keys = keys.to(dtype=self.__dtype)
 
-		return query.matmul(keys) / torch.tensor(query.shape[-1]).sqrt_()
+		return query.matmul(keys) / torch.tensor(math.sqrt(float(query.shape[-1])))
 
 
 class AdditiveAttention(torch.nn.Module):

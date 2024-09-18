@@ -47,17 +47,17 @@ def sweep_function(config: dict = None) -> None:
 			compositions: list = [
 				emotion.transpose(1, 0) for emotion in sample["user_emotion_compositions"][0].to(device)
 			]
-			labels: Tensor = f.one_hot(sample["bot_emotion"][0], 7).to(device, dtype=dtype)
+			labels: Tensor = f.one_hot(sample["bot_emotion"][0], 7).float().to(device)
 
 			optimizer.zero_grad()
 
-			output: Tensor = (
-				torch.stack(representation_evolute(model, representations, compositions), dim=1)
-				.to(device, dtype=dtype)
-				.argmax(1)
+			outputs: Tensor = (
+				torch.stack(representation_evolute(model, representations, compositions)[1:], dim=1)[0]
+				.float()
+				.to(device)
 			)
 
-			loss = loss_function(output, labels)
+			loss = loss_function(outputs, labels)
 			wandb.log({"train/loss": loss.item()})
 			running_loss += loss.item()
 
@@ -77,19 +77,19 @@ def sweep_function(config: dict = None) -> None:
 				compositions: list = [
 					emotion.transpose(1, 0) for emotion in sample["user_emotion_compositions"][0].to(device)
 				]
-				labels: Tensor = f.one_hot(sample["bot_emotion"][0], 7).to(device, dtype=dtype)
-
-				output: Tensor = (
-					torch.stack(representation_evolute(model, representations, compositions), dim=1)
-					.to(device, dtype=dtype)
-					.argmax(1)
+				labels: Tensor = f.one_hot(sample["bot_emotion"][0], 7).float().to(device)
+				
+				outputs: Tensor = (
+					torch.stack(representation_evolute(model, representations, compositions)[1:], dim=1)[0]
+					.float()
+					.to(device)
 				)
 
-				loss = loss_function(output, labels)
+				loss = loss_function(outputs, labels)
 				wandb.log({"val/loss": loss.item()})
 				running_loss += loss.item()
 				truths += sample["bot_emotion"].tolist()
-				predictions += torch.argmax(output, dim=1).tolist()
+				predictions += torch.argmax(outputs, dim=1).tolist()
 
 			wandb.log({"val/loss": running_loss / len(validation_dataloader)})
 
