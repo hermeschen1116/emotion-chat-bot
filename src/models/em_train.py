@@ -53,6 +53,7 @@ dataset = load_dataset(
 model = EmotionModel(
 	dropout=run.config["dropout"],
 	bias=run.config["bias"],
+	dtype=dtype
 )
 
 loss_function = torch.nn.CrossEntropyLoss()
@@ -66,9 +67,9 @@ for i in range(run.config["num_epochs"]):
 	for sample in tqdm(train_dataloader, colour="green"):
 		representation, emotion_composition = (
 			sample["bot_representation"],
-			sample["user_dialog_emotion_composition"],
+			sample["user_emotion_composition"],
 		)
-		labels = f.one_hot(torch.cat(sample["bot_emotion"]), 7).to(dtype=torch.float)
+		labels = f.one_hot(torch.cat(sample["bot_emotion"]), 7).to(dtype)
 
 		optimizer.zero_grad()
 
@@ -92,7 +93,7 @@ for i in range(run.config["num_epochs"]):
 		for sample in tqdm(validation_dataloader, colour="blue"):
 			representation, emotion_composition = (
 				sample["bot_representation"],
-				sample["user_dialog_emotion_composition"],
+				sample["user_emotion_composition"],
 			)
 			labels = f.one_hot(torch.cat(sample["bot_emotion"]), 7).to(dtype=torch.float)
 
