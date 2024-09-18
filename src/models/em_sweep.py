@@ -12,7 +12,7 @@ from tqdm.auto import tqdm
 
 
 def sweep_function(config: dict = None) -> None:
-	run = wandb.init(job_type="Sweep", project="emotion-chat-bot-ncu", group="Emotion Model", config=config)
+	run = wandb.init(job_type="Sweep", group="Emotion Model", config=config)
 	device: str = get_torch_device()
 	dtype = eval(run.config["dtype"])
 
