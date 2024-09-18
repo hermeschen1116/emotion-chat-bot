@@ -37,10 +37,10 @@ def sweep_function(config: dict = None) -> None:
 	optimizer = eval(f"torch.optim.{run.config['optimizer']}")(model.parameters(), lr=run.config["learning_rate"])
 
 	train_dataloader = DataLoader(
-		dataset["train"].to_iterable_dataset(), batch_size=1, shuffle=True, num_workers=12, pin_memory=True
+		dataset["train"], batch_size=1, shuffle=True, num_workers=12, pin_memory=True
 	)
 	validation_dataloader = DataLoader(
-		dataset["validation"].to_iterable_dataset(), batch_size=1, shuffle=True, num_workers=12, pin_memory=True
+		dataset["validation"], batch_size=1, shuffle=True, num_workers=12, pin_memory=True
 	)
 	for i in range(run.config["num_epochs"]):
 		running_loss: float = 0
