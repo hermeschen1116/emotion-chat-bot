@@ -1,11 +1,15 @@
-import os
+import json
+from argparse import ArgumentParser
 
 import torch
 import torch.nn.functional as f
 import wandb
 from datasets import load_dataset
-from dotenv import load_dotenv
-from libs import EmotionModel, calculate_evaluation_result, representation_evolute
+from libs import (
+	EmotionModel,
+	calculate_evaluation_result,
+	representation_evolute,
+)
 from torch import Tensor
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
@@ -116,20 +120,13 @@ def sweep_function(config: dict = None) -> None:
 	)
 
 
-sweep_config: dict = {
-	"method": "bayes",
-	"metric": {"goal": "maximize", "name": "eval/optimize_metric"},
-	"parameters": {
-		"num_epochs": {"distribution": "int_uniform", "max": 6, "min": 1},
-		"dtype": {"values": ["torch.float32", "torch.float16", "torch.bfloat16"]},
-		"learning_rate": {"distribution": "uniform", "max": 0.002, "min": 0.0005},
-		"dropout": {"distribution": "uniform", "max": 1, "min": 0.25},
-		"optimizer": {"values": ["Adagrad", "Adam", "AdamW", "RMSprop", "SGD"]},
-	},
-}
+config_getter = ArgumentParser()
+config_getter.add_argument("--json_file", required=True, type=str)
+config = config_getter.parse_args()
 
-load_dotenv()
-wandb.login(key=os.environ.get("WANDB_API_KEY", ""))
+with open(config.json_file, "r", encoding="utf-8") as config_file:
+	sweep_config: dict = json.loads(config_file)
+
 sweep_id = wandb.sweep(sweep=sweep_config, project="emotion-chat-bot-ncu")
 wandb.agent(sweep_id, sweep_function, project="emotion-chat-bot-ncu", count=100)
 wandb.finish()
