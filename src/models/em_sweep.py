@@ -11,10 +11,9 @@ from libs import (
 	EmotionModel,
 	representation_evolute,
 )
-from pyarrow import Tensor
+from torch import Tensor
 from torch.utils.data import DataLoader
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
-from torcheval.metrics.functional.classification import accuracy, f1_score
 from tqdm.auto import tqdm
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
@@ -98,22 +97,47 @@ for i in range(args.num_epochs):
 			predicted_labels.append(torch.argmax(output, dim=1))
 
 		wandb.log({"val/val_loss": running_loss / len(validation_dataloader)})
-		f1_score: Tensor = multiclass_f1_score(
-			torch.cat(true_labels),
-			torch.cat(predicted_labels),
-			num_classes=7,
-			average="weighted",
-		)
-		accuracy = multiclass_accuracy(torch.cat(true_labels), torch.cat(predicted_labels), num_classes=7)
 		wandb.log(
 			{
-				"val/f1_score": accuracy,
-				"val/accuracy": f1_score,
+				"val/f1_score": multiclass_accuracy(torch.cat(true_labels), torch.cat(predicted_labels), num_classes=7),
+				"val/accuracy": multiclass_f1_score(
+					torch.cat(true_labels),
+					torch.cat(predicted_labels),
+					num_classes=7,
+					average="weighted",
+				),
 			}
 		)
-		wandb.log({"val/optimize_metric": f1_score * 0.5 + accuracy * 0.5})
 
 model = torch.compile(model)
-model.push_to_hub("emotion_model_for_emotion_chat_bot")
+
+eval_dataset = dataset["test"].map(
+	lambda samples: {
+		"bot_representation": [
+			representation_evolute(model, sample[0], sample[1])
+			for sample in zip(
+				samples["bot_representation"],
+				samples["user_emotion_composition"],
+			)
+		]
+	},
+	batched=True,
+)
+
+eval_dataset = eval_dataset.map(
+	lambda samples: {"bot_most_possible_emotion": [torch.argmax(torch.tensor(sample), dim=1) for sample in samples]},
+	input_columns="bot_representation",
+	batched=True,
+	num_proc=16,
+)
+
+predicted_labels: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_most_possible_emotion"]])
+true_labels: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_emotion"]])
+
+f1_score: Tensor = multiclass_f1_score(true_labels, predicted_labels, num_classes=7, average="weighted")
+accuracy: Tensor = multiclass_accuracy(true_labels, predicted_labels, num_classes=7)
+wandb.log(
+	{"eval/f1-score": f1_score, "eval/accuracy": accuracy, "eval/optimize_metric": f1_score * 0.5 + accuracy * 0.5}
+)
 
 wandb.finish()
