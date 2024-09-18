@@ -20,17 +20,11 @@ from transformers import (
 )
 from transformers.hf_argparser import HfArg
 
-
-@dataclass
-class ScriptArguments(CommonScriptArguments):
-	dataset_path: Field[Optional[str]] = HfArg(aliases="--dataset-path", default="./dataset")
-
-
 config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)
 config = config_getter.parse_args()
 
-parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
+parser = HfArgumentParser((CommonScriptArguments, CommonWanDBArguments))
 args, wandb_args = parser.parse_json_file(config.json_file)
 
 run = wandb.init(
@@ -61,14 +55,7 @@ dataset = dataset.map(
 	num_proc=16,
 )
 
-dataset = dataset.map(
-	lambda samples: {
-		"dialog": [sample for sample in samples["dialog"] if len(sample) > 2],
-		"emotion": [sample for sample in samples["emotion"] if len(sample) > 2],
-	},
-	batched=True,
-	num_proc=16,
-)
+dataset = dataset.filter(lambda sample: (len(sample["dialog"]) > 2) and (len(sample["emotion"]) > 2), num_proc=16)
 
 dataset = dataset.map(
 	lambda samples: {
@@ -87,14 +74,14 @@ dataset = dataset.map(
 )
 
 sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(
-	wandb_args.config["sentiment_analysis_model"],
+	run.config["sentiment_analysis_model"],
 	quantization_config=BitsAndBytesConfig(load_in_4bit=True, bnb_4bit_compute_dtype=torch.float16),
 	device_map="auto",
 	low_cpu_mem_usage=True,
 )
 
 sentiment_analysis_tokenizer = AutoTokenizer.from_pretrained(
-	wandb_args.config["sentiment_analysis_model"], trust_remote_code=True
+	run.config["sentiment_analysis_model"], trust_remote_code=True
 )
 
 analyser = pipeline(
