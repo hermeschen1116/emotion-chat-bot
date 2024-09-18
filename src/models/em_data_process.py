@@ -96,12 +96,12 @@ analyser = pipeline(
 
 sentiment_analysis_model = torch.compile(sentiment_analysis_model)
 
-dataset = dataset.add_column("user_emotion", analyser(dataset["user_dialog"]))
+
 dataset = dataset.map(
 	lambda sample: {
 		"user_emotion_composition": [get_sentiment_composition(analyser(dialog)) for dialog in sample]
 	},
-	input_columns="user_emotion",
+	input_columns="user_dialog",
 )
 
 dataset.push_to_hub("emotion_transition_from_dialog")
