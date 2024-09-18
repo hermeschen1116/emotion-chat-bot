@@ -71,13 +71,13 @@ eval_dataset = eval_dataset.map(
 	num_proc=16,
 )
 
-predicted_labels: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_most_possible_emotion"]])
-true_labels: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_emotion"]])
+predictions: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_most_possible_emotion"]])
+truths: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_emotion"]])
 
 wandb.log(
 	{
-		"F1-score": multiclass_f1_score(true_labels, predicted_labels, num_classes=7, average="weighted"),
-		"Accuracy": multiclass_accuracy(true_labels, predicted_labels, num_classes=7),
+		"F1-score": multiclass_f1_score(predictions, truths, num_classes=7, average="weighted"),
+		"Accuracy": multiclass_accuracy(predictions, truths, num_classes=7),
 	}
 )
 

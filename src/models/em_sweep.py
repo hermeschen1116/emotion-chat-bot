@@ -77,8 +77,8 @@ for i in range(args.num_epochs):
 		wandb.log({"train/train_loss": running_loss / len(train_dataloader)})
 
 	running_loss = 0
-	true_labels: list = []
-	predicted_labels: list = []
+	truths: list = []
+	predictions: list = []
 	model.eval()
 	with torch.no_grad():
 		for sample in tqdm(validation_dataloader, colour="blue"):
@@ -93,16 +93,19 @@ for i in range(args.num_epochs):
 			loss = loss_function(output, labels)
 			wandb.log({"val/loss": loss.item()})
 			running_loss += loss.item()
-			true_labels += sample["bot_emotion"]
-			predicted_labels.append(torch.argmax(output, dim=1))
+			val_truths += sample["bot_emotion"]
+			val_predictions.append(torch.argmax(output, dim=1))
 
 		wandb.log({"val/val_loss": running_loss / len(validation_dataloader)})
+
+		val_truths: Tensor = torch.cat(truths)
+		val_predictions: Tensor = torch.cat(predictions)
 		wandb.log(
 			{
-				"val/f1_score": multiclass_accuracy(torch.cat(true_labels), torch.cat(predicted_labels), num_classes=7),
+				"val/f1_score": multiclass_accuracy(val_predictions, val_truths, num_classes=7),
 				"val/accuracy": multiclass_f1_score(
-					torch.cat(true_labels),
-					torch.cat(predicted_labels),
+					val_predictions,
+					val_truths,
 					num_classes=7,
 					average="weighted",
 				),
@@ -131,11 +134,11 @@ eval_dataset = eval_dataset.map(
 	num_proc=16,
 )
 
-predicted_labels: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_most_possible_emotion"]])
-true_labels: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_emotion"]])
+eval_predictions: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_most_possible_emotion"]])
+eval_truths: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_emotion"]])
 
-f1_score: Tensor = multiclass_f1_score(true_labels, predicted_labels, num_classes=7, average="weighted")
-accuracy: Tensor = multiclass_accuracy(true_labels, predicted_labels, num_classes=7)
+f1_score: Tensor = multiclass_f1_score(eval_predictions, eval_truths, num_classes=7, average="weighted")
+accuracy: Tensor = multiclass_accuracy(eval_predictions, eval_truths, num_classes=7)
 wandb.log(
 	{"eval/f1-score": f1_score, "eval/accuracy": accuracy, "eval/optimize_metric": f1_score * 0.5 + accuracy * 0.5}
 )
