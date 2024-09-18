@@ -116,7 +116,6 @@ def sweep_function(config: dict = None) -> None:
 	)
 
 
-
 sweep_config: dict = {
 	"method": "bayes",
 	"metric": {"goal": "maximize", "name": "eval/optimize_metric"},
