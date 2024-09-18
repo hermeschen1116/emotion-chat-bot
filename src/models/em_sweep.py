@@ -52,7 +52,9 @@ def sweep_function(config: dict = None) -> None:
 			optimizer.zero_grad()
 
 			output: Tensor = (
-				torch.stack(representation_evolute(model, representations, compositions), dim=1).to(device, dtype=dtype).argmax(1)
+				torch.stack(representation_evolute(model, representations, compositions), dim=1)
+				.to(device, dtype=dtype)
+				.argmax(1)
 			)
 
 			loss = loss_function(output, labels)
@@ -76,9 +78,11 @@ def sweep_function(config: dict = None) -> None:
 					emotion.transpose(1, 0) for emotion in sample["user_emotion_compositions"][0].to(device)
 				]
 				labels: Tensor = f.one_hot(sample["bot_emotion"][0], 7).to(device)
-				
+
 				output: Tensor = (
-					torch.stack(representation_evolute(model, representations, compositions), dim=1).to(device, dtype=dtype).argmax(1)
+					torch.stack(representation_evolute(model, representations, compositions), dim=1)
+					.to(device, dtype=dtype)
+					.argmax(1)
 				)
 
 				loss = loss_function(output, labels)
@@ -111,7 +115,9 @@ def sweep_function(config: dict = None) -> None:
 	)
 
 	eval_dataset = eval_dataset.map(
-		lambda samples: {"bot_possible_emotion": [torch.stack(sample, dim=1).to(dtype).argmax(1) for sample in samples]},
+		lambda samples: {
+			"bot_possible_emotion": [torch.stack(sample, dim=1).to(dtype).argmax(1) for sample in samples]
+		},
 		input_columns="bot_representation",
 		batched=True,
 		num_proc=16,
