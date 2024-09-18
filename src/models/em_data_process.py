@@ -104,6 +104,8 @@ dataset = dataset.map(
 	input_columns="user_dialog",
 )
 
+dataset = dataset.shard(num_shards=4)
+
 dataset.push_to_hub("emotion_transition_from_dialog")
 
 wandb.finish()
