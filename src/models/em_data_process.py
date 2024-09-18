@@ -2,7 +2,7 @@ from argparse import ArgumentParser
 
 import torch
 import wandb
-from datasets import load_dataset, Features, Array2D, Sequence, ClassLabel
+from datasets import load_dataset, Array2D, Sequence, ClassLabel
 from libs import (
 	CommonScriptArguments,
 	CommonWanDBArguments,
@@ -72,10 +72,8 @@ dataset = dataset.map(
 	num_proc=16,
 )
 
-dataset_features: Features = dataset["train"].features.copy()
-dataset_features["bot_initial_emotion_representation"] = Array2D((1, 7), "float32")
-dataset_features["bot_emotion"] = Sequence(ClassLabel(num_classes=7, names=emotion_labels))
-dataset = dataset.cast(dataset_features)
+dataset = dataset.cast_column("bot_initial_emotion_representation", Array2D((1, 7), "float32"))
+dataset = dataset.cast_column("bot_emotion", Sequence(ClassLabel(num_classes=7, names=emotion_labels)))
 
 
 sentiment_analysis_model = AutoModelForSequenceClassification.from_pretrained(
@@ -107,9 +105,7 @@ dataset = dataset.map(
 	input_columns="user_dialog",
 )
 
-dataset_features = dataset["train"].features.copy()
-dataset_features["user_emotion_compositions"] = Sequence(Array2D((1, 7), "float32"))
-dataset = dataset.cast(dataset_features)
+dataset = dataset.cast_column("user_emotion_compositions", Sequence(Array2D((1, 7), "float32")))
 
 
 dataset.push_to_hub("emotion_transition_from_dialog", num_shards={"train": 16, "validation": 16, "test": 16})
