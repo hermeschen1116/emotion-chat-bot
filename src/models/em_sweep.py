@@ -6,7 +6,6 @@ import torch.nn.functional as f
 import wandb
 from datasets import load_dataset
 from hopper.benchmark_attn import batch_size
-
 from libs import EmotionModel, calculate_evaluation_result, get_torch_device, login_to_service, representation_evolute
 from torch import Tensor
 from torch.utils.data import DataLoader
@@ -30,7 +29,6 @@ def sweep_function(config: dict = None) -> None:
 
 	dataset.set_format("torch")
 
-
 	model = EmotionModel(
 		attention=run.config["attention"],
 		dropout=run.config["dropout"],
@@ -42,8 +40,12 @@ def sweep_function(config: dict = None) -> None:
 	loss_function = torch.nn.CrossEntropyLoss()
 	optimizer = eval(f"torch.optim.{run.config['optimizer']}")(model.parameters(), lr=run.config["learning_rate"])
 
-	train_dataloader = DataLoader(dataset["train"].to_iterable_dataset(), batch_size=1, shuffle=True, num_workers=12, pin_memory=True)
-	validation_dataloader = DataLoader(dataset["validation"].to_iterable_dataset(), batch_size=1, shuffle=True, num_workers=12, pin_memory=True)
+	train_dataloader = DataLoader(
+		dataset["train"].to_iterable_dataset(), batch_size=1, shuffle=True, num_workers=12, pin_memory=True
+	)
+	validation_dataloader = DataLoader(
+		dataset["validation"].to_iterable_dataset(), batch_size=1, shuffle=True, num_workers=12, pin_memory=True
+	)
 	for i in range(run.config["num_epochs"]):
 		running_loss: float = 0
 		model.train()
@@ -106,9 +108,7 @@ def sweep_function(config: dict = None) -> None:
 	)
 
 	eval_dataset = eval_dataset.map(
-		lambda samples: {
-			"bot_possible_emotion": [torch.argmax(torch.tensor(sample), dim=1) for sample in samples]
-		},
+		lambda samples: {"bot_possible_emotion": [torch.argmax(torch.tensor(sample), dim=1) for sample in samples]},
 		input_columns="bot_representation",
 		batched=True,
 		num_proc=16,

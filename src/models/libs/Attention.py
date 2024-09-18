@@ -43,9 +43,10 @@ class AdditiveAttention(torch.nn.Module):
 
 		q: Tensor = self.__weight_Q(query)
 		k: Tensor = self.__weight_K(keys)
-		
+
 		return torch.sum(self.__weight_V(torch.tanh(q + k)), dim=1)
-	
+
+
 class DualLinearAttention(torch.nn.Module):
 	def __init__(self, bias: bool = True, dtype: torch.dtype = torch.float) -> None:
 		super(DualLinearAttention, self).__init__()

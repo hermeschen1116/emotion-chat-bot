@@ -13,7 +13,9 @@ from .Attention import (
 )
 
 
-def representation_evolute(model, bot_emotion_representations: List[Tensor], user_emotion_compositions: List[Tensor]) -> List[Tensor]:
+def representation_evolute(
+	model, bot_emotion_representations: List[Tensor], user_emotion_compositions: List[Tensor]
+) -> List[Tensor]:
 	evolute_representations: list = bot_emotion_representations
 	for composition in user_emotion_compositions:
 		new_representation: Tensor = model.forward(evolute_representations[-1], composition)
@@ -22,9 +24,7 @@ def representation_evolute(model, bot_emotion_representations: List[Tensor], use
 	return evolute_representations
 
 
-def initialize_attention(
-	attention: str, bias: bool = True, dtype: torch.dtype = torch.float
-) -> torch.nn.Module:
+def initialize_attention(attention: str, bias: bool = True, dtype: torch.dtype = torch.float) -> torch.nn.Module:
 	match attention:
 		case "dot_product":
 			return DotProductAttention(dtype=dtype)
