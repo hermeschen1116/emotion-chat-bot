@@ -37,22 +37,22 @@ def sweep_function(config: dict = None) -> None:
 	optimizer = eval(f"torch.optim.{run.config['optimizer']}")(model.parameters(), lr=run.config["learning_rate"])
 
 	train_dataloader = DataLoader(
-		dataset["train"], batch_size=1, shuffle=True, num_workers=12, pin_memory=True
+		dataset["train"], batch_size=1, shuffle=True, num_workers=16, pin_memory=True, pin_memory_device=device
 	)
 	validation_dataloader = DataLoader(
-		dataset["validation"], batch_size=1, shuffle=True, num_workers=12, pin_memory=True
+		dataset["validation"], batch_size=1, shuffle=True, num_workers=16, pin_memory=True, pin_memory_device=device
 	)
 	for i in range(run.config["num_epochs"]):
 		running_loss: float = 0
 		model.train()
 		for sample in tqdm(train_dataloader, colour="green"):
-			representations: list = [sample["bot_initial_emotion_representation"].to(device)]
-			compositions: list = [emotion for emotion in sample["user_emotion_compositions"].to(device)]
-			labels: Tensor = f.one_hot(sample["bot_emotion"], 7).to(device)
+			representations: list = [sample["bot_initial_emotion_representation"][0].to(device)]
+			compositions: list = [emotion.transpose(1, 0) for emotion in sample["user_emotion_compositions"][0].to(device)]
+			labels: Tensor = f.one_hot(sample["bot_emotion"][0], 7).to(device)
 
 			optimizer.zero_grad()
 
-			output: Tensor = representation_evolute(model, representations, compositions)
+			output: Tensor = torch.tensor(representation_evolute(model, representations, compositions)).argmax(1).to(device)
 
 			loss = loss_function(output, labels)
 			wandb.log({"train/loss": loss.item()})
@@ -70,11 +70,11 @@ def sweep_function(config: dict = None) -> None:
 		model.eval()
 		with torch.no_grad():
 			for sample in tqdm(validation_dataloader, colour="blue"):
-				representations: list = [sample["bot_initial_emotion_representation"].to(device)]
-				compositions: list = [emotion for emotion in sample["user_emotion_compositions"].to(device)]
-				labels: Tensor = f.one_hot(sample["bot_emotion"], 7).to(device)
+				representations: list = [sample["bot_initial_emotion_representation"][0].to(device)]
+				compositions: list = [emotion.transpose(1, 0) for emotion in sample["user_emotion_compositions"][0].to(device)]
+				labels: Tensor = f.one_hot(sample["bot_emotion"][0], 7).to(device)
 
-				output: Tensor = representation_evolute(model, representations, compositions)
+				output: Tensor = torch.tensor(representation_evolute(model, representations, compositions)).argmax(1).to(device)
 
 				loss = loss_function(output, labels)
 				wandb.log({"val/loss": loss.item()})
@@ -93,7 +93,7 @@ def sweep_function(config: dict = None) -> None:
 	eval_dataset = dataset["test"].map(
 		lambda samples: {
 			"bot_emotion_representations": [
-				representation_evolute(model, [sample[0]], [emotion for emotion in sample[1]])
+				representation_evolute(model, [sample[0][0].to(device)], [emotion.transpose(1, 0) for emotion in sample[1][0].to(device)])
 				for sample in zip(
 					samples["bot_initial_emotion_representation"],
 					samples["user_emotion_compositions"],
@@ -104,7 +104,7 @@ def sweep_function(config: dict = None) -> None:
 	)
 
 	eval_dataset = eval_dataset.map(
-		lambda samples: {"bot_possible_emotion": [torch.argmax(torch.tensor(sample), dim=1) for sample in samples]},
+		lambda samples: {"bot_possible_emotion": [torch.tensor(sample).argmax(1) for sample in samples]},
 		input_columns="bot_representation",
 		batched=True,
 		num_proc=16,
