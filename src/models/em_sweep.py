@@ -47,7 +47,7 @@ def sweep_function(config: dict = None) -> None:
 			compositions: list = [
 				emotion.transpose(1, 0) for emotion in sample["user_emotion_compositions"][0].to(device)
 			]
-			labels: Tensor = f.one_hot(sample["bot_emotion"][0], 7).to(device)
+			labels: Tensor = f.one_hot(sample["bot_emotion"][0], 7).to(device, dtype=dtype)
 
 			optimizer.zero_grad()
 
@@ -77,7 +77,7 @@ def sweep_function(config: dict = None) -> None:
 				compositions: list = [
 					emotion.transpose(1, 0) for emotion in sample["user_emotion_compositions"][0].to(device)
 				]
-				labels: Tensor = f.one_hot(sample["bot_emotion"][0], 7).to(device)
+				labels: Tensor = f.one_hot(sample["bot_emotion"][0], 7).to(device, dtype=dtype)
 
 				output: Tensor = (
 					torch.stack(representation_evolute(model, representations, compositions), dim=1)
