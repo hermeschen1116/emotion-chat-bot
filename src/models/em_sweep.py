@@ -24,7 +24,6 @@ def sweep_function(config: dict = None) -> None:
 		trust_remote_code=True,
 	)
 
-	dataset.set_format("torch")
 
 	model = EmotionModel(
 		attention=run.config["attention"], dropout=run.config["dropout"], bias=run.config["bias"], dtype=dtype
@@ -34,10 +33,10 @@ def sweep_function(config: dict = None) -> None:
 	optimizer = eval(f"torch.optim.{run.config['optimizer']}")(model.parameters(), lr=run.config["learning_rate"])
 
 	train_dataloader = DataLoader(
-		dataset["train"], batch_size=1, shuffle=True, num_workers=16, pin_memory=True, pin_memory_device=device
+		dataset["train"].with_format("torch"), batch_size=1, shuffle=True, num_workers=12, pin_memory=True, pin_memory_device=device
 	)
 	validation_dataloader = DataLoader(
-		dataset["validation"], batch_size=1, shuffle=True, num_workers=16, pin_memory=True, pin_memory_device=device
+		dataset["validation"].with_format("torch"), batch_size=1, shuffle=True, num_workers=12, pin_memory=True, pin_memory_device=device
 	)
 	for i in range(run.config["num_epochs"]):
 		running_loss: float = 0
@@ -88,23 +87,23 @@ def sweep_function(config: dict = None) -> None:
 				loss = loss_function(outputs, labels)
 				wandb.log({"val/loss": loss.item()})
 				running_loss += loss.item()
-				truths += sample["bot_emotion"].tolist()
+				truths += sample["bot_emotion"].tolist()[0]
 				predictions += torch.argmax(outputs, dim=1).tolist()
 
 			wandb.log({"val/loss": running_loss / len(validation_dataloader)})
-
 			evaluation_result: dict = calculate_evaluation_result(torch.tensor(predictions), torch.tensor(truths))
 			wandb.log({"val/f1_score": evaluation_result["f1_score"], "val/accuracy": evaluation_result["accuracy"]})
 
+
 	model.eval()
 	model = torch.compile(model)
-
+	
 	eval_dataset = dataset["test"].map(
 		lambda samples: {
 			"bot_emotion_representations": [
 				representation_evolute(
-					model, [sample[0][0].to(device)], [emotion.transpose(1, 0) for emotion in sample[1][0].to(device)]
-				)
+					model, [torch.tensor(sample[0][0]).to(device)], [torch.tensor(emotion).to(device) for emotion in sample[1]]
+				)[1:]
 				for sample in zip(
 					samples["bot_initial_emotion_representation"],
 					samples["user_emotion_compositions"],
@@ -113,12 +112,12 @@ def sweep_function(config: dict = None) -> None:
 		},
 		batched=True,
 	)
-
+	
 	eval_dataset = eval_dataset.map(
 		lambda samples: {
-			"bot_possible_emotion": [torch.stack(sample, dim=1).to(dtype).argmax(1) for sample in samples]
+			"bot_possible_emotion": [torch.tensor(sample).argmax(1) for sample in samples]
 		},
-		input_columns="bot_representation",
+		input_columns="bot_emotion_representations",
 		batched=True,
 		num_proc=16,
 	)
