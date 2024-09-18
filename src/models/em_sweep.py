@@ -30,8 +30,7 @@ def sweep_function(config: dict = None) -> None:
 		attention=run.config["attention"],
 		dropout=run.config["dropout"],
 		bias=run.config["bias"],
-		dtype=dtype,
-		device=device,
+		dtype=dtype
 	).to(device)
 
 	loss_function = torch.nn.CrossEntropyLoss()
