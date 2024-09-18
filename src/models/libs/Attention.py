@@ -20,78 +20,91 @@ def diagonal_indices(source: Tensor) -> Tensor:
 	return torch.tensor([i for i in range(source_shape[0])])
 
 
-def diagonal_softmax(source: Tensor, dtype: torch.dtype = torch.float) -> Tensor:
+def diagonal_softmax(source: Tensor) -> Tensor:
 	diagonal: Tensor = diagonal_indices(source)
 
-	softmax_diagonal: Tensor = torch.softmax(source[diagonal, diagonal], dim=0, dtype=dtype)
+	softmax_diagonal: Tensor = torch.softmax(source[diagonal, diagonal], dim=0)
 
 	dest: Tensor = source
-	dest[diagonal, diagonal] = softmax_diagonal.to(dtype=dest.dtype)
+	dest[diagonal, diagonal] = softmax_diagonal
 
 	return dest
 
 
 class DotProductAttention(torch.nn.Module):
-	def __init__(self, dtype: torch.dtype = torch.float) -> None:
+	def __init__(self, dtype: torch.dtype = torch.float, device: str = "cpu") -> None:
 		super(DotProductAttention, self).__init__()
 		self.__dtype: torch.dtype = dtype
+		self.__device: str = device
 
 	def forward(self, query: Tensor, keys: Tensor) -> Tensor:
+		query = query.to(dtype=self.__dtype, device=self.__device)
+		keys = keys.to(dtype=self.__dtype, device=self.__device)
+
 		raw_attention: Tensor = torch.sum(query * keys, dim=1)
 
-		return diagonal_softmax(raw_attention.squeeze().diag(), dtype=self.__dtype)
+		return diagonal_softmax(raw_attention.squeeze().diag())
 
 
 class ScaledDotProductAttention(torch.nn.Module):
-	def __init__(self, scaler: Optional[float] = None, dtype: torch.dtype = torch.float) -> None:
+	def __init__(self, dtype: torch.dtype = torch.float, device: str = "cpu") -> None:
 		super(ScaledDotProductAttention, self).__init__()
 
 		self.__dtype: torch.dtype = dtype
-		self.__scaler: Optional[float] = scaler
+		self.__device: str = device
 
 	def forward(self, query: Tensor, keys: Tensor) -> Tensor:
-		self.__scaler = float(query.shape[-1]) if self.__scaler is None else self.__scaler
+		query = query.to(dtype=self.__dtype, device=self.__device)
+		keys = keys.to(dtype=self.__dtype, device=self.__device)
 
-		raw_attention: Tensor = torch.sum(query * keys / torch.sqrt_(torch.tensor(self.__scaler)), dim=1)
+		scaler: Tensor = torch.tensor(query.shape[-1])
 
-		return diagonal_softmax(raw_attention.squeeze().diag(), dtype=self.__dtype)
+		raw_attention: Tensor = torch.sum(query * keys / torch.sqrt_(scaler), dim=1)
+
+		return diagonal_softmax(raw_attention.squeeze().diag())
 
 
 class AdditiveAttention(torch.nn.Module):
-	def __init__(self, dropout: Optional[float] = None, dtype: torch.dtype = torch.float) -> None:
+	def __init__(self, bias: bool = True, dtype: torch.dtype = torch.float, device: str = "cpu") -> None:
 		super(AdditiveAttention, self).__init__()
 
 		self.__dtype: torch.dtype = dtype
+		self.__device: str = device
 
-		self.__weight_Q = torch.nn.Linear(7, 7, bias=False, dtype=dtype)
-		self.__weight_K = torch.nn.Linear(7, 7, bias=False, dtype=dtype)
-		self.__weight_V = torch.nn.Linear(7, 7, bias=False, dtype=dtype)
-		self.__dropout = torch.nn.Dropout(p=dropout if dropout is not None else 0.5)
+		self.__weight_Q = torch.nn.Linear(7, 7, bias=bias, dtype=dtype, device=device)
+		self.__weight_K = torch.nn.Linear(7, 7, bias=bias, dtype=dtype, device=device)
+		self.__weight_V = torch.nn.Linear(7, 7, bias=bias, dtype=dtype, device=device)
 
 	def forward(self, query: Tensor, keys: Tensor) -> Tensor:
-		q: Tensor = self.__weight_Q(query.to(dtype=self.__dtype))
-		k: Tensor = self.__weight_K(keys.to(dtype=self.__dtype))
+		query = query.to(dtype=self.__dtype, device=self.__device)
+		keys = keys.to(dtype=self.__dtype, device=self.__device)
 
-		v: Tensor = self.__weight_V(torch.tanh(self.__dropout(q) + self.__dropout(k)))
+		q: Tensor = self.__weight_Q(query)
+		k: Tensor = self.__weight_K(keys)
+
+		v: Tensor = self.__weight_V(torch.tanh(q + k))
 		raw_attention: Tensor = torch.sum(v, dim=1)
 
-		return diagonal_softmax(raw_attention.squeeze().diag(), dtype=self.__dtype)
+		return diagonal_softmax(raw_attention.squeeze().diag())
 
 
 class DualLinearAttention(torch.nn.Module):
-	def __init__(self, dropout: Optional[float] = None, dtype: torch.dtype = torch.float) -> None:
+	def __init__(self, bias: bool = True, dtype: torch.dtype = torch.float, device: str = "cpu") -> None:
 		super(DualLinearAttention, self).__init__()
 
 		self.__dtype: torch.dtype = dtype
+		self.__device: str = device
 
-		self.__weight_Q = torch.nn.Linear(7, 7, bias=False, dtype=dtype)
-		self.__weight_K = torch.nn.Linear(7, 7, bias=False, dtype=dtype)
-		self.__dropout = torch.nn.Dropout(p=dropout if dropout is not None else 0.5)
+		self.__weight_Q = torch.nn.Linear(7, 7, bias=bias, dtype=dtype, device=device)
+		self.__weight_K = torch.nn.Linear(7, 7, bias=bias, dtype=dtype, device=device)
 
 	def forward(self, query: Tensor, keys: Tensor) -> Tensor:
-		q: Tensor = self.__weight_Q(query.to(dtype=self.__dtype))
-		k: Tensor = self.__weight_K(keys.to(dtype=self.__dtype))
+		query = query.to(dtype=self.__dtype, device=self.__device)
+		keys = keys.to(dtype=self.__dtype, device=self.__device)
 
-		raw_attention: Tensor = torch.sum(self.__dropout(q) * self.__dropout(k), dim=1)
+		q: Tensor = self.__weight_Q(query)
+		k: Tensor = self.__weight_K(keys)
 
-		return diagonal_softmax(raw_attention.squeeze().diag(), dtype=self.__dtype)
+		raw_attention: Tensor = torch.sum(q * k, dim=1)
+
+		return diagonal_softmax(raw_attention.squeeze().diag())

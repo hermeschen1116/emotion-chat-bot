@@ -2,10 +2,12 @@
 	"method": "bayes",
 	"metric": { "goal": "maximize", "name": "eval/optimize_metric" },
 	"parameters": {
-		"num_epochs": { "distribution": "int_uniform", "max": 6, "min": 1 },
+		"attention": { "values": ["dot_product", "scaled_dot_product", "additive", "dual_linear"] },
 		"dtype": { "values": ["torch.float32", "torch.float16", "torch.bfloat16"] },
 		"learning_rate": { "distribution": "uniform", "max": 0.002, "min": 0.0005 },
 		"dropout": { "distribution": "uniform", "max": 1, "min": 0.25 },
+		"bias": { "values": [true, false] },
+		"num_epochs": { "distribution": "int_uniform", "max": 6, "min": 1 },
 		"optimizer": { "values": ["Adagrad", "Adam", "AdamW", "RMSprop", "SGD"] }
 	}
 }

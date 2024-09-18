@@ -5,7 +5,7 @@ import torch
 import torch.nn.functional as f
 import wandb
 from datasets import load_dataset
-from libs import EmotionModel, calculate_evaluation_result, login_to_service, representation_evolute
+from libs import EmotionModel, calculate_evaluation_result, get_torch_device, login_to_service, representation_evolute
 from torch import Tensor
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
@@ -13,6 +13,7 @@ from tqdm.auto import tqdm
 
 def sweep_function(config: dict = None) -> None:
 	run = wandb.init(job_type="Sweep", project="emotion-chat-bot-ncu", group="Emotion Model", config=config)
+	device: str = get_torch_device()
 	dtype = eval(run.config["dtype"])
 
 	# Load Dataset
@@ -22,7 +23,13 @@ def sweep_function(config: dict = None) -> None:
 		trust_remote_code=True,
 	)
 
-	model = EmotionModel(dropout=run.config["dropout"], bias=True, dtype=dtype)
+	model = EmotionModel(
+		attention=run.config["attention"],
+		dropout=run.config["dropout"],
+		bias=run.config["bias"],
+		dtype=dtype,
+		device=device,
+	)
 
 	loss_function = torch.nn.CrossEntropyLoss()
 	optimizer = eval(f"torch.optim.{run.config['optimizer']}")(model.parameters(), lr=run.config["learning_rate"])
