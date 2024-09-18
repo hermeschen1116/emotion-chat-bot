@@ -5,13 +5,9 @@ import torch.nn.functional as f
 import wandb
 from datasets import load_dataset
 from dotenv import load_dotenv
-from libs import (
-	EmotionModel,
-	representation_evolute,
-)
+from libs import EmotionModel, calculate_evaluation_result, representation_evolute
 from torch import Tensor
 from torch.utils.data import DataLoader
-from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from tqdm.auto import tqdm
 
 
@@ -28,7 +24,7 @@ def sweep(config) -> None:
 	model = EmotionModel(dropout=run.config["dropout"], bias=True, dtype=run.config["dtype"])
 
 	loss_function = torch.nn.CrossEntropyLoss()
-	optimizer = torch.optim.Adagrad(model.parameters(), lr=run.config["learning_rate"])
+	optimizer = eval(f"torch.optim.{run.config['optimizer']}")(model.parameters(), lr=run.config["learning_rate"])
 
 	train_dataloader = DataLoader(dataset["train"])
 	validation_dataloader = DataLoader(dataset["validation"])
@@ -73,25 +69,15 @@ def sweep(config) -> None:
 				loss = loss_function(output, labels)
 				wandb.log({"val/loss": loss.item()})
 				running_loss += loss.item()
-				val_truths += sample["bot_emotion"]
-				val_predictions.append(torch.argmax(output, dim=1))
+				truths += sample["bot_emotion"]
+				predictions.append(torch.argmax(output, dim=1))
 
-			wandb.log({"val/val_loss": running_loss / len(validation_dataloader)})
+			wandb.log({"val/loss": running_loss / len(validation_dataloader)})
 
-			val_truths: Tensor = torch.cat(truths)
-			val_predictions: Tensor = torch.cat(predictions)
-			wandb.log(
-				{
-					"val/f1_score": multiclass_accuracy(val_predictions, val_truths, num_classes=7),
-					"val/accuracy": multiclass_f1_score(
-						val_predictions,
-						val_truths,
-						num_classes=7,
-						average="weighted",
-					),
-				}
-			)
+			evaluation_result: dict = calculate_evaluation_result(torch.cat(predictions), torch.cat(truths))
+			wandb.log({"val/f1_score": evaluation_result["f1_score"], "val/accuracy": evaluation_result["accuracy"]})
 
+	model.eval()
 	model = torch.compile(model)
 
 	eval_dataset = dataset["test"].map(
@@ -119,10 +105,13 @@ def sweep(config) -> None:
 	eval_predictions: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_most_possible_emotion"]])
 	eval_truths: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_emotion"]])
 
-	f1_score: Tensor = multiclass_f1_score(eval_predictions, eval_truths, num_classes=7, average="weighted")
-	accuracy: Tensor = multiclass_accuracy(eval_predictions, eval_truths, num_classes=7)
+	evaluation_result: dict = calculate_evaluation_result(eval_predictions, eval_truths)
 	wandb.log(
-		{"eval/f1-score": f1_score, "eval/accuracy": accuracy, "eval/optimize_metric": f1_score * 0.5 + accuracy * 0.5}
+		{
+			"eval/f1-score": evaluation_result["f1_score"],
+			"eval/accuracy": evaluation_result["accuracy"],
+			"eval/optimize_metric": torch.tensor(list(evaluation_result.values())).dot(torch.tensor([0.5, 0.5])),
+		}
 	)
 
 	wandb.finish()
@@ -136,6 +125,7 @@ sweep_config: dict = {
 		"dtype": {"values": [torch.float32, torch.float16, torch.bfloat16]},
 		"learning_rate": {"distribution": "uniform", "max": 0.002, "min": 0.0005},
 		"dropout": {"distribution": "uniform", "max": 1, "min": 0.25},
+		"optimizer": {"values": ["Adagrad", "Adam", "AdamW", "RMSprop", "SGD"]},
 	},
 }
 

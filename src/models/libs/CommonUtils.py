@@ -1,6 +1,9 @@
 from typing import Any, List, Optional
 
 import torch
+from torch.functional import Tensor
+from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
+from transformers.models.deprecated.ernie_m.configuration_ernie_m import Dict
 
 
 def value_candidate_check(
@@ -28,3 +31,15 @@ def get_torch_device() -> str:
 		return "mps"
 
 	return "cpu"
+
+
+def calculate_evaluation_result(predictions: Tensor, truths: Tensor) -> Dict[str, Tensor]:
+	accuracy: Tensor = multiclass_accuracy(predictions, truths, num_classes=7)
+	f1_score: Tensor = multiclass_f1_score(
+		predictions,
+		truths,
+		num_classes=7,
+		average="weighted",
+	)
+
+	return {"accuracy": accuracy, "f1_score": f1_score}

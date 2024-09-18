@@ -1,6 +1,6 @@
 from .Attention import diagonal_indices, diagonal_softmax
 from .CommonConfig import CommonScriptArguments, CommonWanDBArguments
-from .CommonUtils import get_torch_device, value_candidate_check
+from .CommonUtils import calculate_evaluation_result, get_torch_device, value_candidate_check
 from .DataProcess import (
 	flatten_dataset,
 	generate_dummy_representation,
@@ -27,4 +27,5 @@ __all__ = [
 	"flatten_dataset",
 	"throw_out_partial_row_with_a_label",
 	"FullModel",
+	"calculate_evaluation_result",
 ]
