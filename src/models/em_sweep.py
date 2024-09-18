@@ -14,6 +14,8 @@ from torch import Tensor
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
+from models.libs.CommonUtils import login_to_service
+
 
 def sweep_function(config: dict = None) -> None:
 	run = wandb.init(job_type="Sweep", project="emotion-chat-bot-ncu", group="Emotion Model", config=config)
@@ -120,6 +122,7 @@ def sweep_function(config: dict = None) -> None:
 	)
 
 
+login_to_service()
 config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)
 config = config_getter.parse_args()

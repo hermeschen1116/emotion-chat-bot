@@ -1,9 +1,20 @@
+import os
 from typing import Any, List, Optional
 
+import huggingface_hub
 import torch
+import wandb
+from dotenv import load_dotenv
 from torch.functional import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from transformers.models.deprecated.ernie_m.configuration_ernie_m import Dict
+
+
+def login_to_service() -> None:
+	load_dotenv(encoding="utf-8")
+
+	huggingface_hub.login(token=os.environ.get("HF_TOKEN", ""), add_to_git_credential=True)
+	wandb.login(key=os.environ.get("WANDB_API_KEY", ""), relogin=True)
 
 
 def value_candidate_check(

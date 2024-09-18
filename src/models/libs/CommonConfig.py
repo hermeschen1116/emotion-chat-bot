@@ -1,25 +1,18 @@
-import os
 import random
 from dataclasses import Field, dataclass
 from typing import Dict, List, Literal, Optional, Union
 
-import huggingface_hub
 import numpy as np
 import torch.cuda
-import wandb
-from dotenv import load_dotenv
 from transformers.hf_argparser import HfArg
 
-from .CommonUtils import value_candidate_check
+from .CommonUtils import login_to_service, value_candidate_check
 
 
 @dataclass
 class CommonScriptArguments:
 	def __post_init__(self):
-		load_dotenv(encoding="utf-8")
-
-		huggingface_hub.login(token=os.environ.get("HF_TOKEN", ""), add_to_git_credential=True)
-		wandb.login(key=os.environ.get("WANDB_API_KEY", ""), relogin=True)
+		login_to_service()
 
 		torch.backends.cudnn.deterministic = True
 		random.seed(hash("setting random seeds") % 2**32 - 1)
