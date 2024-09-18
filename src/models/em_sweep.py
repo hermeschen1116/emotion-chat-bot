@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
 
-def sweep(config) -> None:
+def sweep_function(config: dict = None) -> None:
 	run = wandb.init(job_type="Sweep", project="emotion-chat-bot-ncu", group="Emotion Model", config=config)
 	dtype = eval(run.config["dtype"])
 
@@ -115,7 +115,6 @@ def sweep(config) -> None:
 		}
 	)
 
-	wandb.finish()
 
 
 sweep_config: dict = {
@@ -132,5 +131,6 @@ sweep_config: dict = {
 
 load_dotenv()
 wandb.login(key=os.environ.get("WANDB_API_KEY", ""))
-sweep_id = wandb.sweep(sweep_config, project="emotion-chat-bot-ncu")
-wandb.agent(sweep_id, sweep, count=100)
+sweep_id = wandb.sweep(sweep=sweep_config, project="emotion-chat-bot-ncu")
+wandb.agent(sweep_id, sweep_function, project="emotion-chat-bot-ncu", count=100)
+wandb.finish()
