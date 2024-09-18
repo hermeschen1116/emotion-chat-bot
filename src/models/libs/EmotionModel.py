@@ -20,16 +20,18 @@ def representation_evolute(model, representation_src: list, emotion_compositions
 	return torch.tensor(representations[1:], dtype=torch.float, requires_grad=True)
 
 
-def initialize_attention(attention: str, **kwargs) -> torch.nn.Module:
+def initialize_attention(
+	attention: str, bias: bool = True, dtype: torch.dtype = torch.float, device: str = "cpu"
+) -> torch.nn.Module:
 	match attention:
 		case "dot_product":
-			return DotProductAttention(dtype=kwargs.dtype, device=kwargs.device)
+			return DotProductAttention(dtype=dtype, device=device)
 		case "scaled_dot_product":
-			return ScaledDotProductAttention(dtype=kwargs.dtype, device=kwargs.device)
+			return ScaledDotProductAttention(dtype=dtype, device=device)
 		case "additive":
-			return AdditiveAttention(bias=kwargs.bias, dtype=kwargs.dtype, device=kwargs.device)
+			return AdditiveAttention(bias=bias, dtype=dtype, device=device)
 		case "dual_linear":
-			return DualLinearAttention(bias=kwargs.bias, dtype=kwargs.dtype, device=kwargs.device)
+			return DualLinearAttention(bias=bias, dtype=dtype, device=device)
 
 
 class EmotionModel(torch.nn.Module, PyTorchModelHubMixin):
@@ -45,7 +47,7 @@ class EmotionModel(torch.nn.Module, PyTorchModelHubMixin):
 
 		self.device: str = device
 		self.dtype: torch.dtype = dtype
-		self.__attention: torch.nn.Module = initialize_attention(attention, bias=bias, device=device, dtype=dtype)
+		self.__attention: torch.nn.Module = initialize_attention(attention, bias, dtype, device)
 		self.__dropout = torch.nn.Dropout(p=dropout)
 		self.__weight_D = torch.nn.Linear(7, 7, bias=bias, device=self.device, dtype=self.dtype)
 
