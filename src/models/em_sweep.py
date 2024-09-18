@@ -5,16 +5,10 @@ import torch
 import torch.nn.functional as f
 import wandb
 from datasets import load_dataset
-from libs import (
-	EmotionModel,
-	calculate_evaluation_result,
-	representation_evolute,
-)
+from libs import EmotionModel, calculate_evaluation_result, login_to_service, representation_evolute
 from torch import Tensor
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
-
-from models.libs.CommonUtils import login_to_service
 
 
 def sweep_function(config: dict = None) -> None:
