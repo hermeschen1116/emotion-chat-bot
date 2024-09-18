@@ -1,5 +1,5 @@
 import os
-from typing import Any, List, Optional
+from typing import Any, Dict, List, Optional
 
 import huggingface_hub
 import torch
@@ -7,7 +7,6 @@ import wandb
 from dotenv import load_dotenv
 from torch.functional import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
-from transformers.models.deprecated.ernie_m.configuration_ernie_m import Dict
 
 
 def login_to_service() -> None:
