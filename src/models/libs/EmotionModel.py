@@ -1,3 +1,5 @@
+from typing import List
+
 import torch
 from huggingface_hub.hub_mixin import PyTorchModelHubMixin
 from torch import Tensor
@@ -11,27 +13,27 @@ from .Attention import (
 )
 
 
-def representation_evolute(model, representation_src: list, emotion_compositions: list) -> Tensor:
-	representations: list = representation_src
-	for composition in emotion_compositions:
-		new_representation: Tensor = model.forward(torch.tensor(representations[-1]), torch.tensor(composition))
-		representations.append(list(new_representation))
+def representation_evolute(model, bot_emotion_representations: List[Tensor], user_emotion_compositions: List[Tensor]) -> List[Tensor]:
+	evolute_representations: list = bot_emotion_representations
+	for composition in user_emotion_compositions:
+		new_representation: Tensor = model.forward(evolute_representations[-1], composition)
+		evolute_representations.append(new_representation)
 
-	return torch.tensor(representations[1:], dtype=torch.float, requires_grad=True)
+	return evolute_representations
 
 
 def initialize_attention(
-	attention: str, bias: bool = True, dtype: torch.dtype = torch.float, device: str = "cpu"
+	attention: str, bias: bool = True, dtype: torch.dtype = torch.float
 ) -> torch.nn.Module:
 	match attention:
 		case "dot_product":
-			return DotProductAttention(dtype=dtype, device=device)
+			return DotProductAttention(dtype=dtype)
 		case "scaled_dot_product":
-			return ScaledDotProductAttention(dtype=dtype, device=device)
+			return ScaledDotProductAttention(dtype=dtype)
 		case "additive":
-			return AdditiveAttention(bias=bias, dtype=dtype, device=device)
+			return AdditiveAttention(bias=bias, dtype=dtype)
 		case "dual_linear":
-			return DualLinearAttention(bias=bias, dtype=dtype, device=device)
+			return DualLinearAttention(bias=bias, dtype=dtype)
 
 
 class EmotionModel(torch.nn.Module, PyTorchModelHubMixin):
@@ -41,26 +43,22 @@ class EmotionModel(torch.nn.Module, PyTorchModelHubMixin):
 		dropout: float = 0.5,
 		bias: bool = True,
 		dtype: torch.dtype = torch.float32,
-		device: str = "cpu",
-	):
+	) -> None:
 		super(EmotionModel, self).__init__()
 
-		self.device: str = device
 		self.dtype: torch.dtype = dtype
-		self.__attention: torch.nn.Module = initialize_attention(attention, bias, dtype, device)
+		self.__attention: torch.nn.Module = initialize_attention(attention, bias, dtype)
 		self.__dropout = torch.nn.Dropout(p=dropout)
-		self.__weight_D = torch.nn.Linear(7, 7, bias=bias, device=self.device, dtype=self.dtype)
+		self.__weight_D = torch.nn.Linear(7, 7, bias=bias, dtype=dtype)
 
 	def forward(self, representation: Tensor, input_emotion: Tensor) -> Tensor:
-		representation = representation.to(device=self.device, dtype=self.dtype)
-		input_emotion = input_emotion.to(device=self.device, dtype=self.dtype)
+		representation = representation.to(dtype=self.dtype)
+		input_emotion = input_emotion.to(dtype=self.dtype)
 
-		decomposed_representation: Tensor = representation.diag()
+		raw_attention: Tensor = self.__attention.forward(input_emotion, representation.squeeze().diag())
 
-		raw_attention: Tensor = self.__attention.forward(input_emotion, decomposed_representation)
+		attention_score: Tensor = raw_attention.softmax(-1).squeeze().diag()
 
-		attention_score: Tensor = diagonal_softmax(raw_attention.squeeze().diag())
-
-		difference: Tensor = torch.clamp(torch.sum(self.__weight_D((attention_score**3)), dim=1), -1, 1)
+		difference: Tensor = torch.clamp(torch.diagonal(self.__weight_D((attention_score**3))), -1, 1)
 
 		return representation + difference
