@@ -13,6 +13,7 @@ from tqdm.auto import tqdm
 
 def sweep(config) -> None:
 	run = wandb.init(job_type="Sweep", project="emotion-chat-bot-ncu", group="Emotion Model", config=config)
+	dtype = eval(run.config["dtype"])
 
 	# Load Dataset
 	dataset = load_dataset(
@@ -21,7 +22,7 @@ def sweep(config) -> None:
 		trust_remote_code=True,
 	)
 
-	model = EmotionModel(dropout=run.config["dropout"], bias=True, dtype=run.config["dtype"])
+	model = EmotionModel(dropout=run.config["dropout"], bias=True, dtype=dtype)
 
 	loss_function = torch.nn.CrossEntropyLoss()
 	optimizer = eval(f"torch.optim.{run.config['optimizer']}")(model.parameters(), lr=run.config["learning_rate"])
@@ -36,7 +37,7 @@ def sweep(config) -> None:
 				sample["bot_representation"],
 				sample["user_emotion_composition"],
 			)
-			labels = f.one_hot(torch.cat(sample["bot_emotion"]), 7).to(run.config["dtype"])
+			labels = f.one_hot(torch.cat(sample["bot_emotion"]), 7).to(dtype)
 
 			optimizer.zero_grad()
 
@@ -62,7 +63,7 @@ def sweep(config) -> None:
 					sample["bot_representation"],
 					sample["user_emotion_composition"],
 				)
-				labels = f.one_hot(torch.cat(sample["bot_emotion"]), 7).to(run.config["dtype"])
+				labels = f.one_hot(torch.cat(sample["bot_emotion"]), 7).to(dtype)
 
 				output = representation_evolute(model, representation, emotion_composition)
 
@@ -122,7 +123,7 @@ sweep_config: dict = {
 	"metric": {"goal": "maximize", "name": "eval/optimize_metric"},
 	"parameters": {
 		"num_epochs": {"distribution": "int_uniform", "max": 6, "min": 1},
-		"dtype": {"values": [torch.float32, torch.float16, torch.bfloat16]},
+		"dtype": {"values": ["torch.float32", "torch.float16", "torch.bfloat16"]},
 		"learning_rate": {"distribution": "uniform", "max": 0.002, "min": 0.0005},
 		"dropout": {"distribution": "uniform", "max": 1, "min": 0.25},
 		"optimizer": {"values": ["Adagrad", "Adam", "AdamW", "RMSprop", "SGD"]},
