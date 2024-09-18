@@ -1,4 +1,3 @@
-from .Attention import diagonal_indices, diagonal_softmax
 from .CommonConfig import CommonScriptArguments, CommonWanDBArguments
 from .CommonUtils import calculate_evaluation_result, get_torch_device, login_to_service, value_candidate_check
 from .DataProcess import (
@@ -12,8 +11,6 @@ from .EmotionRepresentationSimilarityAnalyser import EmotionPresentationSimilari
 from .ResponseGeneratorPipeline import ResponseGeneratorPipeline
 
 __all__ = [
-	"diagonal_indices",
-	"diagonal_softmax",
 	"generate_dummy_representation",
 	"get_emotion_composition",
 	"representation_evolute",

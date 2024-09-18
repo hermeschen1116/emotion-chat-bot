@@ -9,7 +9,6 @@ from .Attention import (
 	DotProductAttention,
 	DualLinearAttention,
 	ScaledDotProductAttention,
-	diagonal_softmax,
 )
 
 

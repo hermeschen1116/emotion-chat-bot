@@ -5,13 +5,10 @@ import torch
 import torch.nn.functional as f
 import wandb
 from datasets import load_dataset
-from hopper.benchmark_attn import batch_size
 from libs import EmotionModel, calculate_evaluation_result, get_torch_device, login_to_service, representation_evolute
 from torch import Tensor
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
-
-from src.models.em_train import representation
 
 
 def sweep_function(config: dict = None) -> None:
