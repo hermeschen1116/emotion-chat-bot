@@ -22,7 +22,7 @@ from transformers.hf_argparser import HfArg, HfArgumentParser
 @dataclass
 class ScriptArguments(CommonScriptArguments):
 	dtype: Field[Optional[str]] = HfArg(aliases="--dtype")
-	bias: Field[Optional[bool]] = HfArg(aliases="--bias")
+	bias: Field[Optional[str]] = HfArg(aliases="--bias")
 	dropout: Field[Optional[float]] = HfArg(aliases="--dropout")
 	learning_rate: Field[Optional[float]] = HfArg(aliases="--learning_rate")
 	num_epochs: Field[Optional[int]] = HfArg(aliases="--num_epochs")
@@ -31,8 +31,9 @@ class ScriptArguments(CommonScriptArguments):
 parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
 args, wandb_args = parser.parse_args()
 dtype: torch.dtype = eval(args.dtype)
+bias: bool = eval(args.bias)
 
-run = wandb.init(
+wandb.init(
 	job_type="Sweep",
 	project="emotion-chat-bot-ncu",
 	group="Emotion Model",
@@ -40,19 +41,19 @@ run = wandb.init(
 
 # Load Dataset
 dataset = load_dataset(
-	run.config["dataset"],
+	"hermeschen1116/emotion_transition_from_dialog",
 	num_proc=16,
 	trust_remote_code=True,
 )
 
-model = EmotionModel(dropout=run.config["dropout"], bias=run.config["bias"], dtype=dtype)
+model = EmotionModel(dropout=args.dropout, bias=bias, dtype=dtype)
 
 loss_function = torch.nn.CrossEntropyLoss()
-optimizer = torch.optim.Adagrad(model.parameters(), lr=run.config["learning_rate"])
+optimizer = torch.optim.Adagrad(model.parameters(), lr=args.learning_rate)
 
 train_dataloader = DataLoader(dataset["train"])
 validation_dataloader = DataLoader(dataset["validation"])
-for i in range(run.config["num_epochs"]):
+for i in range(args.num_epochs):
 	running_loss: float = 0
 	model.train()
 	for sample in tqdm(train_dataloader, colour="green"):
@@ -73,7 +74,7 @@ for i in range(run.config["num_epochs"]):
 		loss.backward()
 		optimizer.step()
 
-	if i + 1 == run.config["num_epochs"]:
+	if i + 1 == args.num_epochs:
 		wandb.log({"train/train_loss": running_loss / len(train_dataloader)})
 
 	running_loss = 0
