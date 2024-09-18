@@ -57,7 +57,7 @@ eval_dataset = eval_dataset.map(
 			representation_evolute(model, sample[0], sample[1])
 			for sample in zip(
 				samples["bot_representation"],
-				samples["user_dialog_emotion_composition"],
+				samples["user_emotion_composition"],
 			)
 		]
 	},
@@ -115,7 +115,7 @@ result = result.remove_columns(
 		"bot_representation",
 		"bot_dialog",
 		"user_dialog",
-		"user_dialog_emotion_composition",
+		"user_emotion_composition",
 	]
 )
 
