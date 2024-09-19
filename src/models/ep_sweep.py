@@ -44,6 +44,10 @@ sweep_configuration = {
         "init_lora_weights": {"values": [True, False]},
         "use_rslora": {"values": [True, False]},
         "focal_gamma": {"values": [0, 1, 2]},
+        "weight_decay": {"max": 0.3, "min": 0.0},
+        "warmup_ratio": {"max": 0.1, "min": 0.0},
+        "max_steps": {"max": 5000, "min": -1},
+        "max_grad_norm": {"max": 1.0, "min": 0.1},
     },
 }
 
@@ -69,6 +73,11 @@ def main():
     batch_size = wandb.config.batch_size
     num_train_epochs = wandb.config.num_train_epochs
     learning_rate = wandb.config.learning_rate
+    weight_decay = wandb.config.weight_decay
+    warmup_ratio = wandb.config.warmup_ratio
+    max_steps = wandb.config.max_steps
+    max_grad_norm = wandb.config.max_grad_norm
+
     # lora args
     lora_alpha = wandb.config.lora_alpha
     lora_dropout = wandb.config.lora_dropout
@@ -156,26 +165,26 @@ def main():
             [[label] for label in prediction.predictions.argmax(-1).tolist()]
         ).flatten()
 
-
         accuracy = multiclass_accuracy(
             sentiment_true, sentiment_pred, num_classes=num_emotion_labels
-        ),
-        f1-score= multiclass_f1_score(
+        )
+        f1 = multiclass_f1_score(
             sentiment_true,
             sentiment_pred,
             num_classes=num_emotion_labels,
             average="weighted",
-        ),
+        )
 
-        
-        wandb.log({
-        "Accuracy": accuracy,
-        "F1-score": f1_score,
-        })
+        wandb.log(
+            {
+                "Accuracy": accuracy,
+                "F1-score": f1,
+            }
+        )
 
         return {
             "Accuracy": accuracy,
-            "F1-score": f1_score,
+            "F1-score": f1,
         }
 
     y = train_dataset["label"].tolist()
@@ -231,11 +240,11 @@ def main():
         gradient_accumulation_steps=1,
         learning_rate=learning_rate,
         lr_scheduler_type="constant",
-        weight_decay=run.config["weight_decay"],
-        max_grad_norm=run.config["max_grad_norm"],
+        weight_decay=weight_decay,
+        max_grad_norm=max_grad_norm,
         num_train_epochs=num_train_epochs,
-        warmup_ratio=run.config["warmup_ratio"],
-        max_steps=run.config["max_steps"],
+        warmup_ratio=warmup_ratio,
+        max_steps=max_steps,
         logging_steps=logging_steps,
         log_level="error",
         save_steps=500,
