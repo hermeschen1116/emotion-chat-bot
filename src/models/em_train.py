@@ -1,6 +1,4 @@
 from argparse import ArgumentParser
-from dataclasses import Field, dataclass
-from typing import Optional
 
 import torch
 import torch.nn.functional as f
@@ -18,19 +16,13 @@ from libs import (
 from torch import Tensor
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
-from transformers.hf_argparser import HfArg, HfArgumentParser
-
-
-@dataclass
-class ScriptArguments(CommonScriptArguments):
-	dtype: Field[Optional[str]] = HfArg(aliases="--dtype", default="torch.float32")
-
+from transformers.hf_argparser import HfArgumentParser
 
 config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)
 config = config_getter.parse_args()
 
-parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
+parser = HfArgumentParser((CommonScriptArguments, CommonWanDBArguments))
 args, wandb_args = parser.parse_json_file(config.json_file)
 device: str = get_torch_device()
 
