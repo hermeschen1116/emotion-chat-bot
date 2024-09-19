@@ -5,10 +5,7 @@ from huggingface_hub.hub_mixin import PyTorchModelHubMixin
 from torch import Tensor
 
 from .Attention import (
-	AdditiveAttention,
 	DotProductAttention,
-	DualLinearAttention,
-	ScaledDotProductAttention,
 )
 
 
@@ -23,30 +20,30 @@ def representation_evolute(
 	return evolute_representations
 
 
-def initialize_attention(attention: str, bias: bool = True, dtype: torch.dtype = torch.float) -> torch.nn.Module:
-	match attention:
-		case "dot_product":
-			return DotProductAttention(dtype=dtype)
-		case "scaled_dot_product":
-			return ScaledDotProductAttention(dtype=dtype)
-		case "additive":
-			return AdditiveAttention(bias=bias, dtype=dtype)
-		case "dual_linear":
-			return DualLinearAttention(bias=bias, dtype=dtype)
+# for sweep
+# def initialize_attention(attention: str, bias: bool = True, dtype: torch.dtype = torch.float) -> torch.nn.Module:
+# 	match attention:
+# 		case "dot_product":
+# 			return DotProductAttention(dtype=dtype)
+# 		case "scaled_dot_product":
+# 			return ScaledDotProductAttention(dtype=dtype)
+# 		case "additive":
+# 			return AdditiveAttention(bias=bias, dtype=dtype)
+# 		case "dual_linear":
+# 			return DualLinearAttention(bias=bias, dtype=dtype)
 
 
 class EmotionModel(torch.nn.Module, PyTorchModelHubMixin):
 	def __init__(
 		self,
-		attention: str,
-		dropout: float = 0.5,
-		bias: bool = True,
-		dtype: torch.dtype = torch.float32,
+		dropout: float = 0.5321222767142184,
+		bias: bool = False,
+		dtype: torch.dtype = torch.bfloat16,
 	) -> None:
 		super(EmotionModel, self).__init__()
 
 		self.dtype: torch.dtype = dtype
-		self.__attention: torch.nn.Module = initialize_attention(attention, bias, dtype)
+		self.__attention: torch.nn.Module = DotProductAttention(dtype)
 		self.__dropout = torch.nn.Dropout(p=dropout)
 		self.__weight_D = torch.nn.Linear(7, 7, bias=bias, dtype=dtype)
 
