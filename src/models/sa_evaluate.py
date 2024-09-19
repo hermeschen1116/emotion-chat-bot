@@ -1,13 +1,14 @@
 from argparse import ArgumentParser
 
 import torch
-import wandb
 from datasets import load_dataset
-from libs import CommonScriptArguments, CommonWanDBArguments, flatten_dataset
+from libs import CommonScriptArguments, CommonWanDBArguments
 from sklearn.metrics import classification_report
 from torch import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from transformers import HfArgumentParser, pipeline
+
+import wandb
 
 config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)
@@ -24,10 +25,7 @@ run = wandb.init(
 )
 
 dataset = load_dataset(
-    run.config["dataset"],
-    num_proc=16,
-    trust_remote_code=True,
-    split="test"
+    run.config["dataset"], num_proc=16, trust_remote_code=True, split="test"
 )
 
 emotion_labels: list = dataset.features["label"].names
@@ -38,7 +36,7 @@ analyser = pipeline(
     framework="pt",
     task="sentiment-analysis",
     num_workers=12,
-    device_map="auto",
+    device_map="cuda",
     torch_dtype="auto",
     model_kwargs={
         "low_cpu_mem_usage": True,

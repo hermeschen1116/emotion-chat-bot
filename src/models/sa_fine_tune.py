@@ -1,12 +1,11 @@
 from argparse import ArgumentParser
 
 import torch
-import wandb
 from datasets import load_dataset
 from libs import (
     CommonScriptArguments,
     CommonWanDBArguments,
-    throw_out_partial_row_with_a_label
+    throw_out_partial_row_with_a_label,
 )
 from peft import LoraConfig, get_peft_model
 from torch import Tensor
@@ -18,6 +17,8 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
+
+import wandb
 
 config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)
@@ -46,7 +47,7 @@ num_emotion_labels: int = len(emotion_labels)
 train_dataset = throw_out_partial_row_with_a_label(
     dataset["train"], run.config["neutral_keep_ratio"], 0
 )
-validation_dataset = dataset['validation']
+validation_dataset = dataset["validation"]
 
 tokenizer = AutoTokenizer.from_pretrained(
     run.config["base_model"],
@@ -61,7 +62,7 @@ base_model = AutoModelForSequenceClassification.from_pretrained(
     id2label={k: v for k, v in enumerate(emotion_labels)},
     label2id={v: k for k, v in enumerate(emotion_labels)},
     use_cache=False,
-    device_map="auto",
+    device_map="cuda",
     low_cpu_mem_usage=True,
     trust_remote_code=True,
 )
