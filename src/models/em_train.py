@@ -33,7 +33,6 @@ config = config_getter.parse_args()
 parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
 args, wandb_args = parser.parse_json_file(config.json_file)
 device: str = get_torch_device()
-dtype = eval(args.dtype)
 
 run = wandb.init(
 	job_type=wandb_args.job_type,
@@ -53,12 +52,10 @@ dataset: DatasetDict = load_dataset(
 	trust_remote_code=True,
 )
 
-model = EmotionModel(
-	attention=run.config["attention"], dropout=run.config["dropout"], bias=run.config["bias"], dtype=dtype
-).to(device)
+model = EmotionModel().to(device)
 
 loss_function = torch.nn.CrossEntropyLoss()
-optimizer = eval(f"torch.optim.{run.config['optimizer']}")(model.parameters(), lr=run.config["learning_rate"])
+optimizer = torch.optim.Adam(model.parameters(), lr=run.config["learning_rate"])
 
 train_dataloader = DataLoader(
 	dataset["train"].with_format("torch"),
@@ -129,6 +126,6 @@ for i in range(run.config["num_epochs"]):
 		wandb.log({"val/f1_score": evaluation_result["f1_score"], "val/accuracy": evaluation_result["accuracy"]})
 
 model = torch.compile(model)
-model.push_to_hub("emotion_model_for_emotion_chat_bot")
+model.push_to_hub(run.config["trained_model_name"])
 
 wandb.finish()
