@@ -4,22 +4,21 @@ from typing import Optional
 
 import torch
 import torch.nn.functional as f
+import wandb
 from datasets import load_dataset
 from datasets.load import DatasetDict
-from torch import Tensor
-from torch.utils.data import DataLoader
-from tqdm.auto import tqdm
-from transformers.hf_argparser import HfArg, HfArgumentParser
-
-import wandb
 from libs import (
 	CommonScriptArguments,
 	CommonWanDBArguments,
 	EmotionModel,
-	representation_evolute,
+	calculate_evaluation_result,
 	get_torch_device,
-	calculate_evaluation_result
+	representation_evolute,
 )
+from torch import Tensor
+from torch.utils.data import DataLoader
+from tqdm.auto import tqdm
+from transformers.hf_argparser import HfArg, HfArgumentParser
 
 
 @dataclass
@@ -55,8 +54,8 @@ dataset: DatasetDict = load_dataset(
 )
 
 model = EmotionModel(
-		attention=run.config["attention"], dropout=run.config["dropout"], bias=run.config["bias"], dtype=dtype
-	).to(device)
+	attention=run.config["attention"], dropout=run.config["dropout"], bias=run.config["bias"], dtype=dtype
+).to(device)
 
 loss_function = torch.nn.CrossEntropyLoss()
 optimizer = eval(f"torch.optim.{run.config['optimizer']}")(model.parameters(), lr=run.config["learning_rate"])
@@ -82,17 +81,13 @@ for i in range(run.config["num_epochs"]):
 	model.train()
 	for sample in tqdm(train_dataloader, colour="green"):
 		representations: list = [sample["bot_initial_emotion_representation"][0].to(device)]
-		compositions: list = [
-			emotion.transpose(1, 0) for emotion in sample["user_emotion_compositions"][0].to(device)
-		]
+		compositions: list = [emotion.transpose(1, 0) for emotion in sample["user_emotion_compositions"][0].to(device)]
 		labels: Tensor = f.one_hot(sample["bot_emotion"][0], 7).float().to(device)
 
 		optimizer.zero_grad()
 
 		outputs: Tensor = (
-			torch.stack(representation_evolute(model, representations, compositions)[1:], dim=1)[0]
-			.float()
-			.to(device)
+			torch.stack(representation_evolute(model, representations, compositions)[1:], dim=1)[0].float().to(device)
 		)
 
 		loss = loss_function(outputs, labels)

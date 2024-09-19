@@ -9,9 +9,9 @@ from libs import (
 	CommonScriptArguments,
 	CommonWanDBArguments,
 	EmotionModel,
+	calculate_evaluation_result,
 	get_torch_device,
 	representation_evolute,
-	calculate_evaluation_result
 )
 from torch import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
@@ -82,12 +82,7 @@ eval_predictions: Tensor = torch.cat([torch.tensor(turn) for turn in eval_datase
 eval_truths: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_emotion"]])
 
 evaluation_result: dict = calculate_evaluation_result(eval_predictions, eval_truths)
-wandb.log(
-	{
-		"eval/f1-score": evaluation_result["f1_score"],
-		"eval/accuracy": evaluation_result["accuracy"]
-	}
-)
+wandb.log({"eval/f1-score": evaluation_result["f1_score"], "eval/accuracy": evaluation_result["accuracy"]})
 
 
 eval_dataset = eval_dataset.map(
