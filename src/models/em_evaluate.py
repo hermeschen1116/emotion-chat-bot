@@ -4,13 +4,14 @@ from typing import Optional
 
 import torch
 import wandb
-from datasets import load_dataset
+from datasets import Dataset, load_dataset
 from libs import (
 	CommonScriptArguments,
 	CommonWanDBArguments,
 	EmotionModel,
 	get_torch_device,
 	representation_evolute,
+	calculate_evaluation_result
 )
 from torch import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
@@ -30,6 +31,7 @@ config = config_getter.parse_args()
 parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
 args, wandb_args = parser.parse_json_file(config.json_file)
 dtype: torch.dtype = eval(args.dtype)
+device: str = get_torch_device()
 
 # Initialize Wandb
 run = wandb.init(
@@ -42,22 +44,27 @@ run = wandb.init(
 	resume=wandb_args.resume,
 )
 
-eval_dataset = load_dataset(
+eval_dataset: Dataset = load_dataset(
 	run.config["dataset"],
 	split="test",
 	num_proc=16,
 	trust_remote_code=True,
 )
+emotion_labels: list = eval_dataset.features["bot_emotion"].feature.names
 
-model = EmotionModel.from_pretrained(run.config["model"])
+model = EmotionModel.from_pretrained(run.config["model"]).to(device)
 
 eval_dataset = eval_dataset.map(
 	lambda samples: {
-		"bot_representation": [
-			representation_evolute(model, sample[0], sample[1])
+		"bot_emotion_representations": [
+			representation_evolute(
+				model,
+				[torch.tensor(sample[0][0]).to(device)],
+				[torch.tensor(emotion).to(device) for emotion in sample[1]],
+			)[1:]
 			for sample in zip(
-				samples["bot_representation"],
-				samples["user_emotion_composition"],
+				samples["bot_initial_emotion_representation"],
+				samples["user_emotion_compositions"],
 			)
 		]
 	},
@@ -65,35 +72,28 @@ eval_dataset = eval_dataset.map(
 )
 
 eval_dataset = eval_dataset.map(
-	lambda samples: {"bot_most_possible_emotion": [torch.argmax(torch.tensor(sample), dim=1) for sample in samples]},
-	input_columns="bot_representation",
+	lambda samples: {"bot_possible_emotion": [torch.tensor(sample).argmax(1) for sample in samples]},
+	input_columns="bot_emotion_representations",
 	batched=True,
 	num_proc=16,
 )
 
-predictions: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_most_possible_emotion"]])
-truths: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_emotion"]])
+eval_predictions: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_possible_emotion"]])
+eval_truths: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_emotion"]])
 
+evaluation_result: dict = calculate_evaluation_result(eval_predictions, eval_truths)
 wandb.log(
 	{
-		"F1-score": multiclass_f1_score(predictions, truths, num_classes=7, average="weighted"),
-		"Accuracy": multiclass_accuracy(predictions, truths, num_classes=7),
+		"eval/f1-score": evaluation_result["f1_score"],
+		"eval/accuracy": evaluation_result["accuracy"]
 	}
 )
 
-emotion_labels: list = [
-	"neutral",
-	"anger",
-	"disgust",
-	"fear",
-	"happiness",
-	"sadness",
-	"surprise",
-]
+
 eval_dataset = eval_dataset.map(
 	lambda samples: {
-		"bot_most_possible_emotion": [
-			[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples["bot_most_possible_emotion"]
+		"bot_possible_emotion": [
+			[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples["bot_possible_emotion"]
 		],
 		"bot_emotion": [[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples["bot_emotion"]],
 	},
@@ -103,7 +103,7 @@ eval_dataset = eval_dataset.map(
 
 result = eval_dataset.map(
 	lambda samples: {
-		"bot_most_possible_emotion": [", ".join(sample) for sample in samples["bot_most_possible_emotion"]],
+		"bot_possible_emotion": [", ".join(sample) for sample in samples["bot_possible_emotion"]],
 		"bot_emotion": [", ".join(sample) for sample in samples["bot_emotion"]],
 	},
 	batched=True,
@@ -112,10 +112,10 @@ result = eval_dataset.map(
 
 result = result.remove_columns(
 	[
-		"bot_representation",
+		"bot_initial_emotion_representation",
 		"bot_dialog",
 		"user_dialog",
-		"user_emotion_composition",
+		"user_emotion_compositions",
 	]
 )
 

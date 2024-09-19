@@ -4,18 +4,22 @@ from typing import Optional
 
 import torch
 import torch.nn.functional as f
-import wandb
 from datasets import load_dataset
+from datasets.load import DatasetDict
+from torch import Tensor
+from torch.utils.data import DataLoader
+from tqdm.auto import tqdm
+from transformers.hf_argparser import HfArg, HfArgumentParser
+
+import wandb
 from libs import (
 	CommonScriptArguments,
 	CommonWanDBArguments,
 	EmotionModel,
 	representation_evolute,
+	get_torch_device,
+	calculate_evaluation_result
 )
-from torch.utils.data import DataLoader
-from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
-from tqdm.auto import tqdm
-from transformers.hf_argparser import HfArg, HfArgumentParser
 
 
 @dataclass
@@ -29,7 +33,8 @@ config = config_getter.parse_args()
 
 parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
 args, wandb_args = parser.parse_json_file(config.json_file)
-dtype: torch.dtype = eval(args.dtype)
+device: str = get_torch_device()
+dtype = eval(args.dtype)
 
 run = wandb.init(
 	job_type=wandb_args.job_type,
@@ -42,34 +47,55 @@ run = wandb.init(
 )
 
 # Load Dataset
-dataset = load_dataset(
+dataset: DatasetDict = load_dataset(
 	run.config["dataset"],
 	num_proc=16,
+	keep_in_memory=True,
 	trust_remote_code=True,
 )
 
-model = EmotionModel(dropout=run.config["dropout"], bias=run.config["bias"], dtype=dtype)
+model = EmotionModel(
+		attention=run.config["attention"], dropout=run.config["dropout"], bias=run.config["bias"], dtype=dtype
+	).to(device)
 
 loss_function = torch.nn.CrossEntropyLoss()
-optimizer = torch.optim.Adagrad(model.parameters(), lr=run.config["learning_rate"])
+optimizer = eval(f"torch.optim.{run.config['optimizer']}")(model.parameters(), lr=run.config["learning_rate"])
 
-train_dataloader = DataLoader(dataset["train"])
-validation_dataloader = DataLoader(dataset["validation"])
+train_dataloader = DataLoader(
+	dataset["train"].with_format("torch"),
+	batch_size=1,
+	shuffle=True,
+	num_workers=12,
+	pin_memory=True,
+	pin_memory_device=device,
+)
+validation_dataloader = DataLoader(
+	dataset["validation"].with_format("torch"),
+	batch_size=1,
+	shuffle=True,
+	num_workers=12,
+	pin_memory=True,
+	pin_memory_device=device,
+)
 for i in range(run.config["num_epochs"]):
 	running_loss: float = 0
 	model.train()
 	for sample in tqdm(train_dataloader, colour="green"):
-		representation, emotion_composition = (
-			sample["bot_representation"],
-			sample["user_emotion_composition"],
-		)
-		labels = f.one_hot(torch.cat(sample["bot_emotion"]), 7).to(dtype)
+		representations: list = [sample["bot_initial_emotion_representation"][0].to(device)]
+		compositions: list = [
+			emotion.transpose(1, 0) for emotion in sample["user_emotion_compositions"][0].to(device)
+		]
+		labels: Tensor = f.one_hot(sample["bot_emotion"][0], 7).float().to(device)
 
 		optimizer.zero_grad()
 
-		output = representation_evolute(model, representation, emotion_composition)
+		outputs: Tensor = (
+			torch.stack(representation_evolute(model, representations, compositions)[1:], dim=1)[0]
+			.float()
+			.to(device)
+		)
 
-		loss = loss_function(output, labels)
+		loss = loss_function(outputs, labels)
 		wandb.log({"train/loss": loss.item()})
 		running_loss += loss.item()
 
@@ -80,37 +106,32 @@ for i in range(run.config["num_epochs"]):
 		wandb.log({"train/train_loss": running_loss / len(train_dataloader)})
 
 	running_loss = 0
-	true_labels: list = []
-	predicted_labels: list = []
+	truths: list = []
+	predictions: list = []
 	model.eval()
 	with torch.no_grad():
 		for sample in tqdm(validation_dataloader, colour="blue"):
-			representation, emotion_composition = (
-				sample["bot_representation"],
-				sample["user_emotion_composition"],
+			representations: list = [sample["bot_initial_emotion_representation"][0].to(device)]
+			compositions: list = [
+				emotion.transpose(1, 0) for emotion in sample["user_emotion_compositions"][0].to(device)
+			]
+			labels: Tensor = f.one_hot(sample["bot_emotion"][0], 7).float().to(device)
+
+			outputs: Tensor = (
+				torch.stack(representation_evolute(model, representations, compositions)[1:], dim=1)[0]
+				.float()
+				.to(device)
 			)
-			labels = f.one_hot(torch.cat(sample["bot_emotion"]), 7).to(dtype=torch.float)
 
-			output = representation_evolute(model, representation, emotion_composition)
-
-			loss = loss_function(output, labels)
+			loss = loss_function(outputs, labels)
 			wandb.log({"val/loss": loss.item()})
 			running_loss += loss.item()
-			true_labels += sample["bot_emotion"]
-			predicted_labels.append(torch.argmax(output, dim=1))
+			truths += sample["bot_emotion"].tolist()[0]
+			predictions += torch.argmax(outputs, dim=1).tolist()
 
-		wandb.log({"val/val_loss": running_loss / len(validation_dataloader)})
-		wandb.log(
-			{
-				"val/f1_score": multiclass_f1_score(
-					torch.cat(true_labels),
-					torch.cat(predicted_labels),
-					num_classes=7,
-					average="weighted",
-				),
-				"val/accuracy": multiclass_accuracy(torch.cat(true_labels), torch.cat(predicted_labels), num_classes=7),
-			}
-		)
+		wandb.log({"val/loss": running_loss / len(validation_dataloader)})
+		evaluation_result: dict = calculate_evaluation_result(torch.tensor(predictions), torch.tensor(truths))
+		wandb.log({"val/f1_score": evaluation_result["f1_score"], "val/accuracy": evaluation_result["accuracy"]})
 
 model = torch.compile(model)
 model.push_to_hub("emotion_model_for_emotion_chat_bot")
