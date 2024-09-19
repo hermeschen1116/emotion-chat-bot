@@ -47,12 +47,7 @@ eval_dataset: Dataset = load_dataset(
 	split="test",
 	num_proc=16,
 	trust_remote_code=True,
-).remove_columns(
-	[
-		"bot_dialog",
-		"user_dialog"
-	]
-)
+).remove_columns(["bot_dialog", "user_dialog"])
 
 emotion_labels: list = eval_dataset.features["bot_emotion"].feature.names
 
