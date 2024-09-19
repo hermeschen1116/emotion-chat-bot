@@ -29,7 +29,6 @@ config = config_getter.parse_args()
 
 parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
 args, wandb_args = parser.parse_json_file(config.json_file)
-dtype: torch.dtype = eval(args.dtype)
 device: str = get_torch_device()
 
 # Initialize Wandb
@@ -48,7 +47,13 @@ eval_dataset: Dataset = load_dataset(
 	split="test",
 	num_proc=16,
 	trust_remote_code=True,
+).remove_columns(
+	[
+		"bot_dialog",
+		"user_dialog"
+	]
 )
+
 emotion_labels: list = eval_dataset.features["bot_emotion"].feature.names
 
 model = EmotionModel.from_pretrained(run.config["model"]).to(device)
@@ -67,12 +72,13 @@ eval_dataset = eval_dataset.map(
 			)
 		]
 	},
+	remove_columns=["bot_initial_emotion_representation"],
 	batched=True,
 )
 
 eval_dataset = eval_dataset.map(
 	lambda samples: {"bot_possible_emotion": [torch.tensor(sample).argmax(1) for sample in samples]},
-	input_columns="bot_emotion_representations",
+	input_columns=["bot_emotion_representations"],
 	batched=True,
 	num_proc=16,
 )
@@ -80,39 +86,7 @@ eval_dataset = eval_dataset.map(
 eval_predictions: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_possible_emotion"]])
 eval_truths: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_emotion"]])
 
-evaluation_result: dict = calculate_evaluation_result(eval_predictions, eval_truths)
-wandb.log({"eval/f1-score": evaluation_result["f1_score"], "eval/accuracy": evaluation_result["accuracy"]})
-
-
-eval_dataset = eval_dataset.map(
-	lambda samples: {
-		"bot_possible_emotion": [
-			[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples["bot_possible_emotion"]
-		],
-		"bot_emotion": [[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples["bot_emotion"]],
-	},
-	batched=True,
-	num_proc=16,
-)
-
-result = eval_dataset.map(
-	lambda samples: {
-		"bot_possible_emotion": [", ".join(sample) for sample in samples["bot_possible_emotion"]],
-		"bot_emotion": [", ".join(sample) for sample in samples["bot_emotion"]],
-	},
-	batched=True,
-	num_proc=16,
-)
-
-result = result.remove_columns(
-	[
-		"bot_initial_emotion_representation",
-		"bot_dialog",
-		"user_dialog",
-		"user_emotion_compositions",
-	]
-)
-
-wandb.log({"evaluation_result": wandb.Table(dataframe=result.to_pandas())})
+metrics_result: dict = calculate_evaluation_result(eval_predictions, eval_truths)
+wandb.log({"F1-score": metrics_result["f1_score"], "Accuracy": metrics_result["accuracy"]})
 
 wandb.finish()
