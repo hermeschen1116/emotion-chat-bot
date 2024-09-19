@@ -1,16 +1,16 @@
 from argparse import ArgumentParser
 
+import numpy as np
 import torch
-import wandb
 from datasets import load_dataset
 from libs import (
     CommonScriptArguments,
     CommonWanDBArguments,
-    flatten_dataset,
     throw_out_partial_row_with_a_label,
 )
 from peft import LoraConfig, get_peft_model
-from torch import Tensor
+from sklearn.utils.class_weight import compute_class_weight
+from torch import Tensor, nn
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from transformers import (
     AutoModelForSequenceClassification,
@@ -19,6 +19,8 @@ from transformers import (
     Trainer,
     TrainingArguments,
 )
+
+import wandb
 
 config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)
@@ -40,53 +42,14 @@ dataset = load_dataset(
     run.config["dataset"],
     num_proc=16,
     trust_remote_code=True,
-).remove_columns(["act"])
-emotion_labels: list = dataset["train"].features["emotion"].feature.names
-emotion_labels[0] = "neutral"
+)
+emotion_labels: list = dataset["train"].features["label"].names
 num_emotion_labels: int = len(emotion_labels)
 
-dataset = dataset.map(
-    lambda samples: {
-        "response_emotion": [sample[1:] + [sample[0]] for sample in samples]
-    },
-    input_columns=["emotion"],
-    remove_columns=["emotion"],
-    batched=True,
-    num_proc=16,
-)
-
-dataset = dataset.map(
-    lambda samples: {
-        "dialog": [sample[:-1] for sample in samples["dialog"]],
-        "response_emotion": [sample[:-1] for sample in samples["response_emotion"]],
-    },
-    batched=True,
-    num_proc=16,
-)
-
-dataset = dataset.map(
-    lambda samples: {
-        "rows": [
-            [
-                {
-                    "text": dialog,
-                    "label": emotion,
-                }
-                for i, (emotion, dialog) in enumerate(zip(sample[0], sample[1]))
-            ]
-            for sample in zip(samples["response_emotion"], samples["dialog"])
-        ]
-    },
-    remove_columns=["response_emotion", "dialog"],
-    batched=True,
-    num_proc=16,
-).filter(lambda sample: len(sample) > 0, input_columns=["rows"], num_proc=16)
-
-train_dataset = flatten_dataset(dataset["train"])
 train_dataset = throw_out_partial_row_with_a_label(
-    train_dataset, run.config["neutral_keep_ratio"], 0
+    dataset["train"], run.config["neutral_keep_ratio"], 0
 )
-validation_dataset = flatten_dataset(dataset["validation"])
+validation_dataset = dataset["validation"]
 
 tokenizer = AutoTokenizer.from_pretrained(
     run.config["base_model"],
@@ -101,7 +64,7 @@ base_model = AutoModelForSequenceClassification.from_pretrained(
     id2label={k: v for k, v in enumerate(emotion_labels)},
     label2id={v: k for k, v in enumerate(emotion_labels)},
     use_cache=False,
-    device_map="auto",
+    device_map="cuda",
     low_cpu_mem_usage=True,
     trust_remote_code=True,
 )
@@ -164,13 +127,60 @@ def compute_metrics(prediction) -> dict:
     }
 
 
-per_device_batch_size: int = 8
-logging_steps: int = len(dataset["train"]) // per_device_batch_size
+y = train_dataset["label"].tolist()
+class_weights = compute_class_weight(class_weight="balanced", classes=np.unique(y), y=y)
+
+
+class FocalLoss(nn.Module):
+    def __init__(self, alpha=None, gamma=2, ignore_index=-100, reduction="mean"):
+        super().__init__()
+        # use standard CE loss without reducion as basis
+        self.CE = nn.CrossEntropyLoss(reduction="none", ignore_index=ignore_index)
+        self.alpha = alpha
+        self.gamma = gamma
+        self.reduction = reduction
+
+    def forward(self, input, target):
+        """
+        input (B, N)
+        target (B)
+        """
+        minus_logpt = self.CE(input, target)
+        pt = torch.exp(-minus_logpt)  # don't forget the minus here
+        focal_loss = (1 - pt) ** self.gamma * minus_logpt
+
+        # apply class weights
+        if self.alpha != None:
+            focal_loss *= self.alpha.gather(0, target)
+
+        if self.reduction == "mean":
+            focal_loss = focal_loss.mean()
+        elif self.reduction == "sum":
+            focal_loss = focal_loss.sum()
+        return focal_loss
+
+
+class_weights = torch.tensor(class_weights, dtype=torch.float).to("cuda")
+loss_fct = FocalLoss(alpha=class_weights, gamma=2)
+
+
+class CustomTrainer(Trainer):
+    def compute_loss(self, model, inputs, return_outputs=False):
+        labels = inputs.get("labels")
+        outputs = model(**inputs)
+        logits = outputs.get("logits")
+        loss = loss_fct(logits, labels)
+        return (loss, outputs) if return_outputs else loss
+
+
+batch_size: int = 32
+# per_device_batch_size: int = 32
+logging_steps: int = len(dataset["train"]) // batch_size
 trainer_arguments = TrainingArguments(
     output_dir="./checkpoints",
     overwrite_output_dir=True,
-    per_device_train_batch_size=8,
-    per_device_eval_batch_size=8,
+    per_device_train_batch_size=batch_size,
+    per_device_eval_batch_size=batch_size,
     gradient_accumulation_steps=1,
     learning_rate=run.config["learning_rate"],
     lr_scheduler_type="constant",
@@ -214,6 +224,9 @@ tuner.train()
 
 tuner.model = torch.compile(tuner.model)
 tuner.model = tuner.model.merge_and_unload(progressbar=True)
-tuner.push_to_hub()
+
+if hasattr(tuner.model, "config"):
+    tuner.model.config.save_pretrained("model_test")
+tuner.save_model("model_test")
 
 wandb.finish()
