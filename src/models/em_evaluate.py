@@ -14,7 +14,6 @@ from libs import (
 	representation_evolute,
 )
 from torch import Tensor
-from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from transformers.hf_argparser import HfArg, HfArgumentParser
 
 
