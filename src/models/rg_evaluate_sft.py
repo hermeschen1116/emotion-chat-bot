@@ -89,22 +89,7 @@ system_prompt: list = [
 ]
 
 dataset = dataset.map(
-	lambda samples: {
-		"prompt": [
-			system_prompt
-			+ sample[:-1]
-			+ [
-				{
-					"role": "assistant",
-					"content": {
-						"emotion": sample[-1]["content"]["emotion"],
-						"dialog": "",
-					},
-				}
-			]
-			for sample in samples
-		]
-	},
+	lambda samples: {"prompt": [system_prompt + sample for sample in samples]},
 	input_columns="prompt",
 	batched=True,
 	num_proc=16,
