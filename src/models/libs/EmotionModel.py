@@ -4,9 +4,7 @@ import torch
 from huggingface_hub.hub_mixin import PyTorchModelHubMixin
 from torch import Tensor
 
-from .Attention import (
-	DotProductAttention,
-)
+from .Attention import DotProductAttention
 
 
 def representation_evolute(
