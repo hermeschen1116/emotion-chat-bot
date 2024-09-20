@@ -171,7 +171,7 @@ class EmotionChatBot:
 			for k, v in candidate_responses.items()
 		}
 
-	def __call__(self, user_message: str, generation_config) -> str:
+	def __call__(self, user_message: str, generation_config) -> Dict[str, str]:
 		user_emotion_composition, user_emotion = self.__process_user_emotion(user_message)
 
 		self.__append_message(user_emotion, user_message)
@@ -205,4 +205,4 @@ class EmotionChatBot:
 		if not self.__validate_response(response):
 			self.messages[-1]["content"]["dialog"] = list(candidates_responses.values())[best_response_emotion_index]
 
-		return self.messages[-1]["content"]["dialog"]
+		return {"emotion": best_response_emotion, "response": self.messages[-1]["content"]["dialog"]}
