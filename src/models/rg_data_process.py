@@ -4,9 +4,10 @@ from typing import Optional
 
 import wandb
 from datasets import load_dataset
-from libs import CommonScriptArguments, CommonWanDBArguments
 from transformers import HfArgumentParser
 from transformers.hf_argparser import HfArg
+
+from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
 
 
 @dataclass

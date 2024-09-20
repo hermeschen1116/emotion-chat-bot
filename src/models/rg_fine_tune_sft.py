@@ -3,7 +3,7 @@ from dataclasses import Field, dataclass
 
 import wandb
 from datasets import load_dataset
-from libs import CommonScriptArguments, CommonWanDBArguments
+from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
 from transformers import HfArgumentParser, TrainingArguments
 from transformers.hf_argparser import HfArg
 from trl import DataCollatorForCompletionOnlyLM, SFTTrainer

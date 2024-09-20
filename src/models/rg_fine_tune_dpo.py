@@ -3,7 +3,7 @@ from dataclasses import Field, dataclass
 
 import wandb
 from datasets import load_dataset
-from libs import CommonScriptArguments, CommonWanDBArguments
+from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
 from peft.peft_model import PeftModel
 from transformers import HfArgumentParser
 from transformers.hf_argparser import HfArg

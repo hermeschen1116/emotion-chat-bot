@@ -5,13 +5,15 @@ import numpy as np
 import torch
 import wandb
 from datasets import Dataset, load_dataset
-from libs import CommonScriptArguments, CommonWanDBArguments
+from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
 from peft.peft_model import PeftModel
 from torch import tensor
 from tqdm.auto import tqdm
 from transformers import HfArgumentParser, TextStreamer, pipeline
 from transformers.hf_argparser import HfArg
 from unsloth import FastLanguageModel
+
+from libs.ResponseGenerationPipeline import ResponseGeneratorPipeline
 
 
 @dataclass

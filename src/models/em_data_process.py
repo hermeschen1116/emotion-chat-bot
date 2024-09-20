@@ -4,7 +4,6 @@ import torch
 import wandb
 from datasets import Array2D, ClassLabel, Sequence, load_dataset
 from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
-from libs.DataProcess import generate_dummy_representation, get_emotion_composition
 from transformers import (
 	AutoModelForSequenceClassification,
 	AutoTokenizer,
@@ -12,6 +11,8 @@ from transformers import (
 	HfArgumentParser,
 	pipeline,
 )
+
+from libs.EmotionTransition import generate_dummy_representation, get_emotion_composition
 
 config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)
