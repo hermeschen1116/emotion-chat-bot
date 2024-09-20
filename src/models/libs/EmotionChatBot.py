@@ -10,8 +10,12 @@ from transformers import (
 )
 from unsloth import FastLanguageModel
 
-from src.models.libs.EmotionTransition import EmotionModel, SimilarityAnalyzer, generate_representation, \
-	get_emotion_composition
+from src.models.libs.EmotionTransition import (
+	EmotionModel,
+	SimilarityAnalyzer,
+	generate_representation,
+	get_emotion_composition,
+)
 from src.models.libs.ResponseGenerationPipeline import ResponseGeneratorPipeline
 
 roles: List[str] = ["user", "bot"]
@@ -110,89 +114,95 @@ class EmotionChatBot:
 		self.similarity_analyzer = SimilarityAnalyzer(
 			generate_representation(emotion_tendency), threshold=similarity_threshold
 		)
-		
+
 		self.system_prompt: Dict[str, Any] = {"role": "system", "content": {"emotion": "", "dialog": system_prompt}}
 		self.max_num_messages: int = max_num_turns * 2
 		self.messages: List[Dict[str, Any]] = []
 		self.emotion_representation: Tensor = generate_representation(None)
-		
+
 	@staticmethod
 	def __form_message(role: str, emotion: Optional[str] = "", dialog: Optional[str] = "") -> Dict[str, Any]:
 		return {"role": role, "content": {"emotion": emotion, "dialog": dialog}}
-		
+
 	def __append_message(self, emotion: str, dialog: Optional[str] = "") -> None:
 		next_role: str = roles[len(self.messages) % 2]
-		
+
 		self.messages.append(self.__form_message(next_role, emotion, dialog))
-		
+
 		if len(self.messages) > self.max_num_messages:
 			self.messages.pop(0)
-			
+
 	def __get_messages(self) -> List[Dict[str, Any]]:
 		return [self.system_prompt] + self.messages
-	
+
 	def __process_user_emotion(self, message: str) -> (Tensor, str):
 		sentiment_analysis_result: list = self.sentiment_analyzer(message, return_all_scores=True)
-		
+
 		user_emotion_composition: Tensor = get_emotion_composition(sentiment_analysis_result[0])
 		user_emotion: str = emotions[user_emotion_composition.argmax()]
-		
+
 		return user_emotion_composition, user_emotion
-	
+
 	def __create_candidate_chats(self) -> List[List[Dict[str, Any]]]:
 		messages: list = self.__get_messages()
 		candidates_chats: list = [
 			messages + [{"role": "bot", "content": {"emotion": emotion, "dialog": ""}}] for emotion in emotions
 		]
-		
+
 		return candidates_chats
-	
+
 	def __generate_candidate_responses(self, generation_config) -> Dict[str, str]:
 		candidates_chats: list = self.__create_candidate_chats()
 		candidates_chats = [
-			chat[0]
-			for chat in self.response_generator(candidates_chats, generation_config=generation_config)]
-		
+			chat[0] for chat in self.response_generator(candidates_chats, generation_config=generation_config)
+		]
+
 		candidates_responses: list = [chat[-1]["content"]["dialog"].strip() for chat in candidates_chats]
-		
+
 		return dict(zip(emotions, candidates_responses))
-	
+
 	@staticmethod
 	def __validate_response(response: str) -> bool:
 		return (len(response) != 0) and response.endswith((".", "!", "?"))
-	
+
 	def __predict_user_response_emotion(self, candidate_responses: Dict[str, str]) -> Dict[str, Tensor]:
-		return {k: get_emotion_composition(self.emotion_predictor(v, return_all_scores=True)[0]) for k, v in candidate_responses.items()}
-	
-		
+		return {
+			k: get_emotion_composition(self.emotion_predictor(v, return_all_scores=True)[0])
+			for k, v in candidate_responses.items()
+		}
+
 	def __call__(self, user_message: str, generation_config) -> str:
 		user_emotion_composition, user_emotion = self.__process_user_emotion(user_message)
-		
+
 		self.__append_message(user_emotion, user_message)
-		
-		self.bot_emotion_representation = self.emotion_model.forward(user_emotion_composition, self.emotion_representation)
-	
+
+		self.bot_emotion_representation = self.emotion_model.forward(
+			user_emotion_composition, self.emotion_representation
+		)
+
 		while True:
 			candidates_responses = self.__generate_candidate_responses(generation_config)
 			candidates_responses = dict(filter(lambda k, v: self.__validate_response(v), candidates_responses.items()))
 			if len(candidates_responses.keys()) != 0:
 				break
-		
+
 		user_future_emotion_compositions: dict = self.__predict_user_response_emotion(candidates_responses)
-		
+
 		future_emotion_representations: dict = {
 			k: self.emotion_model.forward(v, self.emotion_representation)
 			for k, v in user_future_emotion_compositions.items()
 		}
-		
-		emotion_representation_similarity_scores: Tensor = self.similarity_analyzer(torch.stack(list(future_emotion_representations.values())))
+
+		emotion_representation_similarity_scores: Tensor = self.similarity_analyzer(
+			torch.stack(list(future_emotion_representations.values()))
+		)
 		best_response_emotion_index: int = emotion_representation_similarity_scores.argmax().item()
 		best_response_emotion: str = list(future_emotion_representations.keys())[best_response_emotion_index]
-		
+
 		self.__append_message(best_response_emotion)
 		self.messages = self.response_generator(self.__get_messages(), generation_config)[0][1:]
 		response: str = self.messages[-1]["content"]["dialog"]
 		if not self.__validate_response(response):
 			self.messages[-1]["content"]["dialog"] = list(candidates_responses.values())[best_response_emotion_index]
-		
+
 		return self.messages[-1]["content"]["dialog"]
