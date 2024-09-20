@@ -28,7 +28,7 @@ def generate_dummy_representation(target_emotion: int) -> Tensor:
 def generate_representation(emotion_tendency: Optional[Union[int, Dict[str, float]]]) -> Tensor:
 	if emotion_tendency is None:
 		return generate_dummy_representation(random.randint(0, 6))
-	if type(emotion_tendency) == int:
+	if isinstance(emotion_tendency, int):
 		return generate_dummy_representation(emotion_tendency)
 
 	return torch.tensor([emotion_tendency[emotion] for emotion in emotions])
