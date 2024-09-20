@@ -1,8 +1,8 @@
-import os
 
 import torch
 import wandb
 from datasets import Dataset, load_dataset
+from libs.CommonUtils import login_to_service
 from peft import LoraConfig, get_peft_model
 from sklearn.metrics import accuracy_score, f1_score
 from transformers import (
@@ -11,8 +11,6 @@ from transformers import (
 	Trainer,
 	TrainingArguments,
 )
-
-from libs.CommonUtils import login_to_service
 
 login_to_service()
 

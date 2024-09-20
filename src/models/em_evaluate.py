@@ -3,12 +3,11 @@ from argparse import ArgumentParser
 import torch
 import wandb
 from datasets import Dataset, load_dataset
+from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
+from libs.CommonUtils import calculate_evaluation_result, get_torch_device
+from libs.EmotionTransition import EmotionModel, representation_evolute
 from torch import Tensor
 from transformers.hf_argparser import HfArgumentParser
-
-from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
-from libs.CommonUtils import get_torch_device, calculate_evaluation_result
-from libs.EmotionTransition import EmotionModel, representation_evolute
 
 config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)

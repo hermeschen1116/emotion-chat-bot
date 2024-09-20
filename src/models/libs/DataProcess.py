@@ -1,8 +1,6 @@
 from typing import Any
 
-import torch
 from datasets import Dataset, concatenate_datasets
-from torch import Tensor
 
 
 def flatten_dataset(dataset: Dataset, target_column_name: str = "rows") -> Dataset:

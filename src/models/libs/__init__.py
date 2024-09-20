@@ -1,10 +1,9 @@
-import EmotionTransition
 import CommonConfig
 import CommonUtils
 import DataProcess
-import ResponseGenerationPipeline
 import EmotionChatBot
-
+import EmotionTransition
+import ResponseGenerationPipeline
 
 __all__ = [
 	"EmotionTransition",

@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import wandb
 from datasets import Dataset, load_dataset
-from libs import CommonScriptArguments, CommonWanDBArguments, ResponseGenerationPipeline
+from libs import CommonScriptArguments, CommonWanDBArguments
 from peft.peft_model import PeftModel
 from torch import tensor
 from tqdm.auto import tqdm

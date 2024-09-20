@@ -69,7 +69,7 @@ class EmotionModel(torch.nn.Module, PyTorchModelHubMixin):
 		difference: Tensor = torch.clamp(torch.diagonal(self.__weight_D((attention_score**3))), -1, 1)
 
 		return representation + difference
-	
+
 
 class EmotionPresentationSimilarityAnalyser:
 	def __init__(self, ideal_emotion_representation: Optional[Tensor], threshold: float = 0.7) -> None:

@@ -3,6 +3,8 @@ from argparse import ArgumentParser
 import torch
 import wandb
 from datasets import load_dataset
+from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
+from libs.DataProcess import flatten_dataset, throw_out_partial_row_with_a_label
 from peft import LoraConfig, get_peft_model
 from torch import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
@@ -13,9 +15,6 @@ from transformers import (
 	Trainer,
 	TrainingArguments,
 )
-
-from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
-from libs.DataProcess import flatten_dataset, throw_out_partial_row_with_a_label
 
 config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)
