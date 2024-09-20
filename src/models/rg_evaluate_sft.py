@@ -4,7 +4,8 @@ from dataclasses import Field, dataclass
 import torch
 import wandb
 from datasets import load_dataset
-from libs import CommonScriptArguments, CommonWanDBArguments, ResponseGeneratorPipeline
+from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
+from libs.ResponseGenerationPipeline import ResponseGeneratorPipeline
 from peft.peft_model import PeftModel
 from torch import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
@@ -89,22 +90,7 @@ system_prompt: list = [
 ]
 
 dataset = dataset.map(
-	lambda samples: {
-		"prompt": [
-			system_prompt
-			+ sample[:-1]
-			+ [
-				{
-					"role": "assistant",
-					"content": {
-						"emotion": sample[-1]["content"]["emotion"],
-						"dialog": "",
-					},
-				}
-			]
-			for sample in samples
-		]
-	},
+	lambda samples: {"prompt": [system_prompt + sample for sample in samples]},
 	input_columns="prompt",
 	batched=True,
 	num_proc=16,

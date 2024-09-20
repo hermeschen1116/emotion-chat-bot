@@ -47,4 +47,5 @@ class ResponseGeneratorPipeline(TextGenerationPipeline):
 						all_text = list(prompt_text.messages)
 				record = all_text
 			records.append(record)
+
 		return records

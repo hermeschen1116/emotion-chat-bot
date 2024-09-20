@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 import torch
 import wandb
 from datasets import load_dataset
-from libs import CommonScriptArguments, CommonWanDBArguments
+from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
 from sklearn.metrics import classification_report
 from torch import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score

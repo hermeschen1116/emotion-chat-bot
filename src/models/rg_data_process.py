@@ -4,7 +4,7 @@ from typing import Optional
 
 import wandb
 from datasets import load_dataset
-from libs import CommonScriptArguments, CommonWanDBArguments
+from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
 from transformers import HfArgumentParser
 from transformers.hf_argparser import HfArg
 
@@ -46,13 +46,6 @@ dataset = dataset.map(
 )
 
 dataset = dataset.map(
-	lambda samples: {"dialog": [[dialog.strip() for dialog in sample] for sample in samples]},
-	input_columns="dialog",
-	batched=True,
-	num_proc=16,
-)
-
-dataset = dataset.map(
 	lambda samples: {
 		"emotion": [sample[:-1] if len(sample) % 2 == 1 else sample for sample in samples["emotion"]],
 		"dialog": [sample[:-1] if len(sample) % 2 == 1 else sample for sample in samples["dialog"]],
@@ -61,14 +54,7 @@ dataset = dataset.map(
 	num_proc=16,
 )
 
-dataset = dataset.map(
-	lambda samples: {
-		"emotion": [sample for sample in samples["emotion"] if len(sample) != 0],
-		"dialog": [sample for sample in samples["dialog"] if len(sample) != 0],
-	},
-	batched=True,
-	num_proc=16,
-)
+dataset = dataset.filter(lambda sample: (len(sample["emotion"]) != 0) and (len(sample["dialog"]) != 0), num_proc=16)
 
 dataset = dataset.map(
 	lambda samples: {
@@ -76,7 +62,7 @@ dataset = dataset.map(
 			[
 				{
 					"role": "user" if i % 2 == 0 else "assistant",
-					"content": {"emotion": emotion, "dialog": dialog},
+					"content": {"emotion": emotion, "dialog": dialog.strip()},
 				}
 				for i, (emotion, dialog) in enumerate(zip(sample[0], sample[1]))
 			]
@@ -88,6 +74,6 @@ dataset = dataset.map(
 	num_proc=16,
 )
 
-dataset.push_to_hub("daily_dialog_for_RG")
+dataset.push_to_hub("daily_dialog_for_RG", num_shards={"train": 16, "validation": 16, "test": 16})
 
 wandb.finish()

@@ -1,6 +1,19 @@
-from typing import Any, List, Optional
+import os
+from typing import Any, Dict, List, Optional
 
+import huggingface_hub
 import torch
+import wandb
+from dotenv import load_dotenv
+from torch import Tensor
+from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
+
+
+def login_to_service() -> None:
+	load_dotenv(encoding="utf-8")
+
+	huggingface_hub.login(token=os.environ.get("HF_TOKEN", ""), add_to_git_credential=True)
+	wandb.login(key=os.environ.get("WANDB_API_KEY", ""), relogin=True)
 
 
 def value_candidate_check(
@@ -28,3 +41,15 @@ def get_torch_device() -> str:
 		return "mps"
 
 	return "cpu"
+
+
+def calculate_evaluation_result(predictions: Tensor, truths: Tensor) -> Dict[str, Tensor]:
+	accuracy: Tensor = multiclass_accuracy(predictions, truths, num_classes=7)
+	f1_score: Tensor = multiclass_f1_score(
+		predictions,
+		truths,
+		num_classes=7,
+		average="weighted",
+	)
+
+	return {"accuracy": accuracy, "f1_score": f1_score}

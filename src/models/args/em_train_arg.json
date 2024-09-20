@@ -1,15 +1,12 @@
 {
-	"dtype": "torch.float32",
 	"job_type": "train",
 	"project": "emotion-chat-bot-ncu",
 	"group": "Emotion Model",
-	"notes": "train model for final use, using dual linear attention",
+	"notes": "train model with optimize arg from sweep",
 	"config": {
 		"dataset": "hermeschen1116/emotion_transition_from_dialog",
-		"trained_model_name": "emotion_model",
-		"bias": true,
-		"dropout": 0.5,
-		"num_epochs": 3,
-		"learning_rate": 1e-3
+		"trained_model_name": "emotion_model_for_emotion_chat_bot",
+		"num_epochs": 1,
+		"learning_rate": 1.869766511153869e-3
 	}
 }

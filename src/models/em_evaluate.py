@@ -1,35 +1,21 @@
 from argparse import ArgumentParser
-from dataclasses import Field, dataclass
-from typing import Optional
 
 import torch
 import wandb
-from datasets import load_dataset
-from libs import (
-	CommonScriptArguments,
-	CommonWanDBArguments,
-	EmotionModel,
-	get_torch_device,
-	representation_evolute,
-)
+from datasets import Dataset, load_dataset
+from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
+from libs.CommonUtils import calculate_evaluation_result, get_torch_device
+from libs.EmotionTransition import EmotionModel, representation_evolute
 from torch import Tensor
-from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
-from transformers.hf_argparser import HfArg, HfArgumentParser
-
-
-@dataclass
-class ScriptArguments(CommonScriptArguments):
-	dtype: Field[Optional[str]] = HfArg(aliases="--dtype", default="torch.float32")
-	device: Field[Optional[str]] = HfArg(aliases="--device", default_factory=get_torch_device)
-
+from transformers.hf_argparser import HfArgumentParser
 
 config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)
 config = config_getter.parse_args()
 
-parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
+parser = HfArgumentParser((CommonScriptArguments, CommonWanDBArguments))
 args, wandb_args = parser.parse_json_file(config.json_file)
-dtype: torch.dtype = eval(args.dtype)
+device: str = get_torch_device()
 
 # Initialize Wandb
 run = wandb.init(
@@ -42,83 +28,46 @@ run = wandb.init(
 	resume=wandb_args.resume,
 )
 
-eval_dataset = load_dataset(
+eval_dataset: Dataset = load_dataset(
 	run.config["dataset"],
 	split="test",
 	num_proc=16,
 	trust_remote_code=True,
-)
+).remove_columns(["bot_dialog", "user_dialog"])
 
-model = EmotionModel.from_pretrained(run.config["model"])
+emotion_labels: list = eval_dataset.features["bot_emotion"].feature.names
+
+model = EmotionModel.from_pretrained(run.config["model"]).to(device)
 
 eval_dataset = eval_dataset.map(
 	lambda samples: {
-		"bot_representation": [
-			representation_evolute(model, sample[0], sample[1])
+		"bot_emotion_representations": [
+			representation_evolute(
+				model,
+				[torch.tensor(sample[0][0]).to(device)],
+				[torch.tensor(emotion).to(device) for emotion in sample[1]],
+			)[1:]
 			for sample in zip(
-				samples["bot_representation"],
-				samples["user_dialog_emotion_composition"],
+				samples["bot_initial_emotion_representation"],
+				samples["user_emotion_compositions"],
 			)
 		]
 	},
+	remove_columns=["bot_initial_emotion_representation"],
 	batched=True,
 )
 
 eval_dataset = eval_dataset.map(
-	lambda samples: {"bot_most_possible_emotion": [torch.argmax(torch.tensor(sample), dim=1) for sample in samples]},
-	input_columns="bot_representation",
+	lambda samples: {"bot_possible_emotion": [torch.tensor(sample).argmax(1) for sample in samples]},
+	input_columns=["bot_emotion_representations"],
 	batched=True,
 	num_proc=16,
 )
 
-predicted_labels: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_most_possible_emotion"]])
-true_labels: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_emotion"]])
+eval_predictions: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_possible_emotion"]])
+eval_truths: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_emotion"]])
 
-wandb.log(
-	{
-		"F1-score": multiclass_f1_score(true_labels, predicted_labels, num_classes=7, average="weighted"),
-		"Accuracy": multiclass_accuracy(true_labels, predicted_labels, num_classes=7),
-	}
-)
-
-emotion_labels: list = [
-	"neutral",
-	"anger",
-	"disgust",
-	"fear",
-	"happiness",
-	"sadness",
-	"surprise",
-]
-eval_dataset = eval_dataset.map(
-	lambda samples: {
-		"bot_most_possible_emotion": [
-			[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples["bot_most_possible_emotion"]
-		],
-		"bot_emotion": [[emotion_labels[emotion_id] for emotion_id in sample] for sample in samples["bot_emotion"]],
-	},
-	batched=True,
-	num_proc=16,
-)
-
-result = eval_dataset.map(
-	lambda samples: {
-		"bot_most_possible_emotion": [", ".join(sample) for sample in samples["bot_most_possible_emotion"]],
-		"bot_emotion": [", ".join(sample) for sample in samples["bot_emotion"]],
-	},
-	batched=True,
-	num_proc=16,
-)
-
-result = result.remove_columns(
-	[
-		"bot_representation",
-		"bot_dialog",
-		"user_dialog",
-		"user_dialog_emotion_composition",
-	]
-)
-
-wandb.log({"evaluation_result": wandb.Table(dataframe=result.to_pandas())})
+metrics_result: dict = calculate_evaluation_result(eval_predictions, eval_truths)
+wandb.log({"F1-score": metrics_result["f1_score"], "Accuracy": metrics_result["accuracy"]})
 
 wandb.finish()
