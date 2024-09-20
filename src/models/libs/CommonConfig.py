@@ -40,9 +40,7 @@ class CommonWanDBArguments:
 		]
 	] = HfArg(aliases=["--wandb-group", "--group"], default=None)
 	notes: Field[Optional[str]] = HfArg(aliases=["--wandb-notes", "--notes"], default=None)
-	mode: Field[Optional[Literal["online", "offline", "disabled"]]] = HfArg(
-		aliases="--wandb-mode", default=None
-	)
+	mode: Field[Optional[Literal["online", "offline", "disabled"]]] = HfArg(aliases="--wandb-mode", default=None)
 	allow_val_change: Field[Optional[bool]] = HfArg(aliases="--allow-val-change", default=False)
 	resume: Field[Optional[str]] = HfArg(aliases="--wandb-resume", default=None)
 
