@@ -3,8 +3,6 @@ import os
 import torch
 import wandb
 from datasets import Dataset, load_dataset
-from dotenv import load_dotenv
-from huggingface_hub import login
 from peft import LoraConfig, get_peft_model
 from sklearn.metrics import accuracy_score, f1_score
 from transformers import (
@@ -14,9 +12,9 @@ from transformers import (
 	TrainingArguments,
 )
 
-load_dotenv()
-login(token=os.environ.get("HF_TOKEN", ""), add_to_git_credential=True)
-wandb.login(key=os.environ.get("WANDB_API_KEY", ""))
+from libs.CommonUtils import login_to_service
+
+login_to_service()
 
 base_model = "michellejieli/emotion_text_classifier"
 # new_model = "./etc_on_dd"

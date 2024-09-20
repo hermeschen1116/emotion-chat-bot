@@ -3,11 +3,13 @@ from argparse import ArgumentParser
 import torch
 import wandb
 from datasets import load_dataset
-from libs import CommonScriptArguments, CommonWanDBArguments, flatten_dataset
 from sklearn.metrics import classification_report
 from torch import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from transformers import HfArgumentParser, pipeline
+
+from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
+from libs.DataProcess import flatten_dataset
 
 config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)

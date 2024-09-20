@@ -5,18 +5,14 @@ import torch.nn.functional as f
 import wandb
 from datasets import load_dataset
 from datasets.load import DatasetDict
-from libs import (
-	CommonScriptArguments,
-	CommonWanDBArguments,
-	EmotionModel,
-	calculate_evaluation_result,
-	get_torch_device,
-	representation_evolute,
-)
 from torch import Tensor
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 from transformers.hf_argparser import HfArgumentParser
+
+from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
+from libs.CommonUtils import get_torch_device, calculate_evaluation_result
+from libs.EmotionTransition import EmotionModel, representation_evolute
 
 config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)
