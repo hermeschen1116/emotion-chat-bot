@@ -6,7 +6,8 @@ from transformers import (
 	AutoModelForSequenceClassification,
 	AutoTokenizer,
 	BitsAndBytesConfig,
-	TextClassificationPipeline, GenerationConfig,
+	GenerationConfig,
+	TextClassificationPipeline,
 )
 from unsloth import FastLanguageModel
 
@@ -179,7 +180,9 @@ class EmotionChatBot:
 			for k, v in candidate_responses.items()
 		}
 
-	def __call__(self, user_message: str, generation_config: Optional[GenerationConfig] = default_generation_config) -> Dict[str, str]:
+	def __call__(
+		self, user_message: str, generation_config: Optional[GenerationConfig] = default_generation_config
+	) -> Dict[str, str]:
 		user_emotion_composition, user_emotion = self.__process_user_emotion(user_message)
 
 		self.__append_message(user_emotion, user_message)
@@ -190,7 +193,9 @@ class EmotionChatBot:
 
 		while True:
 			candidates_responses = self.__generate_candidate_responses(generation_config)
-			candidates_responses = dict(filter(lambda item: self.__validate_response(item[1]), candidates_responses.items()))
+			candidates_responses = dict(
+				filter(lambda item: self.__validate_response(item[1]), candidates_responses.items())
+			)
 			if len(candidates_responses.keys()) != 0:
 				break
 
