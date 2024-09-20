@@ -29,6 +29,14 @@ emotions: List[str] = [
 	"surprise",
 ]
 
+default_generation_config = GenerationConfig(
+	max_new_tokens=20,
+	min_new_tokens=5,
+	repetition_penalty=1.5,
+	pad_token_id=32000,
+	eos_token_id=2,
+)
+
 
 class EmotionChatBot:
 	def __init__(
@@ -171,7 +179,7 @@ class EmotionChatBot:
 			for k, v in candidate_responses.items()
 		}
 
-	def __call__(self, user_message: str, generation_config: Optional[GenerationConfig]) -> Dict[str, str]:
+	def __call__(self, user_message: str, generation_config: Optional[GenerationConfig] = default_generation_config) -> Dict[str, str]:
 		user_emotion_composition, user_emotion = self.__process_user_emotion(user_message)
 
 		self.__append_message(user_emotion, user_message)
@@ -182,7 +190,7 @@ class EmotionChatBot:
 
 		while True:
 			candidates_responses = self.__generate_candidate_responses(generation_config)
-			candidates_responses = dict(filter(lambda k, v: self.__validate_response(v), candidates_responses.items()))
+			candidates_responses = dict(filter(lambda item: self.__validate_response(item[1]), candidates_responses.items()))
 			if len(candidates_responses.keys()) != 0:
 				break
 
@@ -200,7 +208,7 @@ class EmotionChatBot:
 		best_response_emotion: str = list(future_emotion_representations.keys())[best_response_emotion_index]
 
 		self.__append_message(best_response_emotion)
-		self.messages = self.response_generator(self.__get_messages(), generation_config)[0][1:]
+		self.messages = self.response_generator(self.__get_messages(), generation_config=generation_config)[0][1:]
 		response: str = self.messages[-1]["content"]["dialog"]
 		if not self.__validate_response(response):
 			self.messages[-1]["content"]["dialog"] = list(candidates_responses.values())[best_response_emotion_index]
