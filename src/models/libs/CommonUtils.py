@@ -5,7 +5,7 @@ import huggingface_hub
 import torch
 import wandb
 from dotenv import load_dotenv
-from torch.functional import Tensor
+from torch import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 
 

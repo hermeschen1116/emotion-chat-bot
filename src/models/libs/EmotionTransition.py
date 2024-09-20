@@ -71,13 +71,13 @@ class EmotionModel(torch.nn.Module, PyTorchModelHubMixin):
 		return representation + difference
 
 
-class EmotionPresentationSimilarityAnalyser:
+class SimilarityAnalyzer:
 	def __init__(self, ideal_emotion_representation: Optional[Tensor], threshold: float = 0.7) -> None:
 		if not (0 < threshold < 1):
 			raise ValueError("threshold must between 0 and 1 (exclusive)")
 		self.__threshold: float = threshold
 		self.__ideal_emotion_representation: Tensor = ideal_emotion_representation
-		self.__length_of_ideal_emotion_representation: Tensor = None
+		self.__length_of_ideal_emotion_representation: Optional[Tensor] = None
 		if ideal_emotion_representation is not None:
 			self.__length_of_ideal_emotion_representation = torch.norm(ideal_emotion_representation)
 

@@ -72,7 +72,7 @@ model = PeftModel.from_pretrained(
 	base_model,
 	run.config["adapter"],
 	is_trainable=True,
-	adapter_name="traingg",
+	adapter_name="training",
 )
 
 model.load_adapter(run.config["adapter"], adapter_name="reference")
@@ -82,7 +82,7 @@ model.print_trainable_parameters()
 training_args = DPOConfig(
 	output_dir="./checkpoints",
 	beta=0.1,
-	model_adapter_name="traingg",
+	model_adapter_name="training",
 	ref_adapter_name="reference",
 	remove_unused_columns=False,
 	num_train_epochs=3,

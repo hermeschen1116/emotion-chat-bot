@@ -11,7 +11,8 @@ from .CommonUtils import login_to_service, value_candidate_check
 
 @dataclass
 class CommonScriptArguments:
-	def __post_init__(self):
+	@staticmethod
+	def __post_init__():
 		login_to_service()
 
 		torch.backends.cudnn.deterministic = True
@@ -29,20 +30,17 @@ class CommonWanDBArguments:
 	project: Field[Optional[str]] = HfArg(aliases="--wandb-project", default=None)
 	group: Field[
 		Optional[
-			Union[
-				Literal[
-					"Sentiment Analysis",
-					"Emotion Predictor",
-					"Emotion Model",
-					"Similarity Analysis",
-					"Response Generator",
-				],
-				None,
+			Literal[
+				"Sentiment Analysis",
+				"Emotion Predictor",
+				"Emotion Model",
+				"Similarity Analysis",
+				"Response Generator",
 			]
 		]
 	] = HfArg(aliases=["--wandb-group", "--group"], default=None)
 	notes: Field[Optional[str]] = HfArg(aliases=["--wandb-notes", "--notes"], default=None)
-	mode: Field[Optional[Union[Literal["online", "offline", "disabled"], None]]] = HfArg(
+	mode: Field[Optional[Literal["online", "offline", "disabled"]]] = HfArg(
 		aliases="--wandb-mode", default=None
 	)
 	allow_val_change: Field[Optional[bool]] = HfArg(aliases="--allow-val-change", default=False)

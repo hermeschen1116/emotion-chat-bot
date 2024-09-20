@@ -146,7 +146,7 @@ base_model_with_adapter = PeftModel.from_pretrained(base_model, run.config["adap
 base_model_with_adapter.print_trainable_parameters()
 FastLanguageModel.for_inference(base_model_with_adapter)
 
-# dataset to torch format and etc.
+# dataset to torch format etc.
 dataset = dataset.with_format("torch")
 dataset = dataset.map(
 	lambda sample: {
@@ -177,16 +177,6 @@ bot = ResponseGeneratorPipeline(
 	truncation=False,
 	padding=True,
 )
-
-emotion_labels: list = [
-	"neutral",
-	"anger",
-	"disgust",
-	"fear",
-	"happiness",
-	"sadness",
-	"surprise",
-]
 
 # Sentiment Analysis
 sentiment_analyser = pipeline(
