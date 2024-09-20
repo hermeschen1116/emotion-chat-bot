@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Union, Literal
+from typing import Any, Dict, List, Literal, Optional, Union
 
 import torch
 from transformers import (
@@ -14,76 +14,72 @@ from src.models.libs.ResponseGenerationPipeline import ResponseGeneratorPipeline
 
 role: List[str] = ["user", "bot"]
 emotions: List[str] = [
-		"neutral",
-		"anger",
-		"disgust",
-		"fear",
-		"happiness",
-		"sadness",
-		"surprise",
-	]
+	"neutral",
+	"anger",
+	"disgust",
+	"fear",
+	"happiness",
+	"sadness",
+	"surprise",
+]
+
 
 class Chat:
 	def __init__(self, system_prompt: Optional[str] = "", max_num_turns: Optional[int] = 5) -> None:
 		self.__messages: List[Dict[str, Any]] = []
 		self.__max_num_messages: int = max_num_turns * 2
 		self.__system_prompt: str = system_prompt
-		
+
 	@property
 	def system_prompt(self) -> str:
 		return self.__system_prompt
-	
+
 	@system_prompt.setter
 	def system_prompt(self, system_prompt: str) -> None:
 		self.__system_prompt = system_prompt
-		
+
 	def get_system_message(self) -> Dict[str, Any]:
-		return {
-			"role": "system",
-			"content": {"emotion": "", "dialog": self.system_prompt}
-		}
-		
+		return {"role": "system", "content": {"emotion": "", "dialog": self.system_prompt}}
+
 	@property
 	def messages(self) -> List[Dict[str, Any]]:
 		return [self.get_system_message] + self.__messages
-	
+
 	@property.setter
 	def messages(self, messages: List[Dict[str, Any]]) -> None:
 		if len(messages) > self.__max_num_messages:
-			raise ValueError(f"Cannot assign messages over maximum number of dialogs {self.__max_num_messages}, you input length is {len(messages)}.\n")
+			raise ValueError(
+				f"Cannot assign messages over maximum number of dialogs {self.__max_num_messages}, you input length is {len(messages)}.\n"
+			)
 		self.__messages = messages
-		
-	def append_message(self, emotion: str, dialog: Optional[str] = "", inplace: Optional[bool] = True) -> Optional[Dict[str, Any]]:
+
+	def append_message(
+		self, emotion: str, dialog: Optional[str] = "", inplace: Optional[bool] = True
+	) -> Optional[Dict[str, Any]]:
 		if emotion not in emotions:
 			raise ValueError(f"Input emotion {emotion} is not a valid emotion.")
-		
+
 		next_role: Literal["user", "bot"] = role[(len(self.__messages) - 1) % 2]
-		
+
 		messages: Dict[str, Any] = self.__messages
-		
-		messages.append({
-			"role": next_role,
-			"content": {"emotion": emotion, "dialog": dialog}
-		})
-		
+
+		messages.append({"role": next_role, "content": {"emotion": emotion, "dialog": dialog}})
+
 		if len(messages) > self.__max_num_turns:
 			while len(messages) > self.__max_num_turns:
 				messages.pop(0)
-				
+
 		if inplace:
 			self.__messages = messages
-			
+
 		return [self.get_system_message()] + messages
-		
-		
+
+
 def create_candidate_chats(
 	chat: Chat,
 ) -> List[List[Dict[str, Any]]]:
 	candidates_chats: list = [
-		chat.messages + [{
-			"role": "bot",
-			"content": {"emotion": emotion, "dialog": ""}
-		}] for emotion in emotions
+		chat.messages + [{"role": "bot", "content": {"emotion": emotion, "dialog": ""}}] for emotion in emotions
 	]
 
 	return candidates_chats

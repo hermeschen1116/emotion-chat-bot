@@ -1,5 +1,5 @@
 import random
-from typing import List, Optional, Union, Dict
+from typing import Dict, List, Optional, Union
 
 import torch
 from huggingface_hub.hub_mixin import PyTorchModelHubMixin
@@ -17,19 +17,20 @@ emotions: list = [
 	"surprise",
 ]
 
+
 def generate_dummy_representation(target_emotion: int) -> Tensor:
 	while True:
 		dummy = torch.clamp(torch.rand(7, dtype=torch.float32), -1, 1)
 		if torch.argmax(dummy) == target_emotion:
 			return dummy
-		
+
 
 def generate_representation(emotion_tendency: Optional[Union[int, Dict[str, float]]]) -> Tensor:
 	if emotion_tendency is None:
 		return generate_dummy_representation(random.randint(0, 6))
 	if type(emotion_tendency) == int:
 		return generate_dummy_representation(emotion_tendency)
-	
+
 	return torch.tensor([emotion_tendency[emotion] for emotion in emotions])
 
 
