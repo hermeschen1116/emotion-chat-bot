@@ -11,13 +11,13 @@ from transformers import (
 )
 from unsloth import FastLanguageModel
 
-from src.models.libs.EmotionTransition import (
+from src.model.libs.EmotionTransition import (
 	EmotionModel,
 	SimilarityAnalyzer,
 	generate_representation,
 	get_emotion_composition,
 )
-from src.models.libs.ResponseGenerationPipeline import ResponseGeneratorPipeline
+from src.model.libs.ResponseGenerationPipeline import ResponseGeneratorPipeline
 
 roles: List[str] = ["user", "bot"]
 emotions: List[str] = [
