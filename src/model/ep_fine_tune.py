@@ -126,7 +126,7 @@ class FocalLoss(nn.Module):
 		focal_loss = (1 - pt) ** self.gamma * minus_logpt
 
 		# apply class weights
-		if self.alpha != None:
+		if self.alpha is not None:
 			focal_loss *= self.alpha.gather(0, target)
 
 		if self.reduction == "mean":
