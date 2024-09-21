@@ -25,12 +25,12 @@ args, wandb_args = parser.parse_json_file(config.json_file)
 
 # Define sweep configuration
 sweep_configuration = {
-	"method": "random",
+	"method": "bayes",
 	"name": "sweep",
-	"metric": {"goal": "maximize", "name": "Accuracy"},
+	"metric": {"goal": "maximize", "name": "Total score"},
 	"parameters": {
-		"batch_size": {"values": [32, 64]},
-		"num_train_epochs": {"values": [8]},
+		"batch_size": {"values": [8, 32, 64]},
+		"num_train_epochs": {"value": 3},
 		"learning_rate": {"max": 0.1, "min": 0.0001},
 		"lora_alpha": {"values": [16, 32, 64]},
 		"lora_dropout": {"values": [0.1, 0.2, 0.3]},
@@ -40,7 +40,7 @@ sweep_configuration = {
 		"focal_gamma": {"values": [0, 1, 2]},
 		"weight_decay": {"max": 0.3, "min": 0.0},
 		"warmup_ratio": {"max": 0.1, "min": 0.0},
-		"max_steps": {"max": 5000, "min": -1},
+		"max_steps": {"value": -1},
 		"max_grad_norm": {"max": 1.0, "min": 0.1},
 	},
 }
@@ -89,9 +89,9 @@ def main():
 	num_emotion_labels: int = len(emotion_labels)
 
 	train_dataset = throw_out_partial_row_with_a_label(dataset["train"], run.config["neutral_keep_ratio"], 0)
-	train_dataset = train_dataset.take(8192)
+	# train_dataset = train_dataset.take(8192)
 	validation_dataset = dataset["validation"]
-	validation_dataset = validation_dataset.take(1024)
+	# validation_dataset = validation_dataset.take(1024)
 
 	tokenizer = AutoTokenizer.from_pretrained(
 		run.config["base_model"],
@@ -155,12 +155,7 @@ def main():
 			average="weighted",
 		)
 
-		wandb.log(
-			{
-				"Accuracy": accuracy,
-				"F1-score": f1,
-			}
-		)
+		wandb.log({"Accuracy": accuracy, "F1-score": f1, "Total score": (accuracy + f1) * 0.5})
 
 		return {
 			"Accuracy": accuracy,
