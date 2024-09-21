@@ -87,9 +87,11 @@
 
     - 而情緒標籤不同的 prompt 也具有比較好的表現
 
-    - 考量到 prompt template 本身的複雜程度，選擇 Tag 相同／在 INST 外的組別作為新的 prompt template
+    - 考量到 prompt template 本身的複雜程度，且實際指標差異僅約 0.03，故選擇 Tag 相同／在 INST 外的組別作為新的 prompt template
 
 ### 3. Tune Hyperparameters
+
+<iframe src="https://wandb.ai/hermeschen1116/emotion-chat-bot-ncu/reports/SFT-Hyperparameter-Tune--Vmlldzo5NDQ3MzUz" style="border:none;height:1024px;width:100%">
 
 ## Problem
 
