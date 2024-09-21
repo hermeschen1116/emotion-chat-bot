@@ -1,9 +1,10 @@
 {
 	"job_type": "evaluation",
-	"project": "emotion-chat-bot-ncu",
+	"project": "emotion-chat-bot-ncu-ep",
 	"group": "Emotion Predictor",
+	"notes": "evaluate model on Emotion Predictor task",
 	"config": {
-		"dataset": "daily_dialog",
-		"model": "hermeschen1116/emotion_predictor_for_emotion_chat_bot"
+		"dataset": "Shotaro30678/daily_dialog_for_EP",
+		"model": "Shotaro30678/emotion_predictor_for_emotion_chat_bot_distilroberta_v1"
 	}
 }
