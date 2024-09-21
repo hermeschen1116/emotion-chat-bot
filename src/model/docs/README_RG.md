@@ -9,6 +9,17 @@
 - BitsAndBytes
 - Unsloth
 
+## Prompt Format
+
+```shell
+  <s>[INST] <<SYS>>
+  {{ system_prompt }}
+  <</SYS>>
+
+  [EMOTION] {{ user_emotion_1 }} [/EMOTION] {{ user_message_1 }} [/INST] [EMOTION] {{ bot_emotion_1 }} [/EMOTION] {{ model_answer_1 }} </s>
+  <s>[INST] [EMOTION] {{ user_emotion_2 }} [/EMOTION] {{ user_message_2 }} [/INST] [EMOTION] {{ bot_emotion_2 }} [/EMOTION]
+```
+
 ## Experiement
 
 ### Goals
@@ -33,7 +44,7 @@
   - 使用 Supervised Fine Tuning 在 Daily Dialog 進行初步的訓練
   - 訓練成效
     ![Baseline and SFT Comparison](images/baseline-sft-comparison.png)
-  - 由於指標顯示訓練過的模型在情緒上的理解尚嫌不足，故進行 Further Fine Tune
+  - 由於指標顯示訓練過的模型在情緒上的理解尚嫌不足，故進行 Further Fine Tuning
   - 詳細可參考[**此頁面**](README_RG_SFT.md)
 
 - [**Further Fine Tune**](README_RG_DPO.md)
