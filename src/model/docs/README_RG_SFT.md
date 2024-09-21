@@ -91,7 +91,9 @@
 
 ### 3. Tune Hyperparameters
 
-<iframe src="https://wandb.ai/hermeschen1116/emotion-chat-bot-ncu/reports/SFT-Hyperparameter-Tune--Vmlldzo5NDQ3MzUz" style="border:none;height:1024px;width:100%">
+> [Report](https://api.wandb.ai/links/hermeschen1116/7erns8gu)
+
+- 綜合參考 Accuray、F1 Score 和生成的文字最後選擇 llama2-7b-out_inst_uni-rslora-r16-epoch2 這組作為訓練完成的模型
 
 ## Problem
 
