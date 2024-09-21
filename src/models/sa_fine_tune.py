@@ -2,26 +2,12 @@ from argparse import ArgumentParser
 
 import torch
 from datasets import load_dataset
-<<<<<<< HEAD
-from libs import (
-    CommonScriptArguments,
-    CommonWanDBArguments,
-    throw_out_partial_row_with_a_label,
-)
-=======
 from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
 from libs.DataProcess import throw_out_partial_row_with_a_label
->>>>>>> main
 from peft import LoraConfig, get_peft_model
 from torch import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
-from transformers import (
-	AutoModelForSequenceClassification,
-	AutoTokenizer,
-	HfArgumentParser,
-	Trainer,
-	TrainingArguments,
-)
+from transformers import AutoModelForSequenceClassification, AutoTokenizer, HfArgumentParser, Trainer, TrainingArguments
 
 import wandb
 
@@ -49,13 +35,7 @@ dataset = load_dataset(
 emotion_labels: list = dataset["train"].features["label"].names
 num_emotion_labels: int = len(emotion_labels)
 
-<<<<<<< HEAD
-train_dataset = throw_out_partial_row_with_a_label(
-    dataset["train"], run.config["neutral_keep_ratio"], 0
-)
-=======
 train_dataset = throw_out_partial_row_with_a_label(dataset["train"], run.config["neutral_keep_ratio"], 0)
->>>>>>> main
 validation_dataset = dataset["validation"]
 
 tokenizer = AutoTokenizer.from_pretrained(
@@ -66,16 +46,6 @@ tokenizer = AutoTokenizer.from_pretrained(
 )
 
 base_model = AutoModelForSequenceClassification.from_pretrained(
-<<<<<<< HEAD
-    run.config["base_model"],
-    num_labels=num_emotion_labels,
-    id2label={k: v for k, v in enumerate(emotion_labels)},
-    label2id={v: k for k, v in enumerate(emotion_labels)},
-    use_cache=False,
-    device_map="cuda",
-    low_cpu_mem_usage=True,
-    trust_remote_code=True,
-=======
 	run.config["base_model"],
 	num_labels=num_emotion_labels,
 	id2label={k: v for k, v in enumerate(emotion_labels)},
@@ -84,7 +54,6 @@ base_model = AutoModelForSequenceClassification.from_pretrained(
 	device_map="auto",
 	low_cpu_mem_usage=True,
 	trust_remote_code=True,
->>>>>>> main
 )
 
 peft_config = LoraConfig(
