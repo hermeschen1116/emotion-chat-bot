@@ -1,16 +1,17 @@
+from typing import Dict
 from fastapi import FastAPI
 
 from libs.EmotionChatBot import EmotionChatBot
 
 # get, post, patch, delete
-app = FastAPI()
+service = FastAPI(title="Emotion-Chat-Bot")
 
 
-@app.on_event("startup")
-def initialize():
+@service.on_event("startup")
+def initialize_service():
 	bot = EmotionChatBot()
 
 
-@app.get("/")
-def check_availability() -> bool:
-	return True
+@service.get("/")
+def check_service_availability() -> Dict[str, bool]:
+	return {"servic_availability": True}
