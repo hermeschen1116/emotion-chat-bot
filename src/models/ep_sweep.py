@@ -27,7 +27,7 @@ args, wandb_args = parser.parse_json_file(config.json_file)
 sweep_configuration = {
 	"method": "bayes",
 	"name": "sweep",
-	"metric": {"goal": "maximize", "name": "Total score"},
+	"metric": {"goal": "maximize", "name": "Weighted score"},
 	"parameters": {
 		"batch_size": {"values": [8, 32, 64]},
 		"num_train_epochs": {"value": 3},
@@ -148,18 +148,30 @@ def main():
 		).flatten()
 
 		accuracy = multiclass_accuracy(sentiment_true, sentiment_pred, num_classes=num_emotion_labels)
-		f1 = multiclass_f1_score(
+		f1_weighted = multiclass_f1_score(
 			sentiment_true,
 			sentiment_pred,
 			num_classes=num_emotion_labels,
 			average="weighted",
 		)
+		f1_macro = multiclass_f1_score(
+			sentiment_true,
+			sentiment_pred,
+			num_classes=num_emotion_labels,
+			average="macro",
+		)
 
-		wandb.log({"Accuracy": accuracy, "F1-score": f1, "Total score": (accuracy + f1) * 0.5})
+		weights = {"accuracy": 0.3, "f1_weighted": 0.4, "f1_macro": 0.3}
+		weighted_score = (
+			weights["accuracy"] * accuracy + weights["f1_weighted"] * f1_weighted + weights["f1_macro"] * f1_macro
+		)
+		wandb.log(
+			{"Accuracy": accuracy, "F1-weighted": f1_weighted, "F1-macro": f1_macro, "Weighted score": weighted_score}
+		)
 
 		return {
 			"Accuracy": accuracy,
-			"F1-score": f1,
+			"F1-score": f1_weighted,
 		}
 
 	y = train_dataset["label"].tolist()
@@ -262,4 +274,4 @@ def main():
 
 
 # Start sweep job
-wandb.agent(sweep_id, function=main, count=4)
+wandb.agent(sweep_id, function=main, count=135)
