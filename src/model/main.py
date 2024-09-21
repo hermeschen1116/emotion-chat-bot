@@ -1,6 +1,6 @@
 from typing import Dict
-from fastapi import FastAPI
 
+from fastapi import FastAPI
 from libs.EmotionChatBot import EmotionChatBot
 
 # get, post, patch, delete
