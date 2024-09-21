@@ -1,7 +1,16 @@
 from fastapi import FastAPI
 
-# get, post, patch, delete
-service = FastAPI()
+from model.libs.EmotionChatBot import EmotionChatBot
 
-@service
+# get, post, patch, delete
+app = FastAPI()
+
+@app.on_event("startup")
+def initialize():
+	bot = EmotionChatBot()
+
+@app.get("/")
+def check_availability() -> bool:
+	return True
+
 def
