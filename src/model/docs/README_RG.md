@@ -21,6 +21,11 @@
 - **Base Model**: [Llama 2 7B](https://huggingface.co/unsloth/llama-2-7b-bnb-4bit)
 - **Dataset**: [Daily Dialog](https://huggingface.co/datasets/li2017dailydialog/daily_dialog)
 
+### Metrics
+
+- 分析模型生成回應的情緒，分析其是否對應實際對話中的情緒
+- 指標：Accuracy、F1 Score
+
 #### Steps
 
 - [**Fine Tune**](README_RG_SFT.md)
@@ -28,9 +33,10 @@
   - 使用 Supervised Fine Tuning 在 Daily Dialog 進行初步的訓練
   - 訓練成效
     ![Baseline and SFT Comparison](images/baseline-sft-comparison.png)
+  - 由於指標顯示訓練過的模型在情緒上的理解尚嫌不足，故進行 Further Fine Tune
   - 詳細可參考[**此頁面**](README_RG_SFT.md)
 
 - [**Further Fine Tune**](README_RG_DPO.md)
 
-- 使用 Direct Preference Optimization 在合成資料集上進行初步的訓練
-- 詳細可參考[**此頁面**](README_RG_DPO.md)
+  - 使用 Direct Preference Optimization 在合成資料集上進行初步的訓練
+  - 詳細可參考[**此頁面**](README_RG_DPO.md)
