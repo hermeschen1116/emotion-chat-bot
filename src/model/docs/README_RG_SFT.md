@@ -110,3 +110,8 @@
 ## Result
 
 ![Baseline and SFT Comparison](images/baseline-sft-comparison.png)
+
+|          | Accuracy           | F1 Score           |
+| -------- | ------------------ | ------------------ |
+| Final    | 0.7879999876022339 | 0.7950077652931213 |
+| Baseline | 0.7179999947547913 | 0.7603256702423096 |
