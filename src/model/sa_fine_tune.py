@@ -1,17 +1,14 @@
 from argparse import ArgumentParser
 
-import numpy as np
 import torch
+import wandb
 from datasets import load_dataset
 from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
 from libs.DataProcess import throw_out_partial_row_with_a_label
 from peft import LoraConfig, get_peft_model
-from sklearn.utils.class_weight import compute_class_weight
-from torch import Tensor, nn
+from torch import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, HfArgumentParser, Trainer, TrainingArguments
-
-import wandb
 
 config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)
@@ -104,60 +101,13 @@ def compute_metrics(prediction) -> dict:
 	}
 
 
-y = train_dataset["label"].tolist()
-class_weights = compute_class_weight(class_weight="balanced", classes=np.unique(y), y=y)
-
-
-class FocalLoss(nn.Module):
-	def __init__(self, alpha=None, gamma=2, ignore_index=-100, reduction="mean"):
-		super().__init__()
-		# use standard CE loss without reducion as basis
-		self.CE = nn.CrossEntropyLoss(reduction="none", ignore_index=ignore_index)
-		self.alpha = alpha
-		self.gamma = gamma
-		self.reduction = reduction
-
-	def forward(self, input, target):
-		"""
-		input (B, N)
-		target (B)
-		"""
-		minus_logpt = self.CE(input, target)
-		pt = torch.exp(-minus_logpt)  # don't forget the minus here
-		focal_loss = (1 - pt) ** self.gamma * minus_logpt
-
-		# apply class weights
-		if self.alpha != None:
-			focal_loss *= self.alpha.gather(0, target)
-
-		if self.reduction == "mean":
-			focal_loss = focal_loss.mean()
-		elif self.reduction == "sum":
-			focal_loss = focal_loss.sum()
-		return focal_loss
-
-
-class_weights = torch.tensor(class_weights, dtype=torch.float).to("cuda")
-loss_fct = FocalLoss(alpha=class_weights, gamma=run.config["focal_gamma"])
-
-
-class CustomTrainer(Trainer):
-	def compute_loss(self, model, inputs, return_outputs=False):
-		labels = inputs.get("labels")
-		outputs = model(**inputs)
-		logits = outputs.get("logits")
-		loss = loss_fct(logits, labels)
-		return (loss, outputs) if return_outputs else loss
-
-
-batch_size: int = 32
-# per_device_batch_size: int = 32
-logging_steps: int = len(dataset["train"]) // batch_size
+per_device_batch_size: int = 8
+logging_steps: int = len(dataset["train"]) // per_device_batch_size
 trainer_arguments = TrainingArguments(
 	output_dir="./checkpoints",
 	overwrite_output_dir=True,
-	per_device_train_batch_size=batch_size,
-	per_device_eval_batch_size=batch_size,
+	per_device_train_batch_size=8,
+	per_device_eval_batch_size=8,
 	gradient_accumulation_steps=1,
 	learning_rate=run.config["learning_rate"],
 	lr_scheduler_type="constant",
@@ -201,9 +151,6 @@ tuner.train()
 
 tuner.model = torch.compile(tuner.model)
 tuner.model = tuner.model.merge_and_unload(progressbar=True)
-
-if hasattr(tuner.model, "config"):
-	tuner.model.config.save_pretrained("model_test")
-tuner.save_model("model_test")
+tuner.push_to_hub()
 
 wandb.finish()

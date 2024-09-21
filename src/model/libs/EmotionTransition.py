@@ -31,7 +31,7 @@ def generate_representation(emotion_tendency: Optional[Union[int, Dict[str, floa
 	if isinstance(emotion_tendency, int):
 		return generate_dummy_representation(emotion_tendency)
 
-	return torch.tensor([emotion_tendency[emotion] for emotion in emotions])
+	return torch.tensor([emotion_tendency[emotion] for emotion in emotions]).clamp(-1, 1)
 
 
 def get_emotion_composition(analysis_result: list) -> Tensor:

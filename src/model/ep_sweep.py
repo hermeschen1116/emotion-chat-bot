@@ -2,6 +2,7 @@ from argparse import ArgumentParser
 
 import numpy as np
 import torch
+import wandb
 from datasets import load_dataset
 from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
 from libs.CommonUtils import login_to_service
@@ -11,8 +12,6 @@ from sklearn.utils.class_weight import compute_class_weight
 from torch import Tensor, nn
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, HfArgumentParser, Trainer, TrainingArguments
-
-import wandb
 
 login_to_service()
 
