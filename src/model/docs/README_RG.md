@@ -27,7 +27,7 @@
 
   - 使用 Supervised Fine Tuning 在 Daily Dialog 進行初步的訓練
   - 訓練成效
-    ![Baseline and SFT Comparison]()
+    ![Baseline and SFT Comparison](./image/baseline-sft-comparison.png)
   - 詳細可參考[**此頁面**](https://github.com/hermeschen1116/chat-bot/blob/docs/complete_docs/src/model/docs/README_RG_SFT.md)
 
 - [**Further Fine Tune**](https://github.com/hermeschen1116/chat-bot/blob/docs/complete_docs/src/model/docs/README_RG_DPO.md)
