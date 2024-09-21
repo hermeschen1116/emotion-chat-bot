@@ -138,7 +138,7 @@ class FocalLoss(nn.Module):
 
 
 class_weights = torch.tensor(class_weights, dtype=torch.float).to("cuda")
-loss_fct = FocalLoss(alpha=class_weights, gamma=2)
+loss_fct = FocalLoss(alpha=class_weights, gamma=run.config["focal_gamma"])
 
 
 class CustomTrainer(Trainer):
