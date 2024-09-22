@@ -25,40 +25,16 @@ args, wandb_args = parser.parse_json_file(config.json_file)
 
 # [TODO] make this config a json
 # Define sweep configuration
-sweep_configuration = {
-	"method": "bayes",
-	"name": "sweep",
-	"metric": {"goal": "maximize", "name": "Weighted score"},
-	"parameters": {
-		"batch_size": {"values": [8, 32, 64]},
-		"num_train_epochs": {"values": [3, 5, 8]},
-		"learning_rate": {"max": 0.1, "min": 0.0001},
-		"lora_alpha": {"values": [16, 32, 64]},
-		"lora_dropout": {"values": [0.1, 0.2, 0.3]},
-		"lora_rank": {"values": [16, 32, 64]},
-		"init_lora_weights": {"values": [True, False]},
-		"use_rslora": {"values": [True, False]},
-		"focal_gamma": {"values": [0, 1, 2]},
-		"weight_decay": {"max": 0.3, "min": 0.0},
-		"warmup_ratio": {"max": 0.1, "min": 0.0},
-		"max_steps": {"value": -1},
-		"max_grad_norm": {"max": 1.0, "min": 0.1},
-	},
-}
-
-# Initialize sweep
-sweep_id = wandb.sweep(sweep=sweep_configuration, project="emotion-chat-bot-ncu-ep-sweep")
+sweep_configuration = wandb_args.config["sweep_config"]
+sweep_id = wandb.sweep(sweep=sweep_configuration, project=wandb_args.project)
 
 
 def main():
 	# Initialize wandb run
 	run = wandb.init(
-		name=wandb_args.name,
 		job_type=wandb_args.job_type,
 		config=wandb_args.config,
-		project=wandb_args.project,
 		group=wandb_args.group,
-		notes=wandb_args.notes,
 	)
 
 	# Fetch hyperparameters from `wandb.config`
@@ -276,8 +252,8 @@ def main():
 	tuner.model = tuner.model.merge_and_unload(progressbar=True)
 
 	if hasattr(tuner.model, "config"):
-		tuner.model.config.save_pretrained("model_test")
-	tuner.save_model("model_test")
+		tuner.model.config.save_pretrained(run.config["fine_tuned_model"])
+	tuner.save_model(run.config["fine_tuned_model"])
 
 	wandb.finish()
 
