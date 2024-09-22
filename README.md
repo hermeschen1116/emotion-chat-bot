@@ -68,4 +68,44 @@
 
   將產生的情緒和使用者輸入的文字作為輸入到 Response Generator 中產生最後回覆使用者的句子
 
+## How to use?
+
+- Prerequisite：環境中有安裝 [uv](https://astral.sh/blog/uv) 和有 Nividia GPU
+
+- 在根目錄下執行以下指令安裝所需套件
+
+  ```shell
+  uv sync -U --refresh --extra cuda
+  ```
+
+- 安裝過程會在根目錄下生成一個 Python Virtualenv，需要手動啟用
+
+  ```shell
+  source .venv/bin/activate
+  ```
+
+- 同樣在根目錄下執行以下指令，即可在 Commandline 中測試
+
+  ```shell
+  uv run python src/model/example.py
+  ```
+
+- 常見問題
+
+  - Unsloth 安裝問題
+
+    由於 pyproject.toml 中指定的 Unsloth 版本可能與執行環境中的配置不同，可以透過 Unsloth 官方的 Script 來確認正確的版本來進行安裝
+
+    ```shell
+    wget -qO- https://raw.githubusercontent.com/unslothai/unsloth/main/unsloth/_auto_install.py | uv run python -
+    ```
+
+    在使用得到的安裝指令來安裝 Unsloth
+
+    ```shell
+    uv {{ 安裝指令 }}
+    ```
+
 ## 參考資料
+
+> 待補充

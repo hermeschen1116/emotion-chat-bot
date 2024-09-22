@@ -139,7 +139,7 @@ class EmotionChatBot:
 		self.messages.append(self.__form_message(next_role, emotion, dialog))
 
 		if len(self.messages) > self.max_num_messages:
-			self.messages.pop(0)
+			self.messages = self.messages[2:]
 
 	def __get_messages(self) -> List[Dict[str, Any]]:
 		return [self.system_prompt] + self.messages
