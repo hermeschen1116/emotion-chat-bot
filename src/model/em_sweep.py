@@ -153,5 +153,5 @@ with open(config.json_file, "r", encoding="utf-8") as config_file:
 	sweep_config: dict = json.load(config_file)
 
 sweep_id: str = wandb.sweep(sweep=sweep_config, project="emotion-chat-bot-ncu")
-wandb.agent(sweep_id, sweep_function, project="emotion-chat-bot-ncu", count=100)
+wandb.agent(sweep_id, sweep_function, project="emotion-chat-bot-ncu", count=250)
 wandb.finish()
