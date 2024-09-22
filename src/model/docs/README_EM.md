@@ -8,6 +8,14 @@
 
 ## Architectures
 
+```python
+EmotionModel(
+  (_EmotionModel__attention): DotProductAttention()
+  (_EmotionModel__dropout): Dropout(p=0.5321222767142184, inplace=False)
+  (_EmotionModel__weight_D): Linear(in_features=7, out_features=7, bias=False)
+)
+```
+
 - **情緒狀態表徵**
 
   - 描述模型當前的情緒狀態
@@ -23,6 +31,12 @@
   - 由一組 7 個浮點數組成，所有元素總和為 1
 
   - 各數值同樣依序表示 7 種基本情緒的組成
+
+### 架構設計思路
+
+- 分別計算情緒狀態表徵中每個元素跟輸入文句的情緒組成之間的關係，作為調整情緒狀態的依據
+
+-
 
 ## Experiment
 
