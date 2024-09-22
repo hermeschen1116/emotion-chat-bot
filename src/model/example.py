@@ -16,8 +16,8 @@ emotion_tendency = None
 bot = EmotionChatBot(emotion_tendency=emotion_tendency)
 
 while True:
-	user_message: str = input("User:").strip()
+	user_message: str = input("User: ").strip()
 
 	result = bot(user_message)
 
-	print(f"bot: {result['response']}")
+	print(f"Bot: {result['response']}")
