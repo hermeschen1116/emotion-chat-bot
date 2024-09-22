@@ -1,6 +1,7 @@
 import random
 from typing import Dict, List, Optional, Union
 
+import numpy
 import torch
 from huggingface_hub.hub_mixin import PyTorchModelHubMixin
 from torch import Tensor
@@ -19,8 +20,11 @@ emotions: list = [
 
 
 def generate_dummy_representation(target_emotion: int) -> Tensor:
+	weight_choice: numpy.array = numpy.array([-1, 1])
 	while True:
-		dummy = torch.clamp(torch.rand(7, dtype=torch.float32), -1, 1)
+		dummy: Tensor = torch.rand(7, dtype=torch.float32)
+		weight: Tensor = torch.tensor(numpy.random.choice(weight_choice, (7,)), dtype=torch.float32)
+		dummy = torch.clamp(dummy * weight, -1, 1)
 		if torch.argmax(dummy) == target_emotion:
 			return dummy
 
