@@ -32,7 +32,7 @@
 
 #### 機制
 
-<img src="Model_Architecture.png" alt="Model Architecture"/>
+![Model Architecture](Model_Architecture.png)
 
 模組本身會執行三大步驟，依序為辨識情緒、處理情緒、產生情緒。
 
