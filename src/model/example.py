@@ -20,4 +20,4 @@ while True:
 
 	result = bot(user_message)
 
-	print(f"Bot: {result['response']}")
+	print(f"Bot({result['emotion']}): {result['response']}")
