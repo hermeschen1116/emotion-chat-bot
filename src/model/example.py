@@ -26,3 +26,17 @@ while True:
 	result = bot(user_message)
 
 	print(f"Bot({result['emotion']}): {result['response']}")
+
+emotions: list = [
+	"neutral",
+	"anger",
+	"disgust",
+	"fear",
+	"happiness",
+	"sadness",
+	"surprise",
+]
+
+emotion_representation: list = bot.similarity_analyzer.ideal_emotion_representation.tolist()
+
+print(f"Bot's emotion representation:\n{dict(zip(emotions, emotion_representation))}")
