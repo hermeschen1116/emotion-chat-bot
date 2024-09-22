@@ -139,7 +139,7 @@ def sweep_function(config: dict = None) -> None:
 		{
 			"eval/f1-score": evaluation_result["f1_score"],
 			"eval/accuracy": evaluation_result["accuracy"],
-			"eval/optimize_metric": torch.tensor(list(evaluation_result.values())).dot(torch.tensor([0.5, 0.5])),
+			"eval/optimize_metric": torch.tensor(list(evaluation_result.values())).dot(torch.tensor([0.4, 0.6])),
 		}
 	)
 
