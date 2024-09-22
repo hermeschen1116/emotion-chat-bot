@@ -1,6 +1,6 @@
 # Response Generator
 
-> [模型](https://huggingface.co/hermeschen1116/response_generator_for_emotion_chat_bot)、[資料集](https://huggingface.co/datasets/hermeschen1116/daily_dialog_for_RG)
+> [模型](https://huggingface.co/hermeschen1116/response_generator_for_emotion_chat_bot)、[資料集](https://huggingface.co/datasets/hermeschen1116/emotion_transition_from_dialog)
 
 ## Tech Stack
 

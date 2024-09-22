@@ -35,7 +35,7 @@
 
   - Gemma 7B
 
-- 使用模型原生的 prompt template 在多回合對話中產生最後的回應句，並用我們微調的 Sentiment Analysis 模型來分析其情緒。
+- 使用模型[預設的 prompt template](https://www.llama.com/docs/model-cards-and-prompt-formats/meta-llama-2/) 在多回合對話中產生最後的回應句，並用我們微調的 Sentiment Analysis 模型來分析其情緒。
 
 - 計算回應句情緒和實際對話中的回應情緒對應的 Accuray 和 F1 Score
 

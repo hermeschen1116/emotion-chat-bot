@@ -1,13 +1,12 @@
 # Emotion Model
 
+> [模型](https://huggingface.co/hermeschen1116/emotion_model_for_emotion_chat_bot)、[資料集](https://huggingface.co/datasets/hermeschen1116/daily_dialog_for_RG)
+
 ## Goal
 
-- 讓模型能根據修改版的 prompt 形式進行生成
-- 模型生成的回應能符合我們指定的情緒
+使模型能學習情緒的移轉，根據輸入的情緒來調整現在的情緒狀態
 
 ## Experiment
-
-- 參考 Huggingface 的 [Trl](https://huggingface.co/docs/trl/index) 套件的文件，使用 Supervised Fine Tuning 對 LLM 進行初步訓練
 
 ### Environment
 
@@ -16,8 +15,7 @@
 - Nvidia RTX 3060 12G
 
 - Python >3.11
-
-### Dataset
+  ｀｀｀
 
 [Daily Dialog](https://huggingface.co/datasets/li2017dailydialog/daily_dialog)
 
