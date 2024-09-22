@@ -15,8 +15,12 @@ emotion_tendency = None
 
 bot = EmotionChatBot(emotion_tendency=emotion_tendency)
 
+print("If you want to end the conversation, you can enter 'quit'.")
 while True:
 	user_message: str = input("User: ").strip()
+	if user_message == "quit":
+		print("Bot: Goodbye!")
+		break
 
 	result = bot(user_message)
 
