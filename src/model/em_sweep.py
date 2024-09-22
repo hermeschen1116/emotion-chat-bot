@@ -152,6 +152,6 @@ config = config_getter.parse_args()
 with open(config.json_file, "r", encoding="utf-8") as config_file:
 	sweep_config: dict = json.load(config_file)
 
-sweep_id = wandb.sweep(sweep=sweep_config, project="emotion-chat-bot-ncu")
+sweep_id: str = wandb.sweep(sweep=sweep_config, project="emotion-chat-bot-ncu")
 wandb.agent(sweep_id, sweep_function, project="emotion-chat-bot-ncu", count=100)
 wandb.finish()
