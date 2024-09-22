@@ -23,6 +23,7 @@ config = config_getter.parse_args()
 parser = HfArgumentParser((CommonScriptArguments, CommonWanDBArguments))
 args, wandb_args = parser.parse_json_file(config.json_file)
 
+# [TODO] make this config a json
 # Define sweep configuration
 sweep_configuration = {
 	"method": "bayes",
@@ -30,7 +31,7 @@ sweep_configuration = {
 	"metric": {"goal": "maximize", "name": "Weighted score"},
 	"parameters": {
 		"batch_size": {"values": [8, 32, 64]},
-		"num_train_epochs": {"value": 3},
+		"num_train_epochs": {"values": [3, 5, 8]},
 		"learning_rate": {"max": 0.1, "min": 0.0001},
 		"lora_alpha": {"values": [16, 32, 64]},
 		"lora_dropout": {"values": [0.1, 0.2, 0.3]},
@@ -89,9 +90,7 @@ def main():
 	num_emotion_labels: int = len(emotion_labels)
 
 	train_dataset = throw_out_partial_row_with_a_label(dataset["train"], run.config["neutral_keep_ratio"], 0)
-	# train_dataset = train_dataset.take(8192)
 	validation_dataset = dataset["validation"]
-	# validation_dataset = validation_dataset.take(1024)
 
 	tokenizer = AutoTokenizer.from_pretrained(
 		run.config["base_model"],
@@ -141,12 +140,14 @@ def main():
 	)
 	validation_dataset.set_format("torch")
 
+	y = train_dataset["label"].tolist()
+	class_weights = compute_class_weight(class_weight="balanced", classes=np.unique(y), y=y)
+
 	def compute_metrics(prediction) -> dict:
 		sentiment_true: Tensor = torch.tensor([[label] for label in prediction.label_ids.tolist()]).flatten()
 		sentiment_pred: Tensor = torch.tensor(
 			[[label] for label in prediction.predictions.argmax(-1).tolist()]
 		).flatten()
-
 		accuracy = multiclass_accuracy(sentiment_true, sentiment_pred, num_classes=num_emotion_labels)
 		f1_weighted = multiclass_f1_score(
 			sentiment_true,
@@ -154,28 +155,36 @@ def main():
 			num_classes=num_emotion_labels,
 			average="weighted",
 		)
-		f1_macro = multiclass_f1_score(
+
+		f1_per_class = multiclass_f1_score(
 			sentiment_true,
 			sentiment_pred,
 			num_classes=num_emotion_labels,
-			average="macro",
-		)
+			average=None,
+		).to("cuda")
 
-		weights = {"accuracy": 0.3, "f1_weighted": 0.4, "f1_macro": 0.3}
-		weighted_score = (
-			weights["accuracy"] * accuracy + weights["f1_weighted"] * f1_weighted + weights["f1_macro"] * f1_macro
-		)
+		weighted_f1_per_class = f1_per_class * class_weights
+		weighted_f1_all_class = weighted_f1_per_class.mean()
+
+		table = wandb.Table(columns=["Class", "F1", "Weighted F1"])
+		for i, (f1, weighted_f1) in enumerate(zip(f1_per_class, weighted_f1_per_class)):
+			table.add_data(emotion_labels[i], f1.item(), weighted_f1.item())
+
 		wandb.log(
-			{"Accuracy": accuracy, "F1-weighted": f1_weighted, "F1-macro": f1_macro, "Weighted score": weighted_score}
+			{
+				"Accuracy": accuracy.item(),
+				"F1-all-class": weighted_f1_all_class.item(),
+				"F1-per-class-bar": wandb.plot.bar(table, "Class", "F1", title="F1 Score per Class"),
+				"Weighted-F1-per-class-bar": wandb.plot.bar(
+					table, "Class", "Weighted F1", title="Weighted F1 Score per Class"
+				),
+			}
 		)
 
 		return {
 			"Accuracy": accuracy,
 			"F1-score": f1_weighted,
 		}
-
-	y = train_dataset["label"].tolist()
-	class_weights = compute_class_weight(class_weight="balanced", classes=np.unique(y), y=y)
 
 	class FocalLoss(nn.Module):
 		def __init__(self, alpha=None, gamma=2, ignore_index=-100, reduction="mean"):
