@@ -5,6 +5,6 @@
 	"notes": "evaluate model on Emotion Predictor task",
 	"config": {
 		"dataset": "Shotaro30678/daily_dialog_for_EP",
-		"model": "Shotaro30678/emotion_predictor_for_emotion_chat_bot_distilroberta_v1"
+		"model": "model_test"
 	}
 }

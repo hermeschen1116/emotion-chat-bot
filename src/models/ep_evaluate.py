@@ -1,14 +1,14 @@
 from argparse import ArgumentParser
 
 import torch
-import wandb
 from datasets import load_dataset
 from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
-from libs.DataProcess import flatten_dataset
 from sklearn.metrics import classification_report
 from torch import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from transformers import HfArgumentParser, pipeline
+
+import wandb
 
 config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)
@@ -24,52 +24,10 @@ run = wandb.init(
 	group=wandb_args.group,
 )
 
-dataset = load_dataset(
-	run.config["dataset"],
-	split="test",
-	num_proc=16,
-	trust_remote_code=True,
-).remove_columns(["act"])
-emotion_labels: list = dataset.features["emotion"].feature.names
-emotion_labels[0] = "neutral"
+dataset = load_dataset(run.config["dataset"], num_proc=16, trust_remote_code=True, split="test")
+
+emotion_labels: list = dataset.features["label"].names
 num_emotion_labels: int = len(emotion_labels)
-
-dataset = dataset.map(
-	lambda samples: {"response_emotion": [sample[1:] + [sample[0]] for sample in samples]},
-	input_columns=["emotion"],
-	remove_columns=["emotion"],
-	batched=True,
-	num_proc=16,
-)
-
-dataset = dataset.map(
-	lambda samples: {
-		"dialog": [sample[:-1] for sample in samples["dialog"]],
-		"response_emotion": [sample[:-1] for sample in samples["response_emotion"]],
-	},
-	batched=True,
-	num_proc=16,
-)
-
-dataset = dataset.map(
-	lambda samples: {
-		"rows": [
-			[
-				{
-					"text": dialog,
-					"label": emotion,
-				}
-				for i, (emotion, dialog) in enumerate(zip(sample[0], sample[1]))
-			]
-			for sample in zip(samples["response_emotion"], samples["dialog"])
-		]
-	},
-	remove_columns=["response_emotion", "dialog"],
-	batched=True,
-	num_proc=16,
-).filter(lambda sample: len(sample) > 0, input_columns=["rows"], num_proc=16)
-
-dataset = flatten_dataset(dataset)
 
 analyser = pipeline(
 	model=run.config["model"],

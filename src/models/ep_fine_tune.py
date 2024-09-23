@@ -150,8 +150,8 @@ class CustomTrainer(Trainer):
 		return (loss, outputs) if return_outputs else loss
 
 
-batch_size: int = 32
-# per_device_batch_size: int = 32
+batch_size: int = run.config["batch_size"]
+
 logging_steps: int = len(dataset["train"]) // batch_size
 trainer_arguments = TrainingArguments(
 	output_dir="./checkpoints",
@@ -188,7 +188,7 @@ trainer_arguments = TrainingArguments(
 	include_num_input_tokens_seen=True,
 )
 
-tuner = Trainer(
+tuner = CustomTrainer(
 	model=base_model,
 	args=trainer_arguments,
 	compute_metrics=compute_metrics,
