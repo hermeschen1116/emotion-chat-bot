@@ -14,6 +14,8 @@ from torch import Tensor, nn
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, HfArgumentParser, Trainer, TrainingArguments
 
+import wandb
+
 login_to_service()
 
 config_getter = ArgumentParser()
@@ -148,8 +150,9 @@ def main():
 	for label, count in label_counts.items():
 		class_dist.add_data(emotion_labels[label], count)
 
-	y = train_dataset["label"].tolist()
+	y = train_dataset_resampled["label"].tolist()
 	class_weights = compute_class_weight(class_weight="balanced", classes=np.unique(y), y=y)
+	print(class_weights)
 
 	def compute_metrics(prediction) -> dict:
 		sentiment_true: Tensor = torch.tensor([[label] for label in prediction.label_ids.tolist()]).flatten()
