@@ -139,7 +139,7 @@ def sweep_function(config: dict = None) -> None:
 		{
 			"eval/f1-score": evaluation_result["f1_score"],
 			"eval/accuracy": evaluation_result["accuracy"],
-			"eval/optimize_metric": torch.tensor(list(evaluation_result.values())).dot(torch.tensor([0.5, 0.5])),
+			"eval/optimize_metric": torch.tensor(list(evaluation_result.values())).dot(torch.tensor([0.4, 0.6])),
 		}
 	)
 
@@ -152,6 +152,6 @@ config = config_getter.parse_args()
 with open(config.json_file, "r", encoding="utf-8") as config_file:
 	sweep_config: dict = json.load(config_file)
 
-sweep_id = wandb.sweep(sweep=sweep_config, project="emotion-chat-bot-ncu")
-wandb.agent(sweep_id, sweep_function, project="emotion-chat-bot-ncu", count=100)
+sweep_id: str = wandb.sweep(sweep=sweep_config, project="emotion-chat-bot-ncu")
+wandb.agent(sweep_id, sweep_function, project="emotion-chat-bot-ncu", count=250)
 wandb.finish()
