@@ -1,0 +1,32 @@
+{
+	"job_type": "sweep",
+	"project": "emotion-chat-bot-ncu-ep-sweep",
+	"group": "Emotion Predictor",
+	"config": {
+		"dataset": "Shotaro30678/daily_dialog_for_EP",
+		"base_model": "j-hartmann/emotion-english-distilroberta-base",
+		"neutral_keep_ratio": 0.5,
+		"optim": "paged_adamw_32bit",
+		"fine_tuned_model": "emotion_predictor_for_emotion_chat_bot_distilroberta_v1",
+		"sweep_config" : {
+			"method": "bayes",
+			"name": "sweep",
+			"metric": {"goal": "maximize", "name": "F1-all-class"},
+			"parameters": {
+				"batch_size": {"values": [8, 32, 64]},
+				"num_train_epochs": {"values": [3, 5, 8]},
+				"learning_rate": {"max": 0.1, "min": 0.0001},
+				"lora_alpha": {"values": [16, 32, 64]},
+				"lora_dropout": {"values": [0.1, 0.2, 0.3]},
+				"lora_rank": {"values": [16, 32, 64]},
+				"init_lora_weights": {"values": [true, false]},
+				"use_rslora": {"values": [true, false]},
+				"focal_gamma": {"values": [0, 1, 2]},
+				"weight_decay": {"max": 0.3, "min": 0.0},
+				"warmup_ratio": {"max": 0.1, "min": 0.0},
+				"max_steps": {"value": -1},
+				"max_grad_norm": {"max": 1.0, "min": 0.1}
+			}
+		}
+	}
+}
