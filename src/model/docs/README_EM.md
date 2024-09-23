@@ -94,7 +94,7 @@ def representation_evolute(
 
 ### Hyperparameter Tuning
 
-> [Report](https://wandb.ai/hermeschen1116/emotion-chat-bot-ncu/reports/Emotion-Model-Hyperparamters-Tuning--Vmlldzo5NDUxOTg0)
+> [Report](https://wandb.ai/hermeschen1116/emotion-chat-bot-ncu/reports/Emotion-Model-Hyperparamters-Tuning--Vmlldzo5NDYxOTUz)
 
 - 使用 WanDB Sweep 來找到最佳化的超參數
 
