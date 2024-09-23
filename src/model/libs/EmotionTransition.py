@@ -71,9 +71,9 @@ def representation_evolute(
 class EmotionModel(torch.nn.Module, PyTorchModelHubMixin):
 	def __init__(
 		self,
-		dropout: float = 0.5321222767142184,
+		dropout: float = 0.32811879682394585,
 		bias: bool = False,
-		dtype: torch.dtype = torch.bfloat16,
+		dtype: torch.dtype = torch.float32,
 	) -> None:
 		super(EmotionModel, self).__init__()
 
