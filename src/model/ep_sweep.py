@@ -14,6 +14,8 @@ from torch import Tensor, nn
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, HfArgumentParser, Trainer, TrainingArguments
 
+import wandb
+
 login_to_service()
 
 config_getter = ArgumentParser()
