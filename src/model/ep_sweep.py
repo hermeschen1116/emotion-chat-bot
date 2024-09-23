@@ -1,9 +1,10 @@
 from argparse import ArgumentParser
+from collections import Counter
 
 import numpy as np
 import torch
-import wandb
-from datasets import load_dataset
+from datasets import Dataset, load_dataset
+from imblearn.over_sampling import ADASYN
 from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
 from libs.CommonUtils import login_to_service
 from libs.DataProcess import throw_out_partial_row_with_a_label
@@ -23,40 +24,16 @@ parser = HfArgumentParser((CommonScriptArguments, CommonWanDBArguments))
 args, wandb_args = parser.parse_json_file(config.json_file)
 
 # Define sweep configuration
-sweep_configuration = {
-	"method": "bayes",
-	"name": "sweep",
-	"metric": {"goal": "maximize", "name": "Weighted score"},
-	"parameters": {
-		"batch_size": {"values": [8, 32, 64]},
-		"num_train_epochs": {"value": 3},
-		"learning_rate": {"max": 0.1, "min": 0.0001},
-		"lora_alpha": {"values": [16, 32, 64]},
-		"lora_dropout": {"values": [0.1, 0.2, 0.3]},
-		"lora_rank": {"values": [16, 32, 64]},
-		"init_lora_weights": {"values": [True, False]},
-		"use_rslora": {"values": [True, False]},
-		"focal_gamma": {"values": [0, 1, 2]},
-		"weight_decay": {"max": 0.3, "min": 0.0},
-		"warmup_ratio": {"max": 0.1, "min": 0.0},
-		"max_steps": {"value": -1},
-		"max_grad_norm": {"max": 1.0, "min": 0.1},
-	},
-}
-
-# Initialize sweep
-sweep_id = wandb.sweep(sweep=sweep_configuration, project="emotion-chat-bot-ncu-ep-sweep")
+sweep_configuration = wandb_args.config["sweep_config"]
+sweep_id = wandb.sweep(sweep=sweep_configuration, project=wandb_args.project)
 
 
 def main():
 	# Initialize wandb run
 	run = wandb.init(
-		name=wandb_args.name,
 		job_type=wandb_args.job_type,
 		config=wandb_args.config,
-		project=wandb_args.project,
 		group=wandb_args.group,
-		notes=wandb_args.notes,
 	)
 
 	# Fetch hyperparameters from `wandb.config`
@@ -88,9 +65,7 @@ def main():
 	num_emotion_labels: int = len(emotion_labels)
 
 	train_dataset = throw_out_partial_row_with_a_label(dataset["train"], run.config["neutral_keep_ratio"], 0)
-	# train_dataset = train_dataset.take(8192)
 	validation_dataset = dataset["validation"]
-	# validation_dataset = validation_dataset.take(1024)
 
 	tokenizer = AutoTokenizer.from_pretrained(
 		run.config["base_model"],
@@ -140,12 +115,47 @@ def main():
 	)
 	validation_dataset.set_format("torch")
 
+	X_train = train_dataset["input_ids"]
+	y_train = train_dataset["label"]
+
+	X_train_np = X_train.numpy()
+	y_train_np = y_train.numpy()
+
+	adasyn = ADASYN(sampling_strategy="auto", n_jobs=-1)
+	X_resampled_np, y_resampled_np = adasyn.fit_resample(X_train_np, y_train_np)
+
+	X_resampled = torch.tensor(X_resampled_np)
+	y_resampled = torch.tensor(y_resampled_np)
+
+	new_train_dataset = []
+
+	for input_id, label in zip(X_resampled, y_resampled):
+		new_train_dataset.append(
+			{
+				"input_ids": input_id,
+				"label": label,
+			}
+		)
+	train_dataset_resampled = Dataset.from_list(new_train_dataset)
+	train_dataset_resampled.set_format("torch")
+	# Take small portion of the data
+	train_dataset_resampled = train_dataset_resampled.shuffle().take(7000)
+	# 計算每個類別的數量
+	class_dist = wandb.Table(columns=["Class", "Count"])
+	labels = train_dataset_resampled["label"].tolist()
+	label_counts = Counter(labels)
+
+	for label, count in label_counts.items():
+		class_dist.add_data(emotion_labels[label], count)
+
+	y = train_dataset["label"].tolist()
+	class_weights = compute_class_weight(class_weight="balanced", classes=np.unique(y), y=y)
+
 	def compute_metrics(prediction) -> dict:
 		sentiment_true: Tensor = torch.tensor([[label] for label in prediction.label_ids.tolist()]).flatten()
 		sentiment_pred: Tensor = torch.tensor(
 			[[label] for label in prediction.predictions.argmax(-1).tolist()]
 		).flatten()
-
 		accuracy = multiclass_accuracy(sentiment_true, sentiment_pred, num_classes=num_emotion_labels)
 		f1_weighted = multiclass_f1_score(
 			sentiment_true,
@@ -153,28 +163,37 @@ def main():
 			num_classes=num_emotion_labels,
 			average="weighted",
 		)
-		f1_macro = multiclass_f1_score(
+
+		f1_per_class = multiclass_f1_score(
 			sentiment_true,
 			sentiment_pred,
 			num_classes=num_emotion_labels,
-			average="macro",
-		)
+			average=None,
+		).to("cuda")
 
-		weights = {"accuracy": 0.3, "f1_weighted": 0.4, "f1_macro": 0.3}
-		weighted_score = (
-			weights["accuracy"] * accuracy + weights["f1_weighted"] * f1_weighted + weights["f1_macro"] * f1_macro
-		)
+		weighted_f1_per_class = f1_per_class * class_weights
+		weighted_f1_all_class = weighted_f1_per_class.mean()
+
+		table = wandb.Table(columns=["Class", "F1", "Weighted F1"])
+		for i, (f1, weighted_f1) in enumerate(zip(f1_per_class, weighted_f1_per_class)):
+			table.add_data(emotion_labels[i], f1.item(), weighted_f1.item())
+
 		wandb.log(
-			{"Accuracy": accuracy, "F1-weighted": f1_weighted, "F1-macro": f1_macro, "Weighted score": weighted_score}
+			{
+				"Accuracy": accuracy.item(),
+				"F1-all-class": weighted_f1_all_class.item(),
+				"F1-per-class-bar": wandb.plot.bar(table, "Class", "F1", title="F1 Score per Class"),
+				"Weighted-F1-per-class-bar": wandb.plot.bar(
+					table, "Class", "Weighted F1", title="Weighted F1 Score per Class"
+				),
+				"Class Distribution": wandb.plot.bar(class_dist, "Class", "Count", title="Class Distribution"),
+			}
 		)
 
 		return {
 			"Accuracy": accuracy,
 			"F1-score": f1_weighted,
 		}
-
-	y = train_dataset["label"].tolist()
-	class_weights = compute_class_weight(class_weight="balanced", classes=np.unique(y), y=y)
 
 	class FocalLoss(nn.Module):
 		def __init__(self, alpha=None, gamma=2, ignore_index=-100, reduction="mean"):
@@ -255,7 +274,7 @@ def main():
 		model=base_model,
 		args=trainer_arguments,
 		compute_metrics=compute_metrics,
-		train_dataset=train_dataset,
+		train_dataset=train_dataset_resampled,
 		eval_dataset=validation_dataset,
 		tokenizer=tokenizer,
 	)
@@ -266,8 +285,8 @@ def main():
 	tuner.model = tuner.model.merge_and_unload(progressbar=True)
 
 	if hasattr(tuner.model, "config"):
-		tuner.model.config.save_pretrained("model_test")
-	tuner.save_model("model_test")
+		tuner.model.config.save_pretrained(run.config["fine_tuned_model"])
+	tuner.save_model(run.config["fine_tuned_model"])
 
 	wandb.finish()
 
