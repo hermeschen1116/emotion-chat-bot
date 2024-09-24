@@ -1,16 +1,23 @@
 from argparse import ArgumentParser
+from collections import Counter
 
 import numpy as np
 import torch
-import wandb
-from datasets import load_dataset
+from datasets import Dataset, load_dataset
+from imblearn.over_sampling import ADASYN
 from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
+from libs.CommonUtils import login_to_service
 from libs.DataProcess import throw_out_partial_row_with_a_label
 from peft import LoraConfig, get_peft_model
+from sklearn.metrics import balanced_accuracy_score
 from sklearn.utils.class_weight import compute_class_weight
 from torch import Tensor, nn
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, HfArgumentParser, Trainer, TrainingArguments
+
+import wandb
+
+login_to_service()
 
 config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)
@@ -20,12 +27,9 @@ parser = HfArgumentParser((CommonScriptArguments, CommonWanDBArguments))
 args, wandb_args = parser.parse_json_file(config.json_file)
 
 run = wandb.init(
-	name=wandb_args.name,
-	job_type=wandb_args.job_type,
 	config=wandb_args.config,
 	project=wandb_args.project,
 	group=wandb_args.group,
-	notes=wandb_args.notes,
 )
 
 dataset = load_dataset(
@@ -88,27 +92,96 @@ validation_dataset = validation_dataset.map(
 validation_dataset.set_format("torch")
 
 
-def compute_metrics(prediction) -> dict:
-	sentiment_true: Tensor = torch.tensor([[label] for label in prediction.label_ids.tolist()]).flatten()
-	sentiment_pred: Tensor = torch.tensor([[label] for label in prediction.predictions.argmax(-1).tolist()]).flatten()
+def oversampling(train_dataset) -> Dataset:
+	X_train = train_dataset["input_ids"]
+	y_train = train_dataset["label"]
 
-	return {
-		"Accuracy": multiclass_accuracy(sentiment_true, sentiment_pred, num_classes=num_emotion_labels),
-		"F1-score": multiclass_f1_score(
-			sentiment_true,
-			sentiment_pred,
-			num_classes=num_emotion_labels,
-			average="weighted",
-		),
-	}
+	X_train_np = X_train.numpy()
+	y_train_np = y_train.numpy()
 
+	adasyn = ADASYN(sampling_strategy="auto", n_jobs=-1)
+	X_resampled_np, y_resampled_np = adasyn.fit_resample(X_train_np, y_train_np)
+
+	X_resampled = torch.tensor(X_resampled_np)
+	y_resampled = torch.tensor(y_resampled_np)
+
+	new_train_dataset = []
+
+	for input_id, label in zip(X_resampled, y_resampled):
+		new_train_dataset.append(
+			{
+				"input_ids": input_id,
+				"label": label,
+			}
+		)
+
+	dataset_resampled = Dataset.from_list(new_train_dataset)
+	dataset_resampled.set_format("torch")
+
+	return dataset_resampled
+
+
+train_dataset_resampled = oversampling(train_dataset)
+
+class_dist = wandb.Table(columns=["Class", "Count"])
+labels = train_dataset_resampled["label"].tolist()
+label_counts = Counter(labels)
+
+for label, count in label_counts.items():
+	class_dist.add_data(emotion_labels[label], count)
 
 y = train_dataset["label"].tolist()
 class_weights = compute_class_weight(class_weight="balanced", classes=np.unique(y), y=y)
 
 
+def compute_metrics(prediction) -> dict:
+	sentiment_true: Tensor = torch.tensor([[label] for label in prediction.label_ids.tolist()]).flatten()
+	sentiment_true: Tensor = torch.tensor([[label] for label in prediction.label_ids.tolist()]).flatten()
+	sentiment_pred: Tensor = torch.tensor([[label] for label in prediction.predictions.argmax(-1).tolist()]).flatten()
+	balanced_acc = balanced_accuracy_score(sentiment_true, sentiment_pred)
+
+	accuracy = multiclass_accuracy(sentiment_true, sentiment_pred, num_classes=num_emotion_labels)
+	f1_weighted = multiclass_f1_score(
+		sentiment_true,
+		sentiment_pred,
+		num_classes=num_emotion_labels,
+		average="weighted",
+	)
+
+	f1_per_class = multiclass_f1_score(
+		sentiment_true,
+		sentiment_pred,
+		num_classes=num_emotion_labels,
+		average=None,
+	).to("cuda")
+
+	weighted_f1_per_class = f1_per_class * class_weights
+	non_zero_count = (weighted_f1_per_class != 0).sum()
+	weighted_f1_all_class = weighted_f1_per_class.mean()
+
+	table = wandb.Table(columns=["Class", "F1", "Weighted F1"])
+	for i, (f1, weighted_f1) in enumerate(zip(f1_per_class, weighted_f1_per_class)):
+		table.add_data(emotion_labels[i], f1.item(), weighted_f1.item())
+
+	wandb.log(
+		{
+			"Balanced_Accuracy": balanced_acc.item(),
+			"Accuracy": accuracy.item(),
+			"F1-all-class": weighted_f1_all_class.item(),
+			"Classes-with-value": non_zero_count.item(),
+			"F1-per-class-bar": wandb.plot.bar(table, "Class", "F1", title="F1 Score per Class"),
+			"Weighted-F1-per-class-bar": wandb.plot.bar(
+				table, "Class", "Weighted F1", title="Weighted F1 Score per Class"
+			),
+			"Class Distribution": wandb.plot.bar(class_dist, "Class", "Count", title="Class Distribution"),
+		}
+	)
+
+	return {"Accuracy": accuracy, "F1-score": f1_weighted, "F1-all-class": weighted_f1_all_class}
+
+
 class FocalLoss(nn.Module):
-	def __init__(self, alpha=None, gamma=2, ignore_index=-100, reduction="mean"):
+	def __init__(self, alpha=None, gamma=8, ignore_index=-100, reduction="mean"):
 		super().__init__()
 		# use standard CE loss without reducion as basis
 		self.CE = nn.CrossEntropyLoss(reduction="none", ignore_index=ignore_index)
@@ -159,7 +232,7 @@ trainer_arguments = TrainingArguments(
 	per_device_eval_batch_size=batch_size,
 	gradient_accumulation_steps=1,
 	learning_rate=run.config["learning_rate"],
-	lr_scheduler_type="constant",
+	lr_scheduler_type="cosine",
 	weight_decay=run.config["weight_decay"],
 	max_grad_norm=run.config["max_grad_norm"],
 	num_train_epochs=run.config["num_train_epochs"],
@@ -172,6 +245,8 @@ trainer_arguments = TrainingArguments(
 	save_strategy="epoch",
 	eval_strategy="epoch",
 	load_best_model_at_end=True,
+	metric_for_best_model="F1-all-class",
+	greater_is_better=True,
 	fp16=True,
 	bf16=False,
 	dataloader_num_workers=12,
@@ -202,7 +277,7 @@ tuner.model = torch.compile(tuner.model)
 tuner.model = tuner.model.merge_and_unload(progressbar=True)
 
 if hasattr(tuner.model, "config"):
-	tuner.model.config.save_pretrained("model_test")
-tuner.save_model("model_test")
+	tuner.model.config.save_pretrained("model_test_right_classweight_8")
+tuner.save_model("model_test_right_classweight_8")
 
 wandb.finish()

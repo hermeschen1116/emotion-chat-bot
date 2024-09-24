@@ -11,7 +11,7 @@
 		"sweep_config" : {
 			"method": "bayes",
 			"name": "sweep",
-			"metric": {"goal": "maximize", "name": "F1-all-class"},
+			"metric": {"goal": "maximize", "name": "Balanced_Accuracy"},
 			"parameters": {
 				"batch_size": {"values": [8, 32, 64]},
 				"num_train_epochs": {"values": [3, 5, 8]},

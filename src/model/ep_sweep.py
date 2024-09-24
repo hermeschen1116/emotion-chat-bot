@@ -153,7 +153,7 @@ def main():
 	for label, count in label_counts.items():
 		class_dist.add_data(emotion_labels[label], count)
 
-	y = train_dataset_resampled["label"].tolist()
+	y = train_dataset["label"].tolist()
 	class_weights = compute_class_weight(class_weight="balanced", classes=np.unique(y), y=y)
 
 	def compute_metrics(prediction) -> dict:
@@ -199,10 +199,7 @@ def main():
 			}
 		)
 
-		return {
-			"Accuracy": accuracy,
-			"F1-score": f1_weighted,
-		}
+		return {"Accuracy": accuracy, "F1-score": f1_weighted, "F1-all-class": weighted_f1_all_class}
 
 	class FocalLoss(nn.Module):
 		def __init__(self, alpha=None, gamma=2, ignore_index=-100, reduction="mean"):
@@ -264,6 +261,8 @@ def main():
 		save_strategy="epoch",
 		eval_strategy="epoch",
 		load_best_model_at_end=True,
+		metric_for_best_model="F1-all-class",
+		greater_is_better=True,
 		fp16=True,
 		bf16=False,
 		dataloader_num_workers=12,
@@ -283,7 +282,7 @@ def main():
 		model=base_model,
 		args=trainer_arguments,
 		compute_metrics=compute_metrics,
-		train_dataset=train_dataset_resampled,
+		train_dataset=train_dataset,
 		eval_dataset=validation_dataset,
 		tokenizer=tokenizer,
 	)
