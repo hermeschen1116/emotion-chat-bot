@@ -43,6 +43,7 @@ def main():
 	batch_size = wandb.config.batch_size
 	num_train_epochs = wandb.config.num_train_epochs
 	learning_rate = wandb.config.learning_rate
+	lr_scheduler_type = wandb.config.lr_scheduler_type
 	weight_decay = wandb.config.weight_decay
 	warmup_ratio = wandb.config.warmup_ratio
 	max_steps = wandb.config.max_steps
@@ -245,7 +246,7 @@ def main():
 		per_device_eval_batch_size=batch_size,
 		gradient_accumulation_steps=1,
 		learning_rate=learning_rate,
-		lr_scheduler_type="constant",
+		lr_scheduler_type=lr_scheduler_type,
 		weight_decay=weight_decay,
 		max_grad_norm=max_grad_norm,
 		num_train_epochs=num_train_epochs,
