@@ -7,8 +7,8 @@ from datasets import Dataset, load_dataset
 from imblearn.over_sampling import ADASYN
 from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
 from libs.CommonUtils import login_to_service
-from libs.DataProcess import throw_out_partial_row_with_a_label
 from peft import LoraConfig, get_peft_model
+from sklearn.metrics import balanced_accuracy_score
 from sklearn.utils.class_weight import compute_class_weight
 from torch import Tensor, nn
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
@@ -67,7 +67,9 @@ def main():
 	emotion_labels: list = dataset["train"].features["label"].names
 	num_emotion_labels: int = len(emotion_labels)
 
-	train_dataset = throw_out_partial_row_with_a_label(dataset["train"], run.config["neutral_keep_ratio"], 0)
+	# train_dataset = throw_out_partial_row_with_a_label(dataset["train"], run.config["neutral_keep_ratio"], 0)
+	train_dataset = dataset["train"]
+
 	validation_dataset = dataset["validation"]
 
 	tokenizer = AutoTokenizer.from_pretrained(
@@ -153,13 +155,13 @@ def main():
 
 	y = train_dataset_resampled["label"].tolist()
 	class_weights = compute_class_weight(class_weight="balanced", classes=np.unique(y), y=y)
-	print(class_weights)
 
 	def compute_metrics(prediction) -> dict:
 		sentiment_true: Tensor = torch.tensor([[label] for label in prediction.label_ids.tolist()]).flatten()
 		sentiment_pred: Tensor = torch.tensor(
 			[[label] for label in prediction.predictions.argmax(-1).tolist()]
 		).flatten()
+		balanced_acc = balanced_accuracy_score(sentiment_true, sentiment_pred)
 		accuracy = multiclass_accuracy(sentiment_true, sentiment_pred, num_classes=num_emotion_labels)
 		f1_weighted = multiclass_f1_score(
 			sentiment_true,
@@ -176,6 +178,7 @@ def main():
 		).to("cuda")
 
 		weighted_f1_per_class = f1_per_class * class_weights
+		non_zero_count = (weighted_f1_per_class != 0).sum()
 		weighted_f1_all_class = weighted_f1_per_class.mean()
 
 		table = wandb.Table(columns=["Class", "F1", "Weighted F1"])
@@ -184,8 +187,10 @@ def main():
 
 		wandb.log(
 			{
+				"Balanced_Accuracy": balanced_acc.item(),
 				"Accuracy": accuracy.item(),
 				"F1-all-class": weighted_f1_all_class.item(),
+				"Classes-with-value": non_zero_count.item(),
 				"F1-per-class-bar": wandb.plot.bar(table, "Class", "F1", title="F1 Score per Class"),
 				"Weighted-F1-per-class-bar": wandb.plot.bar(
 					table, "Class", "Weighted F1", title="Weighted F1 Score per Class"
@@ -268,7 +273,7 @@ def main():
 		hub_model_id=run.config["fine_tuned_model"],
 		gradient_checkpointing=True,
 		gradient_checkpointing_kwargs={"use_reentrant": True},
-		auto_find_batch_size=True,
+		# auto_find_batch_size=True,
 		torch_compile=False,
 		include_tokens_per_second=True,
 		include_num_input_tokens_seen=True,
