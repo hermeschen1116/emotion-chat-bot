@@ -181,7 +181,7 @@ def compute_metrics(prediction) -> dict:
 
 
 class FocalLoss(nn.Module):
-	def __init__(self, alpha=None, gamma=8, ignore_index=-100, reduction="mean"):
+	def __init__(self, alpha=class_weights, gamma=8, ignore_index=-100, reduction="mean"):
 		super().__init__()
 		# use standard CE loss without reducion as basis
 		self.CE = nn.CrossEntropyLoss(reduction="none", ignore_index=ignore_index)
@@ -256,13 +256,15 @@ trainer_arguments = TrainingArguments(
 	hub_model_id=run.config["fine_tuned_model"],
 	gradient_checkpointing=True,
 	gradient_checkpointing_kwargs={"use_reentrant": True},
-	auto_find_batch_size=True,
+	# auto_find_batch_size=True,
 	torch_compile=False,
 	include_tokens_per_second=True,
 	include_num_input_tokens_seen=True,
 )
 
-tuner = CustomTrainer(
+train_dataset_resampled = train_dataset_resampled.shuffle().take(16384)
+
+tuner = Trainer(
 	model=base_model,
 	args=trainer_arguments,
 	compute_metrics=compute_metrics,
@@ -275,9 +277,10 @@ tuner.train()
 
 tuner.model = torch.compile(tuner.model)
 tuner.model = tuner.model.merge_and_unload(progressbar=True)
+tuner.push_to_hub()
 
 if hasattr(tuner.model, "config"):
-	tuner.model.config.save_pretrained("model_test_right_classweight_8")
-tuner.save_model("model_test_right_classweight_8")
+	tuner.model.config.save_pretrained(run.config["fine_tuned_model"])
+tuner.save_model(run.config["fine_tuned_model"])
 
 wandb.finish()
