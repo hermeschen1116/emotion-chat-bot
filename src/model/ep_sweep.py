@@ -110,6 +110,8 @@ def main():
 		num_proc=16,
 	)
 	train_dataset.set_format("torch")
+	train_dataset = train_dataset.shuffle().take(10000)  # take 10000 for sweeping
+
 	validation_dataset = validation_dataset.map(
 		lambda samples: {
 			"input_ids": [tokenizer.encode(sample, padding="max_length", truncation=True) for sample in samples],
