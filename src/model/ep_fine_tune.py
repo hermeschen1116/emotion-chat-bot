@@ -231,11 +231,6 @@ tuner.train()
 
 tuner.model = torch.compile(tuner.model)
 tuner.model = tuner.model.merge_and_unload(progressbar=True)
-
-if hasattr(tuner.model, "config"):
-	tuner.model.config.save_pretrained(run.config["fine_tuned_model"])
-tuner.save_model(run.config["fine_tuned_model"])
-
 tuner.push_to_hub()
 
 
