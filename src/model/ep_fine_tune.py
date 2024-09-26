@@ -1,10 +1,8 @@
 from argparse import ArgumentParser
-from collections import Counter
 
 import numpy as np
 import torch
-from datasets import Dataset, load_dataset
-from imblearn.over_sampling import ADASYN
+from datasets import load_dataset
 from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
 from libs.CommonUtils import login_to_service
 from libs.DataProcess import throw_out_partial_row_with_a_label
@@ -92,50 +90,7 @@ validation_dataset = validation_dataset.map(
 validation_dataset.set_format("torch")
 
 
-def oversampling(train_dataset) -> Dataset:
-	X_train = train_dataset["input_ids"]
-	y_train = train_dataset["label"]
-
-	X_train_np = X_train.numpy()
-	y_train_np = y_train.numpy()
-
-	adasyn = ADASYN(sampling_strategy="auto", n_jobs=-1)
-	X_resampled_np, y_resampled_np = adasyn.fit_resample(X_train_np, y_train_np)
-
-	X_resampled = torch.tensor(X_resampled_np)
-	y_resampled = torch.tensor(y_resampled_np)
-
-	new_train_dataset = []
-
-	for input_id, label in zip(X_resampled, y_resampled):
-		new_train_dataset.append(
-			{
-				"input_ids": input_id,
-				"label": label,
-			}
-		)
-
-	dataset_resampled = Dataset.from_list(new_train_dataset)
-	dataset_resampled.set_format("torch")
-
-	return dataset_resampled
-
-
-train_dataset_resampled = oversampling(train_dataset)
-
-class_dist = wandb.Table(columns=["Class", "Count"])
-labels = train_dataset_resampled["label"].tolist()
-label_counts = Counter(labels)
-
-for label, count in label_counts.items():
-	class_dist.add_data(emotion_labels[label], count)
-
-y = train_dataset["label"].tolist()
-class_weights = compute_class_weight(class_weight="balanced", classes=np.unique(y), y=y)
-
-
 def compute_metrics(prediction) -> dict:
-	sentiment_true: Tensor = torch.tensor([[label] for label in prediction.label_ids.tolist()]).flatten()
 	sentiment_true: Tensor = torch.tensor([[label] for label in prediction.label_ids.tolist()]).flatten()
 	sentiment_pred: Tensor = torch.tensor([[label] for label in prediction.predictions.argmax(-1).tolist()]).flatten()
 	balanced_acc = balanced_accuracy_score(sentiment_true, sentiment_pred)
@@ -173,7 +128,6 @@ def compute_metrics(prediction) -> dict:
 			"Weighted-F1-per-class-bar": wandb.plot.bar(
 				table, "Class", "Weighted F1", title="Weighted F1 Score per Class"
 			),
-			"Class Distribution": wandb.plot.bar(class_dist, "Class", "Count", title="Class Distribution"),
 		}
 	)
 
@@ -181,7 +135,7 @@ def compute_metrics(prediction) -> dict:
 
 
 class FocalLoss(nn.Module):
-	def __init__(self, alpha=class_weights, gamma=8, ignore_index=-100, reduction="mean"):
+	def __init__(self, alpha=None, gamma=8, ignore_index=-100, reduction="mean"):
 		super().__init__()
 		# use standard CE loss without reducion as basis
 		self.CE = nn.CrossEntropyLoss(reduction="none", ignore_index=ignore_index)
@@ -209,6 +163,8 @@ class FocalLoss(nn.Module):
 		return focal_loss
 
 
+y = train_dataset["label"].tolist()
+class_weights = compute_class_weight(class_weight="balanced", classes=np.unique(y), y=y)
 class_weights = torch.tensor(class_weights, dtype=torch.float).to("cuda")
 loss_fct = FocalLoss(alpha=class_weights, gamma=run.config["focal_gamma"])
 
@@ -256,15 +212,13 @@ trainer_arguments = TrainingArguments(
 	hub_model_id=run.config["fine_tuned_model"],
 	gradient_checkpointing=True,
 	gradient_checkpointing_kwargs={"use_reentrant": True},
-	# auto_find_batch_size=True,
 	torch_compile=False,
 	include_tokens_per_second=True,
 	include_num_input_tokens_seen=True,
 )
 
-train_dataset_resampled = train_dataset_resampled.shuffle().take(16384)
 
-tuner = Trainer(
+tuner = CustomTrainer(
 	model=base_model,
 	args=trainer_arguments,
 	compute_metrics=compute_metrics,
@@ -277,10 +231,12 @@ tuner.train()
 
 tuner.model = torch.compile(tuner.model)
 tuner.model = tuner.model.merge_and_unload(progressbar=True)
-tuner.push_to_hub()
 
 if hasattr(tuner.model, "config"):
 	tuner.model.config.save_pretrained(run.config["fine_tuned_model"])
 tuner.save_model(run.config["fine_tuned_model"])
+
+tuner.push_to_hub()
+
 
 wandb.finish()
