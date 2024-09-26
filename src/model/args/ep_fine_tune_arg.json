@@ -5,21 +5,21 @@
 	"config": {
 		"dataset": "Shotaro30678/daily_dialog_for_EP",
 		"base_model": "j-hartmann/emotion-english-distilroberta-base",
-		"batch_size":8,
+		"batch_size":64,
 		"neutral_keep_ratio": 0.5,
 		"init_lora_weights": true,
 		"lora_rank": 32,
-		"lora_alpha": 16,
-		"lora_dropout": 0.1,
-		"use_rslora": false,
-		"num_train_epochs": 1,
-		"learning_rate": 0.08,
-		"weight_decay": 0.2708,
-		"max_grad_norm": 0.7388,
-		"warmup_ratio": 0.08441,
+		"lora_alpha": 64,
+		"lora_dropout": 0.2,
+		"use_rslora": true,
+		"num_train_epochs": 5,
+		"learning_rate": 0.0007627,
+		"weight_decay": 0.3052,
+		"max_grad_norm": 0.6186,
+		"warmup_ratio": 0.06915,
 		"max_steps": -1,
-		"focal_gamma": 1,
+		"focal_gamma": 8,
 		"optim": "paged_adamw_32bit",
-		"fine_tuned_model": "emotion_predictor_for_emotion_chat_bot_distilroberta_v1"
+		"fine_tuned_model": "EP_focal_loss_class_weight_original_dataset"
 	}
 }

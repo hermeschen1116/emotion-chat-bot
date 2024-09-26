@@ -7,8 +7,8 @@ from datasets import Dataset, load_dataset
 from imblearn.over_sampling import ADASYN
 from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
 from libs.CommonUtils import login_to_service
-from libs.DataProcess import throw_out_partial_row_with_a_label
 from peft import LoraConfig, get_peft_model
+from sklearn.metrics import balanced_accuracy_score
 from sklearn.utils.class_weight import compute_class_weight
 from torch import Tensor, nn
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
@@ -43,6 +43,7 @@ def main():
 	batch_size = wandb.config.batch_size
 	num_train_epochs = wandb.config.num_train_epochs
 	learning_rate = wandb.config.learning_rate
+	lr_scheduler_type = wandb.config.lr_scheduler_type
 	weight_decay = wandb.config.weight_decay
 	warmup_ratio = wandb.config.warmup_ratio
 	max_steps = wandb.config.max_steps
@@ -66,7 +67,9 @@ def main():
 	emotion_labels: list = dataset["train"].features["label"].names
 	num_emotion_labels: int = len(emotion_labels)
 
-	train_dataset = throw_out_partial_row_with_a_label(dataset["train"], run.config["neutral_keep_ratio"], 0)
+	# train_dataset = throw_out_partial_row_with_a_label(dataset["train"], run.config["neutral_keep_ratio"], 0)
+	train_dataset = dataset["train"]
+
 	validation_dataset = dataset["validation"]
 
 	tokenizer = AutoTokenizer.from_pretrained(
@@ -107,6 +110,8 @@ def main():
 		num_proc=16,
 	)
 	train_dataset.set_format("torch")
+	train_dataset = train_dataset.shuffle().take(10000)  # take 10000 for sweeping
+
 	validation_dataset = validation_dataset.map(
 		lambda samples: {
 			"input_ids": [tokenizer.encode(sample, padding="max_length", truncation=True) for sample in samples],
@@ -150,15 +155,15 @@ def main():
 	for label, count in label_counts.items():
 		class_dist.add_data(emotion_labels[label], count)
 
-	y = train_dataset_resampled["label"].tolist()
+	y = train_dataset["label"].tolist()
 	class_weights = compute_class_weight(class_weight="balanced", classes=np.unique(y), y=y)
-	print(class_weights)
 
 	def compute_metrics(prediction) -> dict:
 		sentiment_true: Tensor = torch.tensor([[label] for label in prediction.label_ids.tolist()]).flatten()
 		sentiment_pred: Tensor = torch.tensor(
 			[[label] for label in prediction.predictions.argmax(-1).tolist()]
 		).flatten()
+		balanced_acc = balanced_accuracy_score(sentiment_true, sentiment_pred)
 		accuracy = multiclass_accuracy(sentiment_true, sentiment_pred, num_classes=num_emotion_labels)
 		f1_weighted = multiclass_f1_score(
 			sentiment_true,
@@ -175,6 +180,7 @@ def main():
 		).to("cuda")
 
 		weighted_f1_per_class = f1_per_class * class_weights
+		non_zero_count = (weighted_f1_per_class != 0).sum()
 		weighted_f1_all_class = weighted_f1_per_class.mean()
 
 		table = wandb.Table(columns=["Class", "F1", "Weighted F1"])
@@ -183,8 +189,10 @@ def main():
 
 		wandb.log(
 			{
+				"Balanced_Accuracy": balanced_acc.item(),
 				"Accuracy": accuracy.item(),
 				"F1-all-class": weighted_f1_all_class.item(),
+				"Classes-with-value": non_zero_count.item(),
 				"F1-per-class-bar": wandb.plot.bar(table, "Class", "F1", title="F1 Score per Class"),
 				"Weighted-F1-per-class-bar": wandb.plot.bar(
 					table, "Class", "Weighted F1", title="Weighted F1 Score per Class"
@@ -193,10 +201,7 @@ def main():
 			}
 		)
 
-		return {
-			"Accuracy": accuracy,
-			"F1-score": f1_weighted,
-		}
+		return {"Accuracy": accuracy, "F1-score": f1_weighted, "F1-all-class": weighted_f1_all_class}
 
 	class FocalLoss(nn.Module):
 		def __init__(self, alpha=None, gamma=2, ignore_index=-100, reduction="mean"):
@@ -245,7 +250,7 @@ def main():
 		per_device_eval_batch_size=batch_size,
 		gradient_accumulation_steps=1,
 		learning_rate=learning_rate,
-		lr_scheduler_type="constant",
+		lr_scheduler_type=lr_scheduler_type,
 		weight_decay=weight_decay,
 		max_grad_norm=max_grad_norm,
 		num_train_epochs=num_train_epochs,
@@ -258,6 +263,8 @@ def main():
 		save_strategy="epoch",
 		eval_strategy="epoch",
 		load_best_model_at_end=True,
+		metric_for_best_model="F1-all-class",
+		greater_is_better=True,
 		fp16=True,
 		bf16=False,
 		dataloader_num_workers=12,
@@ -267,7 +274,7 @@ def main():
 		hub_model_id=run.config["fine_tuned_model"],
 		gradient_checkpointing=True,
 		gradient_checkpointing_kwargs={"use_reentrant": True},
-		auto_find_batch_size=True,
+		# auto_find_batch_size=True,
 		torch_compile=False,
 		include_tokens_per_second=True,
 		include_num_input_tokens_seen=True,
@@ -277,7 +284,7 @@ def main():
 		model=base_model,
 		args=trainer_arguments,
 		compute_metrics=compute_metrics,
-		train_dataset=train_dataset_resampled,
+		train_dataset=train_dataset,
 		eval_dataset=validation_dataset,
 		tokenizer=tokenizer,
 	)

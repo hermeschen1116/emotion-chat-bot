@@ -3,7 +3,7 @@ from argparse import ArgumentParser
 import torch
 from datasets import load_dataset
 from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
-from sklearn.metrics import classification_report
+from sklearn.metrics import balanced_accuracy_score, classification_report
 from torch import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from transformers import HfArgumentParser, pipeline
@@ -75,6 +75,7 @@ wandb.log(
 			average="weighted",
 		),
 		"Accuracy": multiclass_accuracy(sentiment_pred, sentiment_true, num_classes=num_emotion_labels),
+		"Balanced_Accuracy": balanced_accuracy_score(sentiment_true, sentiment_pred),
 	}
 )
 wandb.log({"evaluation_result": wandb.Table(dataframe=result.to_pandas())})

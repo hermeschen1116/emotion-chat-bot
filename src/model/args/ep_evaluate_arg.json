@@ -5,6 +5,6 @@
 	"notes": "evaluate model on Emotion Predictor task",
 	"config": {
 		"dataset": "Shotaro30678/daily_dialog_for_EP",
-		"model": "model_test"
+		"model": "Shotaro30678/EP_focal_loss_original_dataset"
 	}
 }

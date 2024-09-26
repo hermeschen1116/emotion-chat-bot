@@ -11,18 +11,19 @@
 		"sweep_config" : {
 			"method": "bayes",
 			"name": "sweep",
-			"metric": {"goal": "maximize", "name": "F1-all-class"},
+			"metric": {"goal": "maximize", "name": "Balanced_Accuracy"},
 			"parameters": {
 				"batch_size": {"values": [8, 32, 64]},
 				"num_train_epochs": {"values": [3, 5, 8]},
-				"learning_rate": {"max": 0.1, "min": 0.0001},
+				"learning_rate": {"max": 0.05, "min": 0.0001},
+				"lr_scheduler_type": {"values": ["constant", "cosine"]},
 				"lora_alpha": {"values": [16, 32, 64]},
 				"lora_dropout": {"values": [0.1, 0.2, 0.3]},
 				"lora_rank": {"values": [16, 32, 64]},
 				"init_lora_weights": {"values": [true, false]},
 				"use_rslora": {"values": [true, false]},
-				"focal_gamma": {"values": [0, 1, 2]},
-				"weight_decay": {"max": 0.3, "min": 0.0},
+				"focal_gamma": {"values": [1, 3, 5, 8]},
+				"weight_decay": {"max": 0.5, "min": 0.0},
 				"warmup_ratio": {"max": 0.1, "min": 0.0},
 				"max_steps": {"value": -1},
 				"max_grad_norm": {"max": 1.0, "min": 0.1}
