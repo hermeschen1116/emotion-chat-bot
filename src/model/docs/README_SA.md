@@ -17,8 +17,7 @@ uv run python sa_fine_tune.py --json_file args/sa_fine_tune_arg.json
 
 ## 實驗過程
 
-利用 huggingface 的 load_dataset 來直接存取資料集，並且整理成可用的形式。例如更改 feature 名稱來對應需求。
-使用 AutoTokenizer 以及 AutoModelForSequenceClassification 來產生需要的組件，並且使用 trainer.train() 進行訓練。透過 transformers 內的 [trainer](https://huggingface.co/docs/transformers/main/en/main_classes/trainer) 進行微調。
+  利用 huggingface 的 load_dataset 來直接存取資料集。使用 AutoTokenizer 以及 AutoModelForSequenceClassification 來產生需要的組件，並且使用 trainer.train() 進行訓練。透過 transformers 內的 [trainer](https://huggingface.co/docs/transformers/main/en/main_classes/trainer) 進行微調。
 
   - **訓練資料集** [Shotaro30678/daily_dialog_for_SA](https://huggingface.co/datasets/Shotaro30678/daily_dialog_for_SA)
 
@@ -31,6 +30,11 @@ uv run python sa_fine_tune.py --json_file args/sa_fine_tune_arg.json
 
   - **訓練**
     - **Downsampling**
+      
+      透過分析資料集我們發現資料集中 `neutral` 的資料量過大，可能影響訓練效果，所以我們將訓練資料集中的 neutral 資料量減半來改善效能。
+
+		![emotion_distribution](https://github.com/user-attachments/assets/77fcd647-d524-4181-82fe-131e461a0e86)
+
 
       透過 `throw_out_partial_row_with_a_label` 將訓練資料集中 neutral 的資料移除一部分。比例可以根據 arg 中 `neutral_keep_ratio` 調整。
 
