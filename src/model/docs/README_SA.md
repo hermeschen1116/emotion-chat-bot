@@ -20,17 +20,26 @@ fine_tune_SA.py --json_file args/sa_arg.json
 利用 huggingface 的 load_dataset 來直接存取資料集，並且整理成可用的形式。例如更改 feature 名稱來對應需求。
 使用 AutoTokenizer 以及 AutoModelForSequenceClassification 來產生需要的組件，並且使用 trainer.train() 進行訓練。透過 transformers 內的 [trainer](https://huggingface.co/docs/transformers/main/en/main_classes/trainer) 進行微調。
 
-  - **訓練資料集** [benjaminbeilharz/better_daily_dialog](https://huggingface.co/datasets/benjaminbeilharz/better_daily_dialog)
+  - **訓練資料集** [Shotaro30678/daily_dialog_for_SA](https://huggingface.co/datasets/Shotaro30678/daily_dialog_for_SA)
 
     - **預處理**
   
-		該資料集中包含 : `dialog_id`, `utterance`, `turn_type`, `emotion`
+		原始資料集 [benjaminbeilharz/better_daily_dialog](https://huggingface.co/datasets/benjaminbeilharz/better_daily_dialog) 中包含 : `dialog_id`, `utterance`, `turn_type`, `emotion`
 		我們取出 `utterance`, `emotion` 作為 `text` 以及 `label`。
 
   - **基準模型** [michellejieli/emotion_text_classifier](https://huggingface.co/michellejieli/emotion_text_classifier) 
 
   - **訓練**
-    - *tokenization*
+    - *Downsampling*
+
+      透過 *throw_out_partial_row_with_a_label* 將訓練資料集中 neutral 的資料移除一部分。比例可以根據 arg 中 *neutral_keep_ratio* 調整。
+
+	  ```python
+	  train_dataset = throw_out_partial_row_with_a_label(dataset["train"], run.config["neutral_keep_ratio"], 0)
+	  ```
+
+
+    - *Tokenization*
   
       利用 tokenizer 將 `text` 轉為 input_ids 供 Trainer 使用。
 
