@@ -183,7 +183,7 @@ uv run python ep_fine_tune.py --json_file args/ep_fine_tune_arg.json
 
     - *CustomTrainer*
 
-      為了使用自定義的 focal loss，我們設定了 CustomTrainer 用於訓練。
+      為了使用自定義的 `FocalLoss`，我們設定了 `CustomTrainer` 用於訓練。
 
       ```python
       class CustomTrainer(Trainer):
@@ -196,6 +196,14 @@ uv run python ep_fine_tune.py --json_file args/ep_fine_tune_arg.json
       ````
 
 ## 數據
+使用方式範例
+
+```bash
+uv run python ep_evaluate.py --json_file args/ep_evaluate_arg.json
+```
+
+- 主程式 `ep_evaluate.py`
+- 參數 `args/ep_evaluate_arg.json`
 
 - **模型表現**
 
@@ -262,3 +270,46 @@ uv run python ep_fine_tune.py --json_file args/ep_fine_tune_arg.json
      Balanced_Accuracy 0.20912
               F1-score 0.55973
     ```
+
+## Hyperparameter Tuning
+
+- 使用 WanDB Sweep 來找到最佳化的超參數
+  使用方式範例
+
+  ```bash
+  uv run python ep_sweep.py --json_file args/ep_sweep_arg.json
+  ```
+
+  - 主程式 `ep_sweep.py`
+  - 參數 `args/ep_sweep_arg.json`
+  
+- 調整參數
+  ```json
+  "sweep_config" : {
+  	"method": "bayes",
+  	"name": "sweep",
+  	"metric": {"goal": "maximize", "name": "Balanced_Accuracy"},
+  	"parameters": {
+  		"batch_size": {"values": [8, 32, 64]},
+  		"num_train_epochs": {"values": [3, 5, 8]},
+  		"learning_rate": {"max": 0.05, "min": 0.0001},
+  		"lr_scheduler_type": {"values": ["constant", "cosine"]},
+  		"lora_alpha": {"values": [16, 32, 64]},
+  		"lora_dropout": {"values": [0.1, 0.2, 0.3]},
+  		"lora_rank": {"values": [16, 32, 64]},
+  		"init_lora_weights": {"values": [true, false]},
+  		"use_rslora": {"values": [true, false]},
+  		"focal_gamma": {"values": [1, 3, 5, 8]},
+  		"weight_decay": {"max": 0.5, "min": 0.0},
+  		"warmup_ratio": {"max": 0.1, "min": 0.0},
+  		"max_steps": {"value": -1},
+  		"max_grad_norm": {"max": 1.0, "min": 0.1}
+  	}
+  }
+  ```
+## 版本迭代
+
+- 直接訓練: 沿用 sentiment analysis 的方法訓練。效果不佳且對少數 class 預測效果更糟。
+- class_weight: 引入 class_weight，效果有所提升。
+- class_weight + focal loss: class_weight 配合 focal losss，效果是目前最好的。
+- oversampling: 利用 SMOTE, ADASYN... 進行重採樣，效果不增反減。
