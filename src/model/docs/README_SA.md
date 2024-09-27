@@ -5,11 +5,11 @@
 使用方式範例
 
 ```bash
-fine_tune_SA.py --json_file args/sa_arg.json
+uv run python sa_fine_tune.py --json_file args/sa_fine_tune_arg.json
 ```
 
-- 主程式 `fine_tune_SA.py`
-- 參數 `args/sa_arg.json`
+- 主程式 `sa_fine_tune.py`
+- 參數 `args/sa_fine_tune_arg.json`
 
 ## 訓練目標
 
@@ -30,58 +30,135 @@ fine_tune_SA.py --json_file args/sa_arg.json
   - **基準模型** [michellejieli/emotion_text_classifier](https://huggingface.co/michellejieli/emotion_text_classifier) 
 
   - **訓練**
-    - *Downsampling*
+    - **Downsampling**
 
-      透過 *throw_out_partial_row_with_a_label* 將訓練資料集中 neutral 的資料移除一部分。比例可以根據 arg 中 *neutral_keep_ratio* 調整。
+      透過 `throw_out_partial_row_with_a_label` 將訓練資料集中 neutral 的資料移除一部分。比例可以根據 arg 中 `neutral_keep_ratio` 調整。
 
 	  ```python
 	  train_dataset = throw_out_partial_row_with_a_label(dataset["train"], run.config["neutral_keep_ratio"], 0)
 	  ```
 
 
-    - *Tokenization*
+    - **Tokenization**
   
       利用 tokenizer 將 `text` 轉為 input_ids 供 Trainer 使用。
 
 	  ```python
-	  def tokenize(batch):
-      	return tokenizer(batch["text"], padding="max_length", truncation=True)
-
-	  emotions_encoded = emotions.map(tokenize, batched=True, batch_size=None)
+      train_dataset = train_dataset.map(
+          lambda samples: {
+            "input_ids": [tokenizer.encode(sample, padding="max_length", truncation=True) for sample in samples],
+          },
+          input_columns=["text"],
+          batched=True,
+          num_proc=16,
+      )
+      train_dataset.set_format("torch")
 	  ```
 
-	- **訓練參數**
+    - **最佳化**
+
+      - *PEFT & LoRA*
+
+        ```python
+        peft_config = LoraConfig(
+          task_type="SEQ_CLS",
+          lora_alpha=64,
+          lora_dropout=0.2,
+          r=128,
+          bias="none",
+          init_lora_weights=True,
+          use_rslora=True,
+        )
+        base_model = get_peft_model(base_model, peft_config)
+        ```
+
+  - **訓練參數**
 
 	  - *TrainingArguments*
 
 		這裡我們選用 `paged_adamw_32bit` 作為 Optimizer，提供更好的效能。
 
 	    ```python
-	    training_args = TrainingArguments(
-			output_dir="./checkpoints",
-			num_train_epochs=2,
-			per_device_train_batch_size=batch_size,
-			per_device_eval_batch_size=batch_size,
-			gradient_accumulation_steps=1,
-			optim="paged_adamw_32bit",
-			save_steps=25,
-			logging_steps=logging_steps,
-			learning_rate=2e-5,
-			weight_decay=0.01,
-			fp16=False,
-			bf16=False,
-			max_grad_norm=0.3,
-			max_steps=-1,
-			warmup_ratio=0.03,
-			group_by_length=True,
-			lr_scheduler_type="constant",
-			report_to=["wandb"],
-			gradient_checkpointing=True,
-			gradient_checkpointing_kwargs={"use_reentrant": True},
-			eval_strategy="epoch",
-			log_level="error"
-		)
+        trainer_arguments = TrainingArguments(
+            output_dir="./checkpoints",
+            overwrite_output_dir=True,
+            per_device_train_batch_size=8,
+            per_device_eval_batch_size=8,
+            gradient_accumulation_steps=1,
+            learning_rate=1e-4,
+            lr_scheduler_type="constant",
+            weight_decay=0.1,
+            max_grad_norm=0.3,
+            num_train_epochs=5,
+            warmup_ratio=0.03,
+            max_steps=-1,
+            logging_steps=logging_steps,
+            log_level="error",
+            save_steps=500,
+            save_total_limit=2,
+            save_strategy="epoch",
+            eval_strategy="epoch",
+            load_best_model_at_end=True,
+            fp16=True,
+            bf16=False,
+            dataloader_num_workers=12,
+            optim="paged_adamw_32bit",
+            group_by_length=True,
+            report_to=["wandb"],
+            hub_model_id="sentiment_analysis_for_emotion_chat_bot",
+            gradient_checkpointing=True,
+            gradient_checkpointing_kwargs={"use_reentrant": True},
+            auto_find_batch_size=True,
+            torch_compile=False,
+            include_tokens_per_second=True,
+            include_num_input_tokens_seen=True,
+        )
 	    ```
+
+## 數據
+使用方式範例
+
+```bash
+uv run python sa_evaluate.py --json_file args/sa_evaluate_arg.json
+```
+
+- 主程式 `sa_evaluate.py`
+- 參數 `args/sa_evaluate_arg.json`
+
+- **模型表現**
+  - *訓練後:*
+    ```
+                  precision    recall  f1-score   support
+
+         neutral       0.90      0.88      0.89      6321
+           anger       0.26      0.18      0.21       118
+         disgust       0.14      0.04      0.07        47
+            fear       0.00      0.00      0.00        17
+       happiness       0.53      0.61      0.56      1019
+         sadness       0.24      0.26      0.25       102
+        surprise       0.31      0.48      0.38       116
+
+        accuracy                           0.81      7740
+       macro avg       0.34      0.35      0.34      7740
+    weighted avg       0.82      0.81      0.81      7740
+    ```
+  - *[基準模型](https://huggingface.co/michellejieli/emotion_text_classifier):*
+    ```
+                  precision    recall  f1-score   support
+
+         neutral       0.88      0.85      0.87      6321
+           anger       0.21      0.35      0.26       118
+         disgust       0.15      0.28      0.19        47
+            fear       0.06      0.53      0.11        17
+       happiness       0.60      0.37      0.46      1019
+         sadness       0.13      0.38      0.20       102
+        surprise       0.21      0.48      0.29       116
+
+        accuracy                           0.77      7740
+       macro avg       0.32      0.46      0.34      7740
+    weighted avg       0.81      0.77      0.78      7740
+    ```
+
 
 ## 版本迭代
 
