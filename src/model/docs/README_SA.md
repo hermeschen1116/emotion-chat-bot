@@ -1,5 +1,7 @@
 # Sentiment Analysis
 
+[Shotaro30678/sentiment_analysis_for_emotion_chat_bot](https://huggingface.co/Shotaro30678/sentiment_analysis_for_emotion_chat_bot
+)
 ## 檔案架構
 
 使用方式範例
