@@ -1,12 +1,11 @@
 from argparse import ArgumentParser
-from collections import Counter
 
 import numpy as np
 import torch
-from datasets import Dataset, load_dataset
-from imblearn.over_sampling import ADASYN
+from datasets import load_dataset
 from libs.CommonConfig import CommonScriptArguments, CommonWanDBArguments
 from libs.CommonUtils import login_to_service
+from libs.DataProcess import throw_out_partial_row_with_a_label
 from peft import LoraConfig, get_peft_model
 from sklearn.metrics import balanced_accuracy_score
 from sklearn.utils.class_weight import compute_class_weight
@@ -31,7 +30,6 @@ sweep_id = wandb.sweep(sweep=sweep_configuration, project=wandb_args.project)
 
 
 def main():
-	# Initialize wandb run
 	run = wandb.init(
 		job_type=wandb_args.job_type,
 		config=wandb_args.config,
@@ -58,7 +56,6 @@ def main():
 	# focal loss args
 	focal_gamma = wandb.config.focal_gamma
 
-	# Load dataset
 	dataset = load_dataset(
 		run.config["dataset"],
 		num_proc=16,
@@ -67,9 +64,7 @@ def main():
 	emotion_labels: list = dataset["train"].features["label"].names
 	num_emotion_labels: int = len(emotion_labels)
 
-	# train_dataset = throw_out_partial_row_with_a_label(dataset["train"], run.config["neutral_keep_ratio"], 0)
-	train_dataset = dataset["train"]
-
+	train_dataset = throw_out_partial_row_with_a_label(dataset["train"], run.config["neutral_keep_ratio"], 0)
 	validation_dataset = dataset["validation"]
 
 	tokenizer = AutoTokenizer.from_pretrained(
@@ -122,39 +117,6 @@ def main():
 	)
 	validation_dataset.set_format("torch")
 
-	X_train = train_dataset["input_ids"]
-	y_train = train_dataset["label"]
-
-	X_train_np = X_train.numpy()
-	y_train_np = y_train.numpy()
-
-	adasyn = ADASYN(sampling_strategy="auto", n_jobs=-1)
-	X_resampled_np, y_resampled_np = adasyn.fit_resample(X_train_np, y_train_np)
-
-	X_resampled = torch.tensor(X_resampled_np)
-	y_resampled = torch.tensor(y_resampled_np)
-
-	new_train_dataset = []
-
-	for input_id, label in zip(X_resampled, y_resampled):
-		new_train_dataset.append(
-			{
-				"input_ids": input_id,
-				"label": label,
-			}
-		)
-	train_dataset_resampled = Dataset.from_list(new_train_dataset)
-	train_dataset_resampled.set_format("torch")
-	# Take small portion of the data
-	train_dataset_resampled = train_dataset_resampled.shuffle().take(7000)
-	# 計算每個類別的數量
-	class_dist = wandb.Table(columns=["Class", "Count"])
-	labels = train_dataset_resampled["label"].tolist()
-	label_counts = Counter(labels)
-
-	for label, count in label_counts.items():
-		class_dist.add_data(emotion_labels[label], count)
-
 	y = train_dataset["label"].tolist()
 	class_weights = compute_class_weight(class_weight="balanced", classes=np.unique(y), y=y)
 
@@ -197,7 +159,6 @@ def main():
 				"Weighted-F1-per-class-bar": wandb.plot.bar(
 					table, "Class", "Weighted F1", title="Weighted F1 Score per Class"
 				),
-				"Class Distribution": wandb.plot.bar(class_dist, "Class", "Count", title="Class Distribution"),
 			}
 		)
 
@@ -274,7 +235,6 @@ def main():
 		hub_model_id=run.config["fine_tuned_model"],
 		gradient_checkpointing=True,
 		gradient_checkpointing_kwargs={"use_reentrant": True},
-		# auto_find_batch_size=True,
 		torch_compile=False,
 		include_tokens_per_second=True,
 		include_num_input_tokens_seen=True,
@@ -301,5 +261,4 @@ def main():
 	wandb.finish()
 
 
-# Start sweep job
-wandb.agent(sweep_id, function=main, count=135)
+wandb.agent(sweep_id, function=main, count=wandb_args.config["sweep_count"])
