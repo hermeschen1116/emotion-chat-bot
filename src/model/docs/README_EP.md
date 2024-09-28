@@ -273,7 +273,10 @@ uv run python ep_evaluate.py --json_file args/ep_evaluate_arg.json
 
 ## Hyperparameter Tuning
 
+> [Report](https://wandb.ai/yangyx30678/emotion-chat-bot-ncu-ep-sweep/reports/Emotion-Predictor-Hyperparamters-Tuning--Vmlldzo5NTMxNjUy?accessToken=cml3ma0vvrcqlkkvlni6avpq8ymewx8fck7anmi1k66twosk8j1jsnqid86hwtmt)
+
 - 使用 WanDB Sweep 來找到最佳化的超參數
+
   使用方式範例
 
   ```bash
@@ -282,7 +285,42 @@ uv run python ep_evaluate.py --json_file args/ep_evaluate_arg.json
 
   - 主程式 `ep_sweep.py`
   - 參數 `args/ep_sweep_arg.json`
-  
+
+- 參數釋義
+  - *F1-all-class*
+
+    將 `multiclass_f1_score` 設定為 `average=None` 計算出個別 class 的分數，結果即為 `f1_per_class`。
+
+    ```python
+    f1_per_class = multiclass_f1_score(
+        sentiment_true,
+        sentiment_pred,
+        num_classes=num_emotion_labels,
+        average=None,
+    ).to("cuda")
+    ```
+
+    我們將 `f1_per_class` 與 `class_weights` 相乘作為 `F1-all-class`。
+
+    ```python
+    weighted_f1_per_class = f1_per_class * class_weights
+    weighted_f1_all_class = weighted_f1_per_class.mean()
+    ```
+  - *Classes-with-value*
+
+    統計出分數不為零的 class 數量，判斷模型對少數 class 的關注度。
+
+    ```python
+    non_zero_count = (weighted_f1_per_class != 0).sum()
+    ```
+  - *Balanced_Accuracy*
+
+    [balanced_accuracy_score](https://scikit-learn.org/stable/modules/generated/sklearn.metrics.balanced_accuracy_score.html)
+
+    Sweep 的尋找目標。相比於 `Accuracy`，`Balanced_Accuracy` 可以更好地評估不平衡資料集。定義為**每個 class recall 的平均**。
+
+
+
 - 調整參數
   ```json
   "sweep_config" : {
