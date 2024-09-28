@@ -8,6 +8,7 @@
 		"neutral_keep_ratio": 0.5,
 		"optim": "paged_adamw_32bit",
 		"fine_tuned_model": "emotion_predictor_for_emotion_chat_bot_distilroberta_v1",
+		"sweep_count":135,
 		"sweep_config" : {
 			"method": "bayes",
 			"name": "sweep",
