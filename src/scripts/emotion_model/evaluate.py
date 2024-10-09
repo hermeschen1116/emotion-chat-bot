@@ -30,10 +30,7 @@ run = wandb.init(
 )
 
 eval_dataset: Dataset = load_dataset(
-	run.config["dataset"],
-	split="test",
-	num_proc=16,
-	trust_remote_code=True,
+	run.config["dataset"], split="test", num_proc=16, trust_remote_code=True
 ).remove_columns(["bot_dialog", "user_dialog"])
 
 emotion_labels: list = eval_dataset.features["bot_emotion"].feature.names
@@ -48,10 +45,7 @@ eval_dataset = eval_dataset.map(
 				[torch.tensor(sample[0][0]).to(device)],
 				[torch.tensor(emotion).to(device) for emotion in sample[1]],
 			)[1:]
-			for sample in zip(
-				samples["bot_initial_emotion_representation"],
-				samples["user_emotion_compositions"],
-			)
+			for sample in zip(samples["bot_initial_emotion_representation"], samples["user_emotion_compositions"])
 		]
 	},
 	remove_columns=["bot_initial_emotion_representation"],

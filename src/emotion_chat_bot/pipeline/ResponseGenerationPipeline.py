@@ -3,12 +3,7 @@ from transformers.pipelines.text_generation import Chat, ReturnType
 
 
 class ResponseGeneratorPipeline(TextGenerationPipeline):
-	def postprocess(
-		self,
-		model_outputs,
-		return_type=ReturnType.FULL_TEXT,
-		clean_up_tokenization_spaces=True,
-	):
+	def postprocess(self, model_outputs, return_type=ReturnType.FULL_TEXT, clean_up_tokenization_spaces=True):
 		generated_sequence = model_outputs["generated_sequence"][0]
 		input_ids = model_outputs["input_ids"]
 		prompt_text = model_outputs["prompt_text"]
@@ -20,9 +15,7 @@ class ResponseGeneratorPipeline(TextGenerationPipeline):
 			elif return_type in {ReturnType.NEW_TEXT, ReturnType.FULL_TEXT}:
 				# Decode text
 				text = self.tokenizer.decode(
-					sequence,
-					skip_special_tokens=True,
-					clean_up_tokenization_spaces=clean_up_tokenization_spaces,
+					sequence, skip_special_tokens=True, clean_up_tokenization_spaces=clean_up_tokenization_spaces
 				)
 
 				# Remove PADDING prompt of the sequence if XLNet or Transfo-XL model is used

@@ -43,19 +43,11 @@ run.config["special_tokens"] = chat_template["special_tokens"]
 
 # Load Dataset
 dataset = load_dataset(
-	"hermeschen1116/daily_dialog_for_RG",
-	split="train+validation",
-	num_proc=16,
-	trust_remote_code=True,
+	"hermeschen1116/daily_dialog_for_RG", split="train+validation", num_proc=16, trust_remote_code=True
 )
 # dataset = dataset.train_test_split(train_size=0.001)["train"]
 
-system_prompt: list = [
-	{
-		"role": "system",
-		"content": {"emotion": "", "dialog": run.config["system_prompt"]},
-	}
-]
+system_prompt: list = [{"role": "system", "content": {"emotion": "", "dialog": run.config["system_prompt"]}}]
 
 dataset = dataset.map(
 	lambda samples: {"prompt": [system_prompt + sample for sample in samples]},
@@ -83,15 +75,7 @@ base_model.resize_token_embeddings(len(tokenizer))
 
 base_model = FastLanguageModel.get_peft_model(
 	base_model,
-	target_modules=[
-		"q_proj",
-		"k_proj",
-		"v_proj",
-		"o_proj",
-		"gate_proj",
-		"up_proj",
-		"down_proj",
-	],
+	target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
 	lora_alpha=run.config["lora_alpha"],
 	lora_dropout=0.1,
 	r=run.config["lora_rank"],

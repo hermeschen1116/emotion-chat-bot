@@ -11,9 +11,12 @@ repos:
     hooks:
       - id: ruff
         args: [--fix]
+        always_run: true
         stages: [pre-commit]
       - id: ruff
         args: [--select, I, --fix]
+        always_run: true
         stages: [pre-commit]
       - id: ruff-format
+        always_run: true
         stages: [pre-commit]

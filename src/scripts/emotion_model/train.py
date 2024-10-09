@@ -33,12 +33,7 @@ run = wandb.init(
 )
 
 # Load Dataset
-dataset: DatasetDict = load_dataset(
-	run.config["dataset"],
-	num_proc=16,
-	keep_in_memory=True,
-	trust_remote_code=True,
-)
+dataset: DatasetDict = load_dataset(run.config["dataset"], num_proc=16, keep_in_memory=True, trust_remote_code=True)
 
 model = EmotionModel().to(device)
 

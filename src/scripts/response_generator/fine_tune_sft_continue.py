@@ -44,19 +44,11 @@ run.config["special_tokens"] = chat_template["special_tokens"]
 
 # Load Dataset
 dataset = load_dataset(
-	"hermeschen1116/daily_dialog_for_RG",
-	split="train+validation",
-	num_proc=16,
-	trust_remote_code=True,
+	"hermeschen1116/daily_dialog_for_RG", split="train+validation", num_proc=16, trust_remote_code=True
 )
 # dataset = dataset.train_test_split(train_size=0.001)["train"]
 
-system_prompt: list = [
-	{
-		"role": "system",
-		"content": {"emotion": "", "dialog": run.config["system_prompt"]},
-	}
-]
+system_prompt: list = [{"role": "system", "content": {"emotion": "", "dialog": run.config["system_prompt"]}}]
 
 dataset = dataset.map(
 	lambda samples: {"prompt": [system_prompt + sample for sample in samples]},

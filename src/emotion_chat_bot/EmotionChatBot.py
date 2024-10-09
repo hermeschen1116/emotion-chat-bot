@@ -20,22 +20,10 @@ from emotion_chat_bot.model.emotion_model.EmotionTransition import (
 from emotion_chat_bot.pipeline.ResponseGenerationPipeline import ResponseGeneratorPipeline
 
 roles: List[str] = ["user", "bot"]
-emotions: List[str] = [
-	"neutral",
-	"anger",
-	"disgust",
-	"fear",
-	"happiness",
-	"sadness",
-	"surprise",
-]
+emotions: List[str] = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
 
 default_generation_config = GenerationConfig(
-	max_new_tokens=20,
-	min_new_tokens=5,
-	repetition_penalty=1.5,
-	pad_token_id=32000,
-	eos_token_id=2,
+	max_new_tokens=20, min_new_tokens=5, repetition_penalty=1.5, pad_token_id=32000, eos_token_id=2
 )
 
 
@@ -84,8 +72,7 @@ class EmotionChatBot:
 		)
 
 		sentiment_analysis_tokenizer = AutoTokenizer.from_pretrained(
-			sentiment_analyzer_model_name,
-			trust_remote_code=True,
+			sentiment_analyzer_model_name, trust_remote_code=True
 		)
 
 		self.sentiment_analyzer = TextClassificationPipeline(
@@ -105,8 +92,7 @@ class EmotionChatBot:
 		)
 
 		emotion_predictor_tokenizer = AutoTokenizer.from_pretrained(
-			emotion_predictor_model_name,
-			trust_remote_code=True,
+			emotion_predictor_model_name, trust_remote_code=True
 		)
 
 		self.emotion_predictor = TextClassificationPipeline(

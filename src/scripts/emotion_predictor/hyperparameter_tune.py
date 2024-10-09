@@ -30,11 +30,7 @@ sweep_id = wandb.sweep(sweep=sweep_configuration, project=wandb_args.project)
 
 
 def main():
-	run = wandb.init(
-		job_type=wandb_args.job_type,
-		config=wandb_args.config,
-		group=wandb_args.group,
-	)
+	run = wandb.init(job_type=wandb_args.job_type, config=wandb_args.config, group=wandb_args.group)
 
 	# Fetch hyperparameters from `wandb.config`
 	# trainer args
@@ -56,11 +52,7 @@ def main():
 	# focal loss args
 	focal_gamma = wandb.config.focal_gamma
 
-	dataset = load_dataset(
-		run.config["dataset"],
-		num_proc=16,
-		trust_remote_code=True,
-	)
+	dataset = load_dataset(run.config["dataset"], num_proc=16, trust_remote_code=True)
 	emotion_labels: list = dataset["train"].features["label"].names
 	num_emotion_labels: int = len(emotion_labels)
 
@@ -68,10 +60,7 @@ def main():
 	validation_dataset = dataset["validation"]
 
 	tokenizer = AutoTokenizer.from_pretrained(
-		run.config["base_model"],
-		padding_side="right",
-		clean_up_tokenization_spaces=True,
-		trust_remote_code=True,
+		run.config["base_model"], padding_side="right", clean_up_tokenization_spaces=True, trust_remote_code=True
 	)
 
 	base_model = AutoModelForSequenceClassification.from_pretrained(
@@ -98,7 +87,7 @@ def main():
 
 	train_dataset = train_dataset.map(
 		lambda samples: {
-			"input_ids": [tokenizer.encode(sample, padding="max_length", truncation=True) for sample in samples],
+			"input_ids": [tokenizer.encode(sample, padding="max_length", truncation=True) for sample in samples]
 		},
 		input_columns=["text"],
 		batched=True,
@@ -109,7 +98,7 @@ def main():
 
 	validation_dataset = validation_dataset.map(
 		lambda samples: {
-			"input_ids": [tokenizer.encode(sample, padding="max_length", truncation=True) for sample in samples],
+			"input_ids": [tokenizer.encode(sample, padding="max_length", truncation=True) for sample in samples]
 		},
 		input_columns=["text"],
 		batched=True,
@@ -122,23 +111,17 @@ def main():
 
 	def compute_metrics(prediction) -> dict:
 		sentiment_true: Tensor = torch.tensor([[label] for label in prediction.label_ids.tolist()]).flatten()
-		sentiment_pred: Tensor = torch.tensor(
-			[[label] for label in prediction.predictions.argmax(-1).tolist()]
-		).flatten()
+		sentiment_pred: Tensor = torch.tensor([
+			[label] for label in prediction.predictions.argmax(-1).tolist()
+		]).flatten()
 		balanced_acc = balanced_accuracy_score(sentiment_true, sentiment_pred)
 		accuracy = multiclass_accuracy(sentiment_true, sentiment_pred, num_classes=num_emotion_labels)
 		f1_weighted = multiclass_f1_score(
-			sentiment_true,
-			sentiment_pred,
-			num_classes=num_emotion_labels,
-			average="weighted",
+			sentiment_true, sentiment_pred, num_classes=num_emotion_labels, average="weighted"
 		)
 
 		f1_per_class = multiclass_f1_score(
-			sentiment_true,
-			sentiment_pred,
-			num_classes=num_emotion_labels,
-			average=None,
+			sentiment_true, sentiment_pred, num_classes=num_emotion_labels, average=None
 		).to("cuda")
 
 		weighted_f1_per_class = f1_per_class * class_weights
@@ -149,18 +132,16 @@ def main():
 		for i, (f1, weighted_f1) in enumerate(zip(f1_per_class, weighted_f1_per_class)):
 			table.add_data(emotion_labels[i], f1.item(), weighted_f1.item())
 
-		wandb.log(
-			{
-				"Balanced_Accuracy": balanced_acc.item(),
-				"Accuracy": accuracy.item(),
-				"F1-all-class": weighted_f1_all_class.item(),
-				"Classes-with-value": non_zero_count.item(),
-				"F1-per-class-bar": wandb.plot.bar(table, "Class", "F1", title="F1 Score per Class"),
-				"Weighted-F1-per-class-bar": wandb.plot.bar(
-					table, "Class", "Weighted F1", title="Weighted F1 Score per Class"
-				),
-			}
-		)
+		wandb.log({
+			"Balanced_Accuracy": balanced_acc.item(),
+			"Accuracy": accuracy.item(),
+			"F1-all-class": weighted_f1_all_class.item(),
+			"Classes-with-value": non_zero_count.item(),
+			"F1-per-class-bar": wandb.plot.bar(table, "Class", "F1", title="F1 Score per Class"),
+			"Weighted-F1-per-class-bar": wandb.plot.bar(
+				table, "Class", "Weighted F1", title="Weighted F1 Score per Class"
+			),
+		})
 
 		return {"Accuracy": accuracy, "F1-score": f1_weighted, "F1-all-class": weighted_f1_all_class}
 

@@ -27,11 +27,7 @@ run = wandb.init(
 	notes=wandb_args.notes,
 )
 
-dataset = load_dataset(
-	run.config["dataset"],
-	num_proc=16,
-	trust_remote_code=True,
-)
+dataset = load_dataset(run.config["dataset"], num_proc=16, trust_remote_code=True)
 emotion_labels: list = dataset["train"].features["label"].names
 num_emotion_labels: int = len(emotion_labels)
 
@@ -39,10 +35,7 @@ train_dataset = throw_out_partial_row_with_a_label(dataset["train"], run.config[
 validation_dataset = dataset["validation"]
 
 tokenizer = AutoTokenizer.from_pretrained(
-	run.config["base_model"],
-	padding_side="right",
-	clean_up_tokenization_spaces=True,
-	trust_remote_code=True,
+	run.config["base_model"], padding_side="right", clean_up_tokenization_spaces=True, trust_remote_code=True
 )
 
 base_model = AutoModelForSequenceClassification.from_pretrained(
@@ -69,7 +62,7 @@ base_model = get_peft_model(base_model, peft_config)
 
 train_dataset = train_dataset.map(
 	lambda samples: {
-		"input_ids": [tokenizer.encode(sample, padding="max_length", truncation=True) for sample in samples],
+		"input_ids": [tokenizer.encode(sample, padding="max_length", truncation=True) for sample in samples]
 	},
 	input_columns=["text"],
 	batched=True,
@@ -78,7 +71,7 @@ train_dataset = train_dataset.map(
 train_dataset.set_format("torch")
 validation_dataset = validation_dataset.map(
 	lambda samples: {
-		"input_ids": [tokenizer.encode(sample, padding="max_length", truncation=True) for sample in samples],
+		"input_ids": [tokenizer.encode(sample, padding="max_length", truncation=True) for sample in samples]
 	},
 	input_columns=["text"],
 	batched=True,
@@ -94,10 +87,7 @@ def compute_metrics(prediction) -> dict:
 	return {
 		"Accuracy": multiclass_accuracy(sentiment_true, sentiment_pred, num_classes=num_emotion_labels),
 		"F1-score": multiclass_f1_score(
-			sentiment_true,
-			sentiment_pred,
-			num_classes=num_emotion_labels,
-			average="weighted",
+			sentiment_true, sentiment_pred, num_classes=num_emotion_labels, average="weighted"
 		),
 	}
 

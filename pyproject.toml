@@ -48,14 +48,6 @@ no-build-isolation-package = ["xformers", "flash-attn"]
 [tool.uv.sources]
 unsloth = { git = "https://github.com/unslothai/unsloth.git" }
 
-[tool.ruff]
-line-length = 120
-
-[tool.ruff.format]
-quote-style = "double"
-indent-style = "tab"
-docstring-code-format = true
-
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"

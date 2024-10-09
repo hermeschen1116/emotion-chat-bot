@@ -20,10 +20,7 @@ def sweep_function(config: dict = None) -> None:
 
 	# Load Dataset
 	dataset = load_dataset(
-		"hermeschen1116/emotion_transition_from_dialog",
-		num_proc=16,
-		keep_in_memory=True,
-		trust_remote_code=True,
+		"hermeschen1116/emotion_transition_from_dialog", num_proc=16, keep_in_memory=True, trust_remote_code=True
 	)
 
 	model = EmotionModel(
@@ -116,10 +113,7 @@ def sweep_function(config: dict = None) -> None:
 					[torch.tensor(sample[0][0]).to(device)],
 					[torch.tensor(emotion).to(device) for emotion in sample[1]],
 				)[1:]
-				for sample in zip(
-					samples["bot_initial_emotion_representation"],
-					samples["user_emotion_compositions"],
-				)
+				for sample in zip(samples["bot_initial_emotion_representation"], samples["user_emotion_compositions"])
 			]
 		},
 		batched=True,
@@ -136,13 +130,11 @@ def sweep_function(config: dict = None) -> None:
 	eval_truths: Tensor = torch.cat([torch.tensor(turn) for turn in eval_dataset["bot_emotion"]])
 
 	evaluation_result: dict = calculate_evaluation_result(eval_predictions, eval_truths)
-	wandb.log(
-		{
-			"eval/f1-score": evaluation_result["f1_score"],
-			"eval/accuracy": evaluation_result["accuracy"],
-			"eval/optimize_metric": torch.tensor(list(evaluation_result.values())).dot(torch.tensor([0.4, 0.6])),
-		}
-	)
+	wandb.log({
+		"eval/f1-score": evaluation_result["f1_score"],
+		"eval/accuracy": evaluation_result["accuracy"],
+		"eval/optimize_metric": torch.tensor(list(evaluation_result.values())).dot(torch.tensor([0.4, 0.6])),
+	})
 
 
 login_to_service()
