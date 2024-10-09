@@ -17,10 +17,7 @@ def login_to_service() -> None:
 
 
 def value_candidate_check(
-	input_value: Any,
-	possible_values: List[Any],
-	use_default_value: bool,
-	default_value: Optional[Any],
+	input_value: Any, possible_values: List[Any], use_default_value: bool, default_value: Optional[Any]
 ) -> Any:
 	if input_value not in possible_values:
 		error_message: str = (
@@ -45,11 +42,6 @@ def get_torch_device() -> str:
 
 def calculate_evaluation_result(predictions: Tensor, truths: Tensor) -> Dict[str, Tensor]:
 	accuracy: Tensor = multiclass_accuracy(predictions, truths, num_classes=7)
-	f1_score: Tensor = multiclass_f1_score(
-		predictions,
-		truths,
-		num_classes=7,
-		average="weighted",
-	)
+	f1_score: Tensor = multiclass_f1_score(predictions, truths, num_classes=7, average="weighted")
 
 	return {"accuracy": accuracy, "f1_score": f1_score}

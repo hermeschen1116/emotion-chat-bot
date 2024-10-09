@@ -47,20 +47,12 @@ run.config["special_tokens"] = chat_template["special_tokens"]
 
 # Load Dataset
 dataset = load_dataset(
-	run.config["dataset"],
-	split="train+validation",
-	keep_in_memory=True,
-	num_proc=16,
-	trust_remote_code=True,
+	run.config["dataset"], split="train+validation", keep_in_memory=True, num_proc=16, trust_remote_code=True
 )
 
 # dataset filtering
 history_length: int = 2 * run.config["num_turns_history"]
-dataset = dataset.filter(
-	lambda sample: len(sample) >= (2 + history_length),
-	input_columns="prompt",
-	num_proc=16,
-)
+dataset = dataset.filter(lambda sample: len(sample) >= (2 + history_length), input_columns="prompt", num_proc=16)
 print(f"dataset size after filter: {len(dataset)}")
 
 # take certain amount of data to see if it works
@@ -77,12 +69,7 @@ dataset = dataset.map(
 	num_proc=16,
 )
 
-system_prompt: list = [
-	{
-		"role": "system",
-		"content": {"emotion": "", "dialog": run.config["system_prompt"]},
-	}
-]
+system_prompt: list = [{"role": "system", "content": {"emotion": "", "dialog": run.config["system_prompt"]}}]
 
 dataset = dataset.map(
 	lambda samples: {"prompt": [system_prompt + sample for sample in samples]},
@@ -91,29 +78,13 @@ dataset = dataset.map(
 	num_proc=16,
 )
 
-emotion_labels: list = [
-	"neutral",
-	"anger",
-	"disgust",
-	"fear",
-	"happiness",
-	"sadness",
-	"surprise",
-]
+emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
 
 dataset = dataset.map(
 	lambda samples: {
 		"query": [
 			sample[:-1]
-			+ [
-				{
-					"role": "assistant",
-					"content": {
-						"emotion": sample[-1]["content"]["emotion"],
-						"dialog": "",
-					},
-				}
-			]
+			+ [{"role": "assistant", "content": {"emotion": sample[-1]["content"]["emotion"], "dialog": ""}}]
 			for sample in samples
 		],
 		"label": [sample[-1]["content"]["emotion"] for sample in samples],

@@ -8,15 +8,7 @@ from torch import Tensor
 
 from emotion_chat_bot.model.emotion_model.Attention import DotProductAttention
 
-emotions: list = [
-	"neutral",
-	"anger",
-	"disgust",
-	"fear",
-	"happiness",
-	"sadness",
-	"surprise",
-]
+emotions: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise"]
 
 
 def generate_dummy_representation(target_emotion: int) -> Tensor:
@@ -70,10 +62,7 @@ def representation_evolute(
 
 class EmotionModel(torch.nn.Module, PyTorchModelHubMixin):
 	def __init__(
-		self,
-		dropout: float = 0.32811879682394585,
-		bias: bool = False,
-		dtype: torch.dtype = torch.float32,
+		self, dropout: float = 0.32811879682394585, bias: bool = False, dtype: torch.dtype = torch.float32
 	) -> None:
 		super(EmotionModel, self).__init__()
 

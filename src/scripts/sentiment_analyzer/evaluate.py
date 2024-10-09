@@ -18,10 +18,7 @@ parser = HfArgumentParser((CommonScriptArguments, CommonWanDBArguments))
 args, wandb_args = parser.parse_json_file(config.json_file)
 
 run = wandb.init(
-	job_type=wandb_args.job_type,
-	config=wandb_args.config,
-	project=wandb_args.project,
-	group=wandb_args.group,
+	job_type=wandb_args.job_type, config=wandb_args.config, project=wandb_args.project, group=wandb_args.group
 )
 
 dataset = load_dataset(run.config["dataset"], num_proc=16, trust_remote_code=True, split="test")
@@ -36,9 +33,7 @@ analyser = pipeline(
 	num_workers=12,
 	device_map="auto",
 	torch_dtype="auto",
-	model_kwargs={
-		"low_cpu_mem_usage": True,
-	},
+	model_kwargs={"low_cpu_mem_usage": True},
 	trust_remote_code=True,
 )
 
@@ -58,25 +53,15 @@ result = result.map(
 sentiment_true: Tensor = torch.tensor([sample for sample in result["truth_id"]])
 sentiment_pred: Tensor = torch.tensor([sample for sample in result["prediction_id"]])
 report = classification_report(
-	sentiment_true.tolist(),
-	sentiment_pred.tolist(),
-	target_names=emotion_labels,
-	zero_division=0,
+	sentiment_true.tolist(), sentiment_pred.tolist(), target_names=emotion_labels, zero_division=0
 )
 print()
 print(report)
 
-wandb.log(
-	{
-		"F1-score": multiclass_f1_score(
-			sentiment_pred,
-			sentiment_true,
-			num_classes=num_emotion_labels,
-			average="weighted",
-		),
-		"Accuracy": multiclass_accuracy(sentiment_pred, sentiment_true, num_classes=num_emotion_labels),
-	}
-)
+wandb.log({
+	"F1-score": multiclass_f1_score(sentiment_pred, sentiment_true, num_classes=num_emotion_labels, average="weighted"),
+	"Accuracy": multiclass_accuracy(sentiment_pred, sentiment_true, num_classes=num_emotion_labels),
+})
 wandb.log({"evaluation_result": wandb.Table(dataframe=result.to_pandas())})
 
 wandb.finish()

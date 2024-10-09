@@ -7,13 +7,7 @@ from datasets import load_dataset
 from peft.peft_model import PeftModel
 from torch import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
-from transformers import (
-	BitsAndBytesConfig,
-	GenerationConfig,
-	HfArgumentParser,
-	TextStreamer,
-	pipeline,
-)
+from transformers import BitsAndBytesConfig, GenerationConfig, HfArgumentParser, TextStreamer, pipeline
 from transformers.hf_argparser import HfArg
 from unsloth import FastLanguageModel
 
@@ -51,12 +45,7 @@ run.config["special_tokens"] = chat_template["special_tokens"]
 
 
 # Load and Process Dataset
-dataset = load_dataset(
-	"hermeschen1116/daily_dialog_for_RG",
-	split="test",
-	num_proc=16,
-	trust_remote_code=True,
-)
+dataset = load_dataset("hermeschen1116/daily_dialog_for_RG", split="test", num_proc=16, trust_remote_code=True)
 # dataset = dataset.train_test_split(test_size=0.001)["test"]
 
 dataset = dataset.map(
@@ -72,9 +61,9 @@ dataset = dataset.map(
 dataset = dataset.map(
 	lambda samples: {
 		"history": [
-			"\n".join(
-				[f"{turn['role']}({turn['content']['emotion']}): {turn['content']['dialog']}" for turn in sample[:-1]]
-			)
+			"\n".join([
+				f"{turn['role']}({turn['content']['emotion']}): {turn['content']['dialog']}" for turn in sample[:-1]
+			])
 			for sample in samples
 		]
 	},
@@ -83,12 +72,7 @@ dataset = dataset.map(
 	num_proc=16,
 )
 
-system_prompt: list = [
-	{
-		"role": "system",
-		"content": {"emotion": "", "dialog": run.config["system_prompt"]},
-	}
-]
+system_prompt: list = [{"role": "system", "content": {"emotion": "", "dialog": run.config["system_prompt"]}}]
 
 dataset = dataset.map(
 	lambda samples: {"prompt": [system_prompt + sample for sample in samples]},
@@ -170,15 +154,7 @@ analyser = pipeline(
 result = result.add_column("test_response_sentiment", analyser(result["test_response"]))
 
 # Metrics
-emotion_labels: list = [
-	"neutral",
-	"anger",
-	"disgust",
-	"fear",
-	"happiness",
-	"sadness",
-	"surprise ",
-]
+emotion_labels: list = ["neutral", "anger", "disgust", "fear", "happiness", "sadness", "surprise "]
 
 emotion_id: dict = {label: index for index, label in enumerate(emotion_labels)}
 
@@ -186,17 +162,10 @@ sentiment_true: Tensor = torch.tensor([emotion_id[sample] for sample in result["
 sentiment_pred: Tensor = torch.tensor([emotion_id[sample["label"]] for sample in result["test_response_sentiment"]])
 
 num_emotion_labels: int = len(emotion_labels)
-wandb.log(
-	{
-		"F1-score": multiclass_f1_score(
-			sentiment_pred,
-			sentiment_true,
-			num_classes=num_emotion_labels,
-			average="weighted",
-		),
-		"Accuracy": multiclass_accuracy(sentiment_pred, sentiment_true, num_classes=num_emotion_labels),
-	}
-)
+wandb.log({
+	"F1-score": multiclass_f1_score(sentiment_pred, sentiment_true, num_classes=num_emotion_labels, average="weighted"),
+	"Accuracy": multiclass_accuracy(sentiment_pred, sentiment_true, num_classes=num_emotion_labels),
+})
 wandb.log({"evaluation_result": wandb.Table(dataframe=result.to_pandas())})
 
 wandb.finish()
