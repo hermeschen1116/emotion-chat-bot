@@ -17,10 +17,3 @@ repos:
         stages: [pre-commit]
       - id: ruff-format
         stages: [pre-commit]
-  - repo: https://github.com/commitizen-tools/commitizen
-    rev: v3.29.1
-    hooks:
-      - id: commitizen
-        entry: cz
-        args: [commit]
-        stages: [prepare-commit-msg]
