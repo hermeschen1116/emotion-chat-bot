@@ -44,13 +44,7 @@ run.config["response_template"] = chat_template["response"]
 run.config["special_tokens"] = chat_template["special_tokens"]
 
 # Load Dataset
-dataset = load_dataset(
-	run.config["dataset"],
-	split="train",
-	keep_in_memory=True,
-	num_proc=16,
-	trust_remote_code=True,
-)
+dataset = load_dataset(run.config["dataset"], split="train", keep_in_memory=True, num_proc=16, trust_remote_code=True)
 
 # Load Tokenizer
 base_model, tokenizer = FastLanguageModel.from_pretrained(
@@ -69,12 +63,7 @@ tokenizer.chat_template = run.config["chat_template"]
 tokenizer.add_special_tokens(run.config["special_tokens"])
 base_model.resize_token_embeddings(len(tokenizer))
 
-model = PeftModel.from_pretrained(
-	base_model,
-	run.config["adapter"],
-	is_trainable=True,
-	adapter_name="training",
-)
+model = PeftModel.from_pretrained(base_model, run.config["adapter"], is_trainable=True, adapter_name="training")
 
 model.load_adapter(run.config["adapter"], adapter_name="reference")
 
@@ -100,8 +89,4 @@ dpo_trainer = DPOTrainer(
 dpo_trainer.train()
 
 # 16-bit working, but 4-bit somehow not working
-model.save_pretrained_merged(
-	"16bit_model_3epo-v3",
-	tokenizer,
-	save_method="merged_16bit",
-)
+model.save_pretrained_merged("16bit_model_3epo-v3", tokenizer, save_method="merged_16bit")

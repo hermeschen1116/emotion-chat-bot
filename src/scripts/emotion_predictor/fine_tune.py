@@ -24,17 +24,9 @@ config = config_getter.parse_args()
 parser = HfArgumentParser((CommonScriptArguments, CommonWanDBArguments))
 args, wandb_args = parser.parse_json_file(config.json_file)
 
-run = wandb.init(
-	config=wandb_args.config,
-	project=wandb_args.project,
-	group=wandb_args.group,
-)
+run = wandb.init(config=wandb_args.config, project=wandb_args.project, group=wandb_args.group)
 
-dataset = load_dataset(
-	run.config["dataset"],
-	num_proc=16,
-	trust_remote_code=True,
-)
+dataset = load_dataset(run.config["dataset"], num_proc=16, trust_remote_code=True)
 emotion_labels: list = dataset["train"].features["label"].names
 num_emotion_labels: int = len(emotion_labels)
 
@@ -42,10 +34,7 @@ train_dataset = throw_out_partial_row_with_a_label(dataset["train"], run.config[
 validation_dataset = dataset["validation"]
 
 tokenizer = AutoTokenizer.from_pretrained(
-	run.config["base_model"],
-	padding_side="right",
-	clean_up_tokenization_spaces=True,
-	trust_remote_code=True,
+	run.config["base_model"], padding_side="right", clean_up_tokenization_spaces=True, trust_remote_code=True
 )
 
 base_model = AutoModelForSequenceClassification.from_pretrained(
@@ -72,7 +61,7 @@ base_model = get_peft_model(base_model, peft_config)
 
 train_dataset = train_dataset.map(
 	lambda samples: {
-		"input_ids": [tokenizer.encode(sample, padding="max_length", truncation=True) for sample in samples],
+		"input_ids": [tokenizer.encode(sample, padding="max_length", truncation=True) for sample in samples]
 	},
 	input_columns=["text"],
 	batched=True,
@@ -81,7 +70,7 @@ train_dataset = train_dataset.map(
 train_dataset.set_format("torch")
 validation_dataset = validation_dataset.map(
 	lambda samples: {
-		"input_ids": [tokenizer.encode(sample, padding="max_length", truncation=True) for sample in samples],
+		"input_ids": [tokenizer.encode(sample, padding="max_length", truncation=True) for sample in samples]
 	},
 	input_columns=["text"],
 	batched=True,
@@ -97,18 +86,12 @@ def compute_metrics(prediction) -> dict:
 
 	accuracy = multiclass_accuracy(sentiment_true, sentiment_pred, num_classes=num_emotion_labels)
 	f1_weighted = multiclass_f1_score(
-		sentiment_true,
-		sentiment_pred,
-		num_classes=num_emotion_labels,
-		average="weighted",
+		sentiment_true, sentiment_pred, num_classes=num_emotion_labels, average="weighted"
 	)
 
-	f1_per_class = multiclass_f1_score(
-		sentiment_true,
-		sentiment_pred,
-		num_classes=num_emotion_labels,
-		average=None,
-	).to("cuda")
+	f1_per_class = multiclass_f1_score(sentiment_true, sentiment_pred, num_classes=num_emotion_labels, average=None).to(
+		"cuda"
+	)
 
 	weighted_f1_per_class = f1_per_class * class_weights
 	non_zero_count = (weighted_f1_per_class != 0).sum()
@@ -118,18 +101,14 @@ def compute_metrics(prediction) -> dict:
 	for i, (f1, weighted_f1) in enumerate(zip(f1_per_class, weighted_f1_per_class)):
 		table.add_data(emotion_labels[i], f1.item(), weighted_f1.item())
 
-	wandb.log(
-		{
-			"Balanced_Accuracy": balanced_acc.item(),
-			"Accuracy": accuracy.item(),
-			"F1-all-class": weighted_f1_all_class.item(),
-			"Classes-with-value": non_zero_count.item(),
-			"F1-per-class-bar": wandb.plot.bar(table, "Class", "F1", title="F1 Score per Class"),
-			"Weighted-F1-per-class-bar": wandb.plot.bar(
-				table, "Class", "Weighted F1", title="Weighted F1 Score per Class"
-			),
-		}
-	)
+	wandb.log({
+		"Balanced_Accuracy": balanced_acc.item(),
+		"Accuracy": accuracy.item(),
+		"F1-all-class": weighted_f1_all_class.item(),
+		"Classes-with-value": non_zero_count.item(),
+		"F1-per-class-bar": wandb.plot.bar(table, "Class", "F1", title="F1 Score per Class"),
+		"Weighted-F1-per-class-bar": wandb.plot.bar(table, "Class", "Weighted F1", title="Weighted F1 Score per Class"),
+	})
 
 	return {"Accuracy": accuracy, "F1-score": f1_weighted, "F1-all-class": weighted_f1_all_class}
 

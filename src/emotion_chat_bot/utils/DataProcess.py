@@ -16,9 +16,7 @@ def throw_out_partial_row_with_a_label(
 	dataset_with_label = dataset.filter(lambda sample: sample == filter_value, input_columns=[label_name], num_proc=16)
 	num_row_with_label_to_keep: int = int(len(dataset_with_label) * keep_ratio)
 
-	return concatenate_datasets(
-		[
-			dataset_without_label,
-			dataset_with_label.shuffle().take(num_row_with_label_to_keep),
-		]
-	).shuffle()
+	return concatenate_datasets([
+		dataset_without_label,
+		dataset_with_label.shuffle().take(num_row_with_label_to_keep),
+	]).shuffle()

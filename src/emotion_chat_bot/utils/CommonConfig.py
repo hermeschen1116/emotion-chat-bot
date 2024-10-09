@@ -31,11 +31,7 @@ class CommonWanDBArguments:
 	group: Field[
 		Optional[
 			Literal[
-				"Sentiment Analysis",
-				"Emotion Predictor",
-				"Emotion Model",
-				"Similarity Analysis",
-				"Response Generator",
+				"Sentiment Analysis", "Emotion Predictor", "Emotion Model", "Similarity Analysis", "Response Generator"
 			]
 		]
 	] = HfArg(aliases=["--wandb-group", "--group"], default=None)
