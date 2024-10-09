@@ -1,0 +1,26 @@
+repos:
+  - repo: https://github.com/astral-sh/uv-pre-commit
+    rev: 0.4.20
+    hooks:
+      - id: uv-lock
+        stages: [pre-commit]
+      - id: uv-export
+        stages: [pre-commit]
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.6.9
+    hooks:
+      - id: ruff
+        args: [--fix]
+        stages: [pre-commit]
+      - id: ruff
+        args: [--select, I, --fix]
+        stages: [pre-commit]
+      - id: ruff-format
+        stages: [pre-commit]
+  - repo: https://github.com/commitizen-tools/commitizen
+    rev: v3.29.1
+    hooks:
+      - id: commitizen
+        entry: cz
+        args: [commit]
+        stages: [prepare-commit-msg]
