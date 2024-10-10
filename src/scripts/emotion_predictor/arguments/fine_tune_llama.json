@@ -1,0 +1,27 @@
+{
+	"job_type": "fine_tune",
+	"project": "emotion-chat-bot-ncu-ep",
+	"group": "Emotion Predictor",
+	"config": {
+		"system_prompt": "",
+		"dataset": "hermeschen1116/daily_dialog_for_RG",
+		"tokenizer": "meta-llama/Llama-3.2-1B",
+		"neftune_noise_alpha": null,
+		"batch_size":64,
+		"neutral_keep_ratio": 0.5,
+		"init_lora_weights": true,
+		"lora_rank": 32,
+		"lora_alpha": 64,
+		"lora_dropout": 0.2,
+		"use_rslora": true,
+		"num_epochs": 5,
+		"learning_rate": 0.0007627,
+		"weight_decay": 0.3052,
+		"max_grad_norm": 0.6186,
+		"warmup_ratio": 0.06915,
+		"max_steps": -1,
+		"focal_gamma": 8,
+		"optim": "paged_adamw_32bit",
+		"fine_tuned_model": "EP_llama_3.2"
+	}
+}
