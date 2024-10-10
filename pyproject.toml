@@ -42,6 +42,7 @@ dev-dependencies = [
 	"wheel>=0.44.0",
 	"imbalanced-learn>=0.12.3",
 	"pre-commit>=4.0.1",
+	"unsloth[colab-new]>=2024.8",
 ]
 no-build-isolation-package = ["xformers", "flash-attn"]
 
