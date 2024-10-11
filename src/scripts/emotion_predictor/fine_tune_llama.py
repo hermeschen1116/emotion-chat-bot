@@ -38,7 +38,7 @@ emotion_labels: list = dataset["train"].features["label"].names
 num_emotion_labels: int = len(emotion_labels)
 
 train_dataset = dataset["train"]
-train_dataset = train_dataset.take(100)  ## for testing
+train_dataset = train_dataset.take(1000)  ## for testing
 
 test_dataset = dataset["test"]
 validation_dataset = dataset["validation"]
@@ -69,8 +69,8 @@ peft_config = LoraConfig(
 	lora_dropout=0.1,
 	bias="none",
 	task_type="SEQ_CLS",
-	init_lora_weights=run.config["init_lora_weights"],
-	use_rslora=run.config["use_rslora"],
+	# init_lora_weights=run.config["init_lora_weights"],
+	# use_rslora=run.config["use_rslora"],
 )
 
 base_model = prepare_model_for_kbit_training(base_model)
@@ -84,7 +84,9 @@ base_model.print_trainable_parameters()
 
 train_dataset = train_dataset.map(
 	lambda samples: {
-		"input_ids": [tokenizer.encode(sample, padding="max_length", truncation=True) for sample in samples]
+		"input_ids": [
+			tokenizer.encode(sample, padding="max_length", truncation=True, max_length=128) for sample in samples
+		]
 	},
 	input_columns=["text"],
 	batched=True,
@@ -93,7 +95,9 @@ train_dataset = train_dataset.map(
 train_dataset.set_format("torch")
 validation_dataset = validation_dataset.map(
 	lambda samples: {
-		"input_ids": [tokenizer.encode(sample, padding="max_length", truncation=True) for sample in samples]
+		"input_ids": [
+			tokenizer.encode(sample, padding="max_length", truncation=True, max_length=128) for sample in samples
+		]
 	},
 	input_columns=["text"],
 	batched=True,
