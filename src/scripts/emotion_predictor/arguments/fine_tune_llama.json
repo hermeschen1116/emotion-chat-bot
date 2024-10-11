@@ -14,7 +14,7 @@
 		"lora_alpha": 64,
 		"lora_dropout": 0.2,
 		"use_rslora": true,
-		"num_epochs": 5,
+		"num_train_epochs": 1,
 		"learning_rate": 0.0007627,
 		"weight_decay": 0.3052,
 		"max_grad_norm": 0.6186,
