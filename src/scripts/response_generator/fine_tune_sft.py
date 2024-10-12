@@ -8,7 +8,7 @@ from transformers.hf_argparser import HfArg
 from trl import DataCollatorForCompletionOnlyLM, SFTTrainer
 from unsloth import FastLanguageModel
 
-from emotion_chat_bot.utils.CommonConfig import CommonScriptArguments, CommonWanDBArguments
+from emotion_chat_bot.utils.Config import CommonScriptArguments, CommonWanDBArguments
 
 
 @dataclass

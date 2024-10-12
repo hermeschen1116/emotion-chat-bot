@@ -8,8 +8,8 @@ from torch import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, HfArgumentParser, Trainer, TrainingArguments
 
-from emotion_chat_bot.utils.CommonConfig import CommonScriptArguments, CommonWanDBArguments
-from emotion_chat_bot.utils.DataProcess import throw_out_partial_row_with_a_label
+from emotion_chat_bot.utils.Config import CommonScriptArguments, CommonWanDBArguments
+from emotion_chat_bot.utils.model.DataProcess import throw_out_partial_row_with_a_label
 
 config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)

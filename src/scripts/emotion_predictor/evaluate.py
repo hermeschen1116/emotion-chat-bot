@@ -8,7 +8,7 @@ from torch import Tensor
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from transformers import HfArgumentParser, pipeline
 
-from emotion_chat_bot.utils.CommonConfig import CommonScriptArguments, CommonWanDBArguments
+from emotion_chat_bot.utils.Config import CommonScriptArguments, CommonWanDBArguments
 
 config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)
