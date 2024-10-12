@@ -9,7 +9,7 @@ from torch import Tensor
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
-from emotion_chat_bot.model.emotion_model.EmotionTransition import EmotionModel, representation_evolute
+from emotion_chat_bot.model.emotion_model.EmotionModel_old import EmotionModel, representation_evolute
 from emotion_chat_bot.utils.Helper import login_to_service
 from emotion_chat_bot.utils.model.Evaluate import calculate_evaluation_result
 from emotion_chat_bot.utils.model.Train import get_torch_device

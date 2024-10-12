@@ -11,10 +11,7 @@ from transformers import (
 	pipeline,
 )
 
-from emotion_chat_bot.model.emotion_model.EmotionTransition import (
-	generate_dummy_representation,
-	get_emotion_composition,
-)
+from emotion_chat_bot.model.emotion_model.EmotionModel_old import generate_dummy_representation, get_emotion_composition
 from emotion_chat_bot.utils.Config import CommonScriptArguments, CommonWanDBArguments
 
 config_getter = ArgumentParser()

@@ -11,12 +11,12 @@ from transformers import (
 )
 from unsloth import FastLanguageModel
 
-from emotion_chat_bot.model.emotion_model.EmotionTransition import (
+from emotion_chat_bot.model.emotion_model.EmotionModel_old import (
 	EmotionModel,
-	SimilarityAnalyzer,
 	generate_representation,
 	get_emotion_composition,
 )
+from emotion_chat_bot.model.emotion_model.SimilarityAnalyzer import SimilarityAnalyzer
 from emotion_chat_bot.pipeline.ResponseGenerationPipeline import ResponseGeneratorPipeline
 
 roles: List[str] = ["user", "bot"]
@@ -30,14 +30,14 @@ default_generation_config = GenerationConfig(
 class EmotionChatBot:
 	def __init__(
 		self,
+		emotion_tendency: Optional[Union[Dict[str, float], int]],
 		sentiment_analyzer_model_name: str = "Shotaro30678/sentiment_analysis_for_emotion_chat_bot",
 		emotion_predictor_model_name: str = "Shotaro30678/emotion_predictor_for_emotion_chat_bot",
 		emotion_model_model_name: str = "hermeschen1116/emotion_model_for_emotion_chat_bot",
 		response_generator_model_name: str = "hermeschen1116/response_generator_for_emotion_chat_bot",
-		similarity_threshold: Optional[float] = 0.7,
-		emotion_tendency: Optional[Union[Dict[str, float], int]] = None,
-		system_prompt: Optional[str] = "",
-		max_num_turns: Optional[int] = 5,
+		similarity_threshold: float = 0.7,
+		system_prompt: str = "",
+		max_num_turns: int = 5,
 	) -> None:
 		model, tokenizer = FastLanguageModel.from_pretrained(
 			model_name=response_generator_model_name,

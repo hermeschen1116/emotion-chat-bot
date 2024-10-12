@@ -6,7 +6,7 @@ from datasets import Dataset, load_dataset
 from torch import Tensor
 from transformers.hf_argparser import HfArgumentParser
 
-from emotion_chat_bot.model.emotion_model.EmotionTransition import EmotionModel, representation_evolute
+from emotion_chat_bot.model.emotion_model.EmotionModel_old import EmotionModel, representation_evolute
 from emotion_chat_bot.utils.Config import CommonScriptArguments, CommonWanDBArguments
 from emotion_chat_bot.utils.model.Evaluate import calculate_evaluation_result
 from emotion_chat_bot.utils.model.Train import get_torch_device
