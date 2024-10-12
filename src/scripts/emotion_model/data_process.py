@@ -15,7 +15,7 @@ from emotion_chat_bot.model.emotion_model.EmotionTransition import (
 	generate_dummy_representation,
 	get_emotion_composition,
 )
-from emotion_chat_bot.utils.CommonConfig import CommonScriptArguments, CommonWanDBArguments
+from emotion_chat_bot.utils.Config import CommonScriptArguments, CommonWanDBArguments
 
 config_getter = ArgumentParser()
 config_getter.add_argument("--json_file", required=True, type=str)
