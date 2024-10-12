@@ -1,12 +1,9 @@
 import os
-from typing import Any, Dict, List, Optional
+from typing import Any, List, Optional
 
 import huggingface_hub
-import torch
 import wandb
 from dotenv import load_dotenv
-from torch import Tensor
-from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 
 
 def login_to_service() -> None:
@@ -16,7 +13,7 @@ def login_to_service() -> None:
 	wandb.login(key=os.environ.get("WANDB_API_KEY", ""), relogin=True)
 
 
-def value_candidate_check(
+def value_candidate_validate(
 	input_value: Any, possible_values: List[Any], use_default_value: bool, default_value: Optional[Any]
 ) -> Any:
 	if input_value not in possible_values:
@@ -29,19 +26,3 @@ def value_candidate_check(
 		raise ValueError(error_message)
 
 	return input_value
-
-
-def get_torch_device() -> str:
-	if torch.cuda.is_available():
-		return "cuda"
-	if torch.backends.mps.is_available():
-		return "mps"
-
-	return "cpu"
-
-
-def calculate_evaluation_result(predictions: Tensor, truths: Tensor) -> Dict[str, Tensor]:
-	accuracy: Tensor = multiclass_accuracy(predictions, truths, num_classes=7)
-	f1_score: Tensor = multiclass_f1_score(predictions, truths, num_classes=7, average="weighted")
-
-	return {"accuracy": accuracy, "f1_score": f1_score}
