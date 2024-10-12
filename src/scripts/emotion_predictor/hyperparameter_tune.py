@@ -11,9 +11,9 @@ from torch import Tensor, nn
 from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_score
 from transformers import AutoModelForSequenceClassification, AutoTokenizer, HfArgumentParser, Trainer, TrainingArguments
 
-from emotion_chat_bot.utils.CommonConfig import CommonScriptArguments, CommonWanDBArguments
-from emotion_chat_bot.utils.CommonUtils import login_to_service
-from emotion_chat_bot.utils.DataProcess import throw_out_partial_row_with_a_label
+from emotion_chat_bot.utils.Config import CommonScriptArguments, CommonWanDBArguments
+from emotion_chat_bot.utils.Helper import login_to_service
+from emotion_chat_bot.utils.model.DataProcess import throw_out_partial_row_with_a_label
 
 login_to_service()
 
