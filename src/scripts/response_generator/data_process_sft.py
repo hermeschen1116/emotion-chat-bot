@@ -7,7 +7,7 @@ from datasets import load_dataset
 from transformers import HfArgumentParser
 from transformers.hf_argparser import HfArg
 
-from emotion_chat_bot.utils.CommonConfig import CommonScriptArguments, CommonWanDBArguments
+from emotion_chat_bot.utils.Config import CommonScriptArguments, CommonWanDBArguments
 
 
 @dataclass
