@@ -21,6 +21,7 @@ from transformers import (
 import wandb
 from emotion_chat_bot.utils.CommonConfig import CommonScriptArguments, CommonWanDBArguments
 from emotion_chat_bot.utils.CommonUtils import login_to_service
+from emotion_chat_bot.utils.DataProcess import throw_out_partial_row_with_a_label
 
 login_to_service()
 
@@ -37,8 +38,8 @@ dataset = load_dataset("Shotaro30678/daily_dialog_for_EP", num_proc=16, trust_re
 emotion_labels: list = dataset["train"].features["label"].names
 num_emotion_labels: int = len(emotion_labels)
 
-train_dataset = dataset["train"]
-train_dataset = train_dataset.take(1000)  ## for testing
+# train_dataset = dataset["train"]
+train_dataset = throw_out_partial_row_with_a_label(dataset["train"], run.config["neutral_keep_ratio"], 0)
 
 test_dataset = dataset["test"]
 validation_dataset = dataset["validation"]
@@ -53,6 +54,7 @@ tokenizer.pad_token = tokenizer.eos_token
 
 base_model = AutoModelForSequenceClassification.from_pretrained(
 	run.config["base_model"],
+	quantization_config=quantization_config,
 	num_labels=num_emotion_labels,
 	id2label={k: v for k, v in enumerate(emotion_labels)},
 	label2id={v: k for k, v in enumerate(emotion_labels)},
@@ -69,8 +71,8 @@ peft_config = LoraConfig(
 	lora_dropout=0.1,
 	bias="none",
 	task_type="SEQ_CLS",
-	# init_lora_weights=run.config["init_lora_weights"],
-	# use_rslora=run.config["use_rslora"],
+	init_lora_weights=run.config["init_lora_weights"],
+	use_rslora=run.config["use_rslora"],
 )
 
 base_model = prepare_model_for_kbit_training(base_model)
@@ -218,3 +220,13 @@ tuner = CustomTrainer(
 )
 
 tuner.train()
+
+tuner.model = torch.compile(tuner.model)
+tuner.model = tuner.model.merge_and_unload(progressbar=True)
+
+### to save locally
+# if hasattr(tuner.model, "config"):
+# 	tuner.model.config.save_pretrained("model_test")
+# tuner.save_model("model_test")
+
+wandb.finish()
