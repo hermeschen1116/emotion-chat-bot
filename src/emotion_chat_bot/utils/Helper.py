@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 from typing import Any, List, Optional
 
@@ -26,3 +27,7 @@ def value_candidate_validate(
 		raise ValueError(error_message)
 
 	return input_value
+
+
+def get_num_of_workers() -> int:
+	return multiprocessing.cpu_count()
