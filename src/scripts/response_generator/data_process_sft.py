@@ -1,37 +1,8 @@
-from argparse import ArgumentParser
-from dataclasses import Field, dataclass
-from typing import Optional
-
-import wandb
 from datasets import load_dataset
-from transformers import HfArgumentParser
-from transformers.hf_argparser import HfArg
 
-from emotion_chat_bot.utils.Config import CommonScriptArguments, CommonWanDBArguments
+from emotion_chat_bot.utils.Helper import login_to_service
 
-
-@dataclass
-class ScriptArguments(CommonScriptArguments):
-	dataset_name: Field[Optional[str]] = HfArg(aliases="--dataset-name", default="daily_dialog_for_RG")
-	dataset_description: Field[Optional[str]] = HfArg(aliases="--dataset-description", default="")
-
-
-config_getter = ArgumentParser()
-config_getter.add_argument("--json_file", required=True, type=str)
-config = config_getter.parse_args()
-
-parser = HfArgumentParser((ScriptArguments, CommonWanDBArguments))
-args, wandb_args = parser.parse_json_file(config.json_file)
-
-run = wandb.init(
-	job_type=wandb_args.job_type,
-	config=wandb_args.config,
-	project=wandb_args.project,
-	group=wandb_args.group,
-	notes=wandb_args.notes,
-	mode=wandb_args.mode,
-	resume=wandb_args.resume,
-)
+login_to_service()
 
 dataset = load_dataset("daily_dialog", num_proc=16, save_infos=True, trust_remote_code=True).remove_columns("act")
 
@@ -76,5 +47,3 @@ dataset = dataset.map(
 )
 
 dataset.push_to_hub("daily_dialog_for_RG", num_shards={"train": 16, "validation": 16, "test": 16})
-
-wandb.finish()
