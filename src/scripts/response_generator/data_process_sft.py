@@ -1,10 +1,14 @@
 from datasets import load_dataset
 
-from emotion_chat_bot.utils.Helper import login_to_service
+from emotion_chat_bot.utils.Helper import get_num_of_workers, login_to_service
 
 login_to_service()
 
-dataset = load_dataset("daily_dialog", num_proc=16, save_infos=True, trust_remote_code=True).remove_columns("act")
+num_process: int = get_num_of_workers()
+
+dataset = load_dataset("daily_dialog", num_proc=num_process, save_infos=True, trust_remote_code=True).remove_columns(
+	"act"
+)
 
 dataset = dataset.rename_column("emotion", "emotion_id")
 emotion_labels: list = dataset["train"].features["emotion_id"].feature.names
@@ -14,7 +18,7 @@ dataset = dataset.map(
 	input_columns="emotion_id",
 	remove_columns="emotion_id",
 	batched=True,
-	num_proc=16,
+	num_proc=num_process,
 )
 
 dataset = dataset.map(
@@ -23,7 +27,7 @@ dataset = dataset.map(
 		"dialog": [sample[:-1] if len(sample) % 2 == 1 else sample for sample in samples["dialog"]],
 	},
 	batched=True,
-	num_proc=16,
+	num_proc=num_process,
 )
 
 dataset = dataset.filter(lambda sample: (len(sample["emotion"]) != 0) and (len(sample["dialog"]) != 0), num_proc=16)
@@ -43,7 +47,7 @@ dataset = dataset.map(
 	},
 	remove_columns=["emotion", "dialog"],
 	batched=True,
-	num_proc=16,
+	num_proc=num_process,
 )
 
 dataset.push_to_hub("daily_dialog_for_RG", num_shards={"train": 16, "validation": 16, "test": 16})
