@@ -14,7 +14,7 @@ dependencies = [
 	"accelerate>=0.34.2",
 	"fastapi>=0.115.0",
 	"peft>=0.12.0",
-	"torch==2.4.0",
+	"torch>=2.4.0",
 	"transformers>=4.44.2",
 	"trl>=0.10.1",
 	"uvicorn>=0.30.6",
@@ -23,7 +23,7 @@ dependencies = [
 [project.optional-dependencies]
 cuda = [
 	"bitsandbytes>=0.43.3",
-	"unsloth[cu121-ampere-torch240]",
+	"unsloth[cu124-ampere-torch250]",
 	"xformers>=0.0.27.post2",
 	"flash-attn>=2.6.3",
 ]
@@ -42,6 +42,8 @@ dev-dependencies = [
 	"wheel>=0.44.0",
 	"imbalanced-learn>=0.12.3",
 	"pre-commit>=4.0.1",
+	"pip>=24.3.1",
+	"commitizen>=3.31.0",
 ]
 no-build-isolation-package = ["xformers", "flash-attn"]
 
